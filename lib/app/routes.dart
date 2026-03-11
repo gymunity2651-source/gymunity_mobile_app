@@ -14,6 +14,8 @@ import '../features/auth/presentation/screens/splash_screen.dart';
 import '../features/auth/presentation/screens/welcome_screen.dart';
 import '../features/coach/presentation/screens/coach_dashboard_screen.dart';
 import '../features/coaches/presentation/screens/coaches_screen.dart';
+import '../features/coaches/presentation/screens/coach_details_screen.dart';
+import '../features/coaches/presentation/screens/subscription_packages_screen.dart';
 import '../features/member/presentation/screens/member_home_screen.dart';
 import '../features/member/presentation/screens/member_profile_screen.dart';
 import '../features/onboarding/presentation/screens/coach_onboarding_screen.dart';
@@ -21,7 +23,15 @@ import '../features/onboarding/presentation/screens/member_onboarding_screen.dar
 import '../features/onboarding/presentation/screens/seller_onboarding_screen.dart';
 import '../features/seller/presentation/screens/seller_dashboard_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
+import '../features/settings/presentation/screens/notifications_screen.dart';
+import '../features/settings/presentation/screens/support_and_legal_screens.dart';
+import '../features/store/domain/entities/product_entity.dart';
+import '../features/store/presentation/screens/cart_screen.dart';
+import '../features/store/presentation/screens/checkout_preview_screen.dart';
+import '../features/store/presentation/screens/product_details_screen.dart';
+import '../features/store/presentation/screens/store_catalog_screen.dart';
 import '../features/store/presentation/screens/store_home_screen.dart';
+import '../features/coach/domain/entities/coach_entity.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -165,33 +175,18 @@ class AppRoutes {
       case storeHome:
         return _buildRoute(const StoreHomeScreen());
       case productList:
-        return _featureRoute(
-          title: 'Product Catalog',
-          description:
-              'Expanded product browsing, search results, and filters will appear here when storefront flows are completed.',
-          icon: Icons.storefront_outlined,
-        );
+        return _buildRoute(const StoreCatalogScreen());
       case productDetails:
-        return _featureRoute(
-          title: 'Product Details',
-          description:
-              'Product specs, reviews, and purchase details will appear here when the product page is fully wired.',
-          icon: Icons.inventory_2_outlined,
+        final product = settings.arguments;
+        return _buildRoute(
+          ProductDetailsScreen(
+            product: product is ProductEntity ? product : null,
+          ),
         );
       case cart:
-        return _featureRoute(
-          title: 'Shopping Cart',
-          description:
-              'Selected items will be reviewed here before checkout once cart state is connected.',
-          icon: Icons.shopping_cart_outlined,
-        );
+        return _buildRoute(const CartScreen());
       case checkout:
-        return _featureRoute(
-          title: 'Checkout',
-          description:
-              'Payment, address, and confirmation steps will be enabled here after checkout integration is complete.',
-          icon: Icons.credit_card_outlined,
-        );
+        return _buildRoute(const CheckoutPreviewScreen());
       case orders:
         return _featureRoute(
           title: 'My Orders',
@@ -203,18 +198,18 @@ class AppRoutes {
       case coaches:
         return _buildRoute(const CoachesScreen());
       case coachDetails:
-        return _featureRoute(
-          title: 'Coach Details',
-          description:
-              'Coach bios, availability, and trust signals will open here when coach profile flows are finished.',
-          icon: Icons.groups_outlined,
+        final coach = settings.arguments;
+        return _buildRoute(
+          CoachDetailsScreen(
+            coach: coach is CoachEntity ? coach : null,
+          ),
         );
       case subscriptionPackages:
-        return _featureRoute(
-          title: 'Subscription Packages',
-          description:
-              'Coach pricing tiers and program packages will appear here when subscriptions are wired for members.',
-          icon: Icons.card_membership,
+        final coach = settings.arguments;
+        return _buildRoute(
+          SubscriptionPackagesScreen(
+            coach: coach is CoachEntity ? coach : null,
+          ),
         );
       case mySubscriptions:
         return _featureRoute(
@@ -294,35 +289,15 @@ class AppRoutes {
         );
 
       case notifications:
-        return _featureRoute(
-          title: 'Notifications',
-          description:
-              'Alerts, order updates, and coaching notifications will be organized here once notification delivery is connected.',
-          icon: Icons.notifications_outlined,
-        );
+        return _buildRoute(const NotificationsScreen());
       case AppRoutes.settings:
         return _buildRoute(const SettingsScreen());
       case helpSupport:
-        return _featureRoute(
-          title: 'Help & Support',
-          description:
-              'FAQs, support contact options, and issue reporting will appear here after support content is prepared.',
-          icon: Icons.help_outline,
-        );
+        return _buildRoute(const HelpSupportScreen());
       case privacyPolicy:
-        return _featureRoute(
-          title: 'Privacy Policy',
-          description:
-              'Your product privacy policy and data-handling commitments will be presented here.',
-          icon: Icons.privacy_tip_outlined,
-        );
+        return _buildRoute(const PrivacyPolicyScreen());
       case terms:
-        return _featureRoute(
-          title: 'Terms of Service',
-          description:
-              'Platform usage terms for members, coaches, and sellers will be shown here.',
-          icon: Icons.description_outlined,
-        );
+        return _buildRoute(const TermsScreen());
 
       default:
         return _featureRoute(

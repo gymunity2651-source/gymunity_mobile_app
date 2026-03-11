@@ -19,78 +19,20 @@ class CoachRepositoryImpl implements CoachRepository {
     int limit = 20,
   }) async {
     try {
-      dynamic query = _client
-          .from('coach_profiles')
-          .select('''
-            user_id,
-            bio,
-            specialties,
-            hourly_rate,
-            rating_avg,
-            rating_count,
-            profiles!inner(full_name)
-          ''')
-          .limit(limit);
+      final rows = await _client.rpc(
+        'list_coach_directory',
+        params: <String, dynamic>{
+          'specialty_filter': specialty,
+          'limit_count': limit,
+        },
+      ) as List<dynamic>;
 
-      if (specialty != null && specialty.isNotEmpty && specialty != 'All') {
-        query = query.contains('specialties', <String>[specialty]);
-      }
-
-      final rows = (await query) as List<dynamic>;
-      final items = rows.map((dynamic row) {
-        final map = row as Map<String, dynamic>;
-        final profile = map['profiles'] as Map<String, dynamic>? ?? <String, dynamic>{};
-        final specialtyList =
-            (map['specialties'] as List<dynamic>? ?? <dynamic>[]).cast<String>();
-        final hourlyRate = (map['hourly_rate'] as num?)?.toDouble() ?? 0;
-        final ratingAvg = (map['rating_avg'] as num?)?.toDouble() ?? 0;
-        final ratingCount = map['rating_count'] as int? ?? 0;
-        return CoachEntity(
-          id: map['user_id'] as String,
-          name: profile['full_name'] as String? ?? 'Coach',
-          specialty:
-              (specialtyList.isNotEmpty ? specialtyList.join(' & ') : 'Fitness')
-                  .toUpperCase(),
-          rateLabel: '\$${hourlyRate.toStringAsFixed(0)}/hr',
-          rating: ratingAvg.toStringAsFixed(1),
-          reviewsLabel: '$ratingCount Reviews',
-          badge: 'Verified Coach',
-        );
-      }).toList();
-
-      return Paged<CoachEntity>(items: items, nextCursor: null);
-    } catch (_) {
-      return const Paged<CoachEntity>(
-        items: <CoachEntity>[
-          CoachEntity(
-            id: 'demo-1',
-            name: 'Alex Rivera',
-            specialty: 'STRENGTH & CONDITIONING',
-            rateLabel: '\$55/hr',
-            rating: '4.9',
-            reviewsLabel: '120+ Reviews',
-            badge: 'Elite Certified',
-          ),
-          CoachEntity(
-            id: 'demo-2',
-            name: 'Sarah Jenkins',
-            specialty: 'YOGA & MINDFULNESS',
-            rateLabel: '\$45/hr',
-            rating: '5.0',
-            reviewsLabel: '85 Reviews',
-            badge: 'Vinyasa Master',
-          ),
-          CoachEntity(
-            id: 'demo-3',
-            name: 'Marcus Thorne',
-            specialty: 'HIIT & ATHLETICS',
-            rateLabel: '\$60/hr',
-            rating: '4.8',
-            reviewsLabel: '210 Reviews',
-            badge: 'Pro Athlete Coach',
-          ),
-        ],
+      return Paged<CoachEntity>(
+        items: _mapCoachRows(rows),
+        nextCursor: null,
       );
+    } catch (_) {
+      return _legacyListCoaches(specialty: specialty, limit: limit);
     }
   }
 
@@ -186,5 +128,95 @@ class CoachRepositoryImpl implements CoachRepository {
     } catch (_) {
       return <SubscriptionEntity>[];
     }
+  }
+
+  Future<Paged<CoachEntity>> _legacyListCoaches({
+    String? specialty,
+    required int limit,
+  }) async {
+    try {
+      dynamic query = _client
+          .from('coach_profiles')
+          .select('''
+            user_id,
+            bio,
+            specialties,
+            hourly_rate,
+            rating_avg,
+            rating_count,
+            is_verified,
+            profiles!inner(full_name)
+          ''')
+          .limit(limit);
+
+      if (specialty != null && specialty.isNotEmpty && specialty != 'All') {
+        query = query.contains('specialties', <String>[specialty]);
+      }
+
+      final rows = (await query) as List<dynamic>;
+      return Paged<CoachEntity>(
+        items: _mapCoachRows(rows),
+        nextCursor: null,
+      );
+    } catch (_) {
+      return const Paged<CoachEntity>(
+        items: <CoachEntity>[
+          CoachEntity(
+            id: 'demo-1',
+            name: 'Alex Rivera',
+            specialty: 'STRENGTH & CONDITIONING',
+            rateLabel: '\$55/hr',
+            rating: '4.9',
+            reviewsLabel: '120+ Reviews',
+            badge: 'Elite Certified',
+          ),
+          CoachEntity(
+            id: 'demo-2',
+            name: 'Sarah Jenkins',
+            specialty: 'YOGA & MINDFULNESS',
+            rateLabel: '\$45/hr',
+            rating: '5.0',
+            reviewsLabel: '85 Reviews',
+            badge: 'Vinyasa Master',
+          ),
+          CoachEntity(
+            id: 'demo-3',
+            name: 'Marcus Thorne',
+            specialty: 'HIIT & ATHLETICS',
+            rateLabel: '\$60/hr',
+            rating: '4.8',
+            reviewsLabel: '210 Reviews',
+            badge: 'Pro Athlete Coach',
+          ),
+        ],
+      );
+    }
+  }
+
+  List<CoachEntity> _mapCoachRows(List<dynamic> rows) {
+    return rows.map((dynamic row) {
+      final map = row as Map<String, dynamic>;
+      final profile = map['profiles'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+      final specialtyList =
+          (map['specialties'] as List<dynamic>? ?? <dynamic>[]).cast<String>();
+      final hourlyRate = (map['hourly_rate'] as num?)?.toDouble() ?? 0;
+      final ratingAvg = (map['rating_avg'] as num?)?.toDouble() ?? 0;
+      final ratingCount = map['rating_count'] as int? ?? 0;
+      final isVerified = map['is_verified'] as bool? ?? true;
+      final fullName =
+          map['full_name'] as String? ?? profile['full_name'] as String?;
+
+      return CoachEntity(
+        id: map['user_id'] as String,
+        name: fullName ?? 'Coach',
+        specialty:
+            (specialtyList.isNotEmpty ? specialtyList.join(' & ') : 'Fitness')
+                .toUpperCase(),
+        rateLabel: '\$${hourlyRate.toStringAsFixed(0)}/hr',
+        rating: ratingAvg.toStringAsFixed(1),
+        reviewsLabel: '$ratingCount Reviews',
+        badge: isVerified ? 'Verified Coach' : 'New Coach',
+      );
+    }).toList();
   }
 }

@@ -9,6 +9,7 @@ import 'package:my_app/features/auth/presentation/providers/auth_providers.dart'
 import 'package:my_app/features/auth/presentation/screens/auth_callback_screen.dart';
 import 'package:my_app/features/coach/presentation/screens/coach_dashboard_screen.dart';
 import 'package:my_app/features/seller/presentation/screens/seller_dashboard_screen.dart';
+import 'package:my_app/features/store/presentation/screens/cart_screen.dart';
 import 'package:my_app/features/store/domain/entities/product_entity.dart';
 import 'package:my_app/features/store/presentation/screens/store_home_screen.dart';
 
@@ -16,7 +17,7 @@ import 'test_doubles.dart';
 
 void main() {
   group('Routes and feature wiring', () {
-    testWidgets('help support route resolves to dedicated placeholder screen', (
+    testWidgets('help support route resolves to functional support screen', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -30,7 +31,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Help & Support'), findsOneWidget);
-      expect(find.textContaining('support contact options'), findsOneWidget);
+      expect(find.textContaining('Support contact options'), findsOneWidget);
     });
 
     testWidgets(
@@ -111,12 +112,23 @@ void main() {
       await tester.tap(find.byIcon(Icons.add).first);
       await tester.pump();
 
-      expect(
-        find.text(
-          'Test Product will be added to cart once cart state is connected.',
+      expect(find.text('Test Product added to your cart.'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+    });
+
+    testWidgets('cart route resolves to functional cart screen', (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            onGenerateRoute: AppRoutes.onGenerateRoute,
+            initialRoute: AppRoutes.cart,
+          ),
         ),
-        findsOneWidget,
       );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CartScreen), findsOneWidget);
+      expect(find.text('Your cart is empty'), findsOneWidget);
     });
 
     testWidgets('AI home quick chip opens conversation flow', (tester) async {

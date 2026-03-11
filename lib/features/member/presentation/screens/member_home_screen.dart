@@ -1,5 +1,4 @@
-﻿import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../ai_chat/presentation/screens/ai_chat_home_screen.dart';
@@ -8,8 +7,6 @@ import '../../../store/presentation/screens/store_home_screen.dart';
 import 'member_home_content.dart';
 import 'member_profile_screen.dart';
 
-/// Member home â€” ref: assets/images/member_home.png
-/// Bottom navigation with 5 tabs: Home, Store, AI Chat (center), Coaches, Profile.
 class MemberHomeScreen extends StatefulWidget {
   const MemberHomeScreen({super.key});
 
@@ -33,94 +30,57 @@ class _MemberHomeScreenState extends State<MemberHomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardDark,
-          border: Border(
-            top: BorderSide(color: AppColors.border, width: 0.5),
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, Icons.home_filled, 'Home'),
-                _buildNavItem(1, Icons.storefront_outlined, 'Store'),
-                _buildCenterButton(),
-                _buildNavItem(3, Icons.groups_outlined, 'Coaches'),
-                _buildNavItem(4, Icons.person_outline, 'Profile'),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    final isActive = _currentIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 60,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          backgroundColor: AppColors.cardDark,
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: AppColors.orange.withValues(alpha: 0.18),
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return TextStyle(
+              color: selected ? AppColors.orange : AppColors.textMuted,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            );
+          }),
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return IconThemeData(
+              color: selected ? AppColors.orange : AppColors.textMuted,
               size: 24,
-              color: isActive ? AppColors.orange : AppColors.textMuted,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive ? AppColors.orange : AppColors.textMuted,
-              ),
-            ),
-          ],
+            );
+          }),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCenterButton() {
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = 2),
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.limeGreen, Color(0xFF9ACD32)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.limeGreen.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+        child: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (index) {
+            setState(() => _currentIndex = index);
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_filled),
+              label: 'Home',
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.auto_awesome, color: AppColors.black, size: 22),
-            Text(
-              'AI',
-              style: GoogleFonts.inter(
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-                color: AppColors.black,
-              ),
+            NavigationDestination(
+              icon: Icon(Icons.storefront_outlined),
+              selectedIcon: Icon(Icons.storefront),
+              label: 'Store',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.auto_awesome_outlined),
+              selectedIcon: Icon(Icons.auto_awesome),
+              label: 'AI',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.groups_outlined),
+              selectedIcon: Icon(Icons.groups),
+              label: 'Coaches',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profile',
             ),
           ],
         ),
@@ -128,4 +88,3 @@ class _MemberHomeScreenState extends State<MemberHomeScreen> {
     );
   }
 }
-

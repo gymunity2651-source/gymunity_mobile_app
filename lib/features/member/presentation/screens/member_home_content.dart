@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
@@ -63,18 +64,24 @@ class MemberHomeContent extends ConsumerWidget {
                   ],
                 ),
                 const Spacer(),
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: AppColors.glass,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.borderLight),
-                  ),
-                  child: const Icon(
-                    Icons.notifications_outlined,
-                    color: AppColors.textSecondary,
-                    size: 22,
+                InkWell(
+                  onTap: () {
+                    Navigator.pushNamed(context, AppRoutes.notifications);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: AppColors.glass,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderLight),
+                    ),
+                    child: const Icon(
+                      Icons.notifications_outlined,
+                      color: AppColors.textSecondary,
+                      size: 22,
+                    ),
                   ),
                 ),
               ],

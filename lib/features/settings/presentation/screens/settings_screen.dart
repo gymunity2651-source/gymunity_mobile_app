@@ -5,153 +5,232 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
-import '../../../../core/widgets/app_feedback.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../providers/settings_providers.dart';
 
-/// Settings screen â€” dark theme, grouped menu items.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final preferences = ref.watch(settingsPreferencesProvider);
+    final controller = ref.read(settingsPreferencesProvider.notifier);
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSizes.screenPadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // â”€â”€ Header â”€â”€
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(
-                      Icons.arrow_back,
-                      color: AppColors.textPrimary,
-                      size: 24,
-                    ),
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back),
+        ),
+        title: const Text('Settings'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(AppSizes.screenPadding),
+        children: [
+          _SectionTitle(title: 'Account'),
+          const SizedBox(height: 10),
+          _ActionTile(
+            icon: Icons.person_outline,
+            label: 'Edit Profile',
+            onTap: () => Navigator.pushNamed(context, AppRoutes.editProfile),
+          ),
+          _ActionTile(
+            icon: Icons.lock_outline,
+            label: 'Change Password',
+            onTap: () => Navigator.pushNamed(context, AppRoutes.forgotPassword),
+          ),
+          const SizedBox(height: 24),
+          _SectionTitle(title: 'Preferences'),
+          const SizedBox(height: 10),
+          _PreferenceCard(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  value: preferences.pushNotificationsEnabled,
+                  onChanged: controller.setPushNotifications,
+                  title: const Text('Push Notifications'),
+                  subtitle: const Text(
+                    'Send key updates outside the app when possible.',
                   ),
-                  const SizedBox(width: 14),
-                  Text(
-                    'Settings',
-                    style: GoogleFonts.inter(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
+                  activeThumbColor: AppColors.orange,
+                ),
+                const Divider(color: AppColors.border, height: 1),
+                SwitchListTile(
+                  value: preferences.aiTipsEnabled,
+                  onChanged: controller.setAiTips,
+                  title: const Text('AI Suggestions'),
+                  subtitle: const Text(
+                    'Highlight new coaching or workout ideas from AI chat.',
                   ),
-                ],
-              ),
-              const SizedBox(height: 28),
-
-              // â”€â”€ Account â”€â”€
-              _sectionTitle('Account'),
-              const SizedBox(height: 10),
-              _SettingsGroup(
-                ref: ref,
-                items: const [
-                  _SettingsItem(
-                    icon: Icons.person_outline,
-                    label: 'Edit Profile',
+                  activeThumbColor: AppColors.orange,
+                ),
+                const Divider(color: AppColors.border, height: 1),
+                SwitchListTile(
+                  value: preferences.orderUpdatesEnabled,
+                  onChanged: controller.setOrderUpdates,
+                  title: const Text('Order Updates'),
+                  subtitle: const Text(
+                    'Keep store order and delivery status visible in notifications.',
                   ),
-                  _SettingsItem(
-                    icon: Icons.lock_outline,
-                    label: 'Change Password',
-                  ),
-                  _SettingsItem(icon: Icons.language, label: 'Language'),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // â”€â”€ Preferences â”€â”€
-              _sectionTitle('Preferences'),
-              const SizedBox(height: 10),
-              _SettingsGroup(
-                ref: ref,
-                items: const [
-                  _SettingsItem(
-                    icon: Icons.notifications_outlined,
-                    label: 'Notifications',
-                  ),
-                  _SettingsItem(
-                    icon: Icons.dark_mode_outlined,
-                    label: 'Dark Mode',
-                  ),
-                  _SettingsItem(
-                    icon: Icons.straighten,
-                    label: 'Units (Metric/Imperial)',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // â”€â”€ Support â”€â”€
-              _sectionTitle('Support'),
-              const SizedBox(height: 10),
-              _SettingsGroup(
-                ref: ref,
-                items: const [
-                  _SettingsItem(
-                    icon: Icons.help_outline,
-                    label: 'Help & Support',
-                  ),
-                  _SettingsItem(
-                    icon: Icons.privacy_tip_outlined,
-                    label: 'Privacy Policy',
-                  ),
-                  _SettingsItem(
-                    icon: Icons.description_outlined,
-                    label: 'Terms of Service',
-                  ),
-                  _SettingsItem(icon: Icons.star_outline, label: 'Rate App'),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // â”€â”€ Danger â”€â”€
-              _SettingsGroup(
-                ref: ref,
-                items: const [
-                  _SettingsItem(
-                    icon: Icons.logout,
-                    label: 'Log Out',
-                    isDestructive: true,
-                  ),
-                  _SettingsItem(
-                    icon: Icons.delete_outline,
-                    label: 'Delete Account',
-                    isDestructive: true,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // â”€â”€ Version â”€â”€
-              Center(
-                child: Text(
-                  'GymUnity v1.0.0',
+                  activeThumbColor: AppColors.orange,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _PreferenceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Measurement Units',
                   style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
-            ],
+                const SizedBox(height: 10),
+                SegmentedButton<MeasurementUnit>(
+                  segments: const [
+                    ButtonSegment(
+                      value: MeasurementUnit.metric,
+                      label: Text('Metric'),
+                    ),
+                    ButtonSegment(
+                      value: MeasurementUnit.imperial,
+                      label: Text('Imperial'),
+                    ),
+                  ],
+                  selected: {preferences.measurementUnit},
+                  onSelectionChanged: (selection) {
+                    controller.setMeasurementUnit(selection.first);
+                  },
+                  showSelectedIcon: false,
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Language',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SegmentedButton<AppLanguage>(
+                  segments: const [
+                    ButtonSegment(
+                      value: AppLanguage.english,
+                      label: Text('English'),
+                    ),
+                    ButtonSegment(
+                      value: AppLanguage.arabic,
+                      label: Text('Arabic'),
+                    ),
+                  ],
+                  selected: {preferences.language},
+                  onSelectionChanged: (selection) {
+                    controller.setLanguage(selection.first);
+                  },
+                  showSelectedIcon: false,
+                ),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 24),
+          _SectionTitle(title: 'Support'),
+          const SizedBox(height: 10),
+          _ActionTile(
+            icon: Icons.notifications_outlined,
+            label: 'Notifications Center',
+            onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
+          ),
+          _ActionTile(
+            icon: Icons.help_outline,
+            label: 'Help & Support',
+            onTap: () => Navigator.pushNamed(context, AppRoutes.helpSupport),
+          ),
+          _ActionTile(
+            icon: Icons.privacy_tip_outlined,
+            label: 'Privacy Policy',
+            onTap: () => Navigator.pushNamed(context, AppRoutes.privacyPolicy),
+          ),
+          _ActionTile(
+            icon: Icons.description_outlined,
+            label: 'Terms of Service',
+            onTap: () => Navigator.pushNamed(context, AppRoutes.terms),
+          ),
+          const SizedBox(height: 24),
+          _SectionTitle(title: 'Account Actions'),
+          const SizedBox(height: 10),
+          _ActionTile(
+            icon: Icons.logout,
+            label: 'Log Out',
+            destructive: true,
+            onTap: () async {
+              await ref.read(authControllerProvider.notifier).logout();
+              if (!context.mounted) {
+                return;
+              }
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                AppRoutes.login,
+                (route) => false,
+              );
+            },
+          ),
+          _ActionTile(
+            icon: Icons.delete_outline,
+            label: 'Delete Account',
+            destructive: true,
+            onTap: () {
+              showDialog<void>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Delete Account'),
+                  content: const Text(
+                    'Delete account still needs backend confirmation and should be connected carefully before going live.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 18),
+          Center(
+            child: Text(
+              'GymUnity v1.0.0',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _sectionTitle(String title) {
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
     return Text(
       title,
       style: GoogleFonts.inter(
         fontSize: 13,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         color: AppColors.textMuted,
         letterSpacing: 1,
       ),
@@ -159,146 +238,61 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-class _SettingsItem {
-  const _SettingsItem({
-    required this.icon,
-    required this.label,
-    this.isDestructive = false,
-  });
-  final IconData icon;
-  final String label;
-  final bool isDestructive;
-}
+class _PreferenceCard extends StatelessWidget {
+  const _PreferenceCard({required this.child});
 
-class _SettingsGroup extends StatelessWidget {
-  const _SettingsGroup({required this.items, required this.ref});
-  final List<_SettingsItem> items;
-  final WidgetRef ref;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardDark,
-        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        children: List.generate(items.length, (i) {
-          final item = items[i];
-          return Column(
-            children: [
-              ListTile(
-                leading: Icon(
-                  item.icon,
-                  color: item.isDestructive
-                      ? Colors.red
-                      : AppColors.textSecondary,
-                  size: 22,
-                ),
-                title: Text(
-                  item.label,
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: item.isDestructive
-                        ? Colors.red
-                        : AppColors.textPrimary,
-                  ),
-                ),
-                trailing: Icon(
-                  Icons.chevron_right,
-                  color: item.isDestructive
-                      ? Colors.red.withValues(alpha: 0.5)
-                      : AppColors.textMuted,
-                  size: 20,
-                ),
-                onTap: () {
-                  switch (item.label) {
-                    case 'Edit Profile':
-                      Navigator.pushNamed(context, AppRoutes.editProfile);
-                      break;
-                    case 'Change Password':
-                      Navigator.pushNamed(context, AppRoutes.forgotPassword);
-                      break;
-                    case 'Language':
-                      showAppFeedback(
-                        context,
-                        'Language preferences will be added with localization support.',
-                      );
-                      break;
-                    case 'Notifications':
-                      Navigator.pushNamed(context, AppRoutes.notifications);
-                      break;
-                    case 'Dark Mode':
-                      showAppFeedback(
-                        context,
-                        'Dark mode is already active in the current app theme.',
-                      );
-                      break;
-                    case 'Units (Metric/Imperial)':
-                      showAppFeedback(
-                        context,
-                        'Measurement units will be configurable once profile preferences are connected.',
-                      );
-                      break;
-                    case 'Help & Support':
-                      Navigator.pushNamed(context, AppRoutes.helpSupport);
-                      break;
-                    case 'Privacy Policy':
-                      Navigator.pushNamed(context, AppRoutes.privacyPolicy);
-                      break;
-                    case 'Terms of Service':
-                      Navigator.pushNamed(context, AppRoutes.terms);
-                      break;
-                    case 'Rate App':
-                      showAppFeedback(
-                        context,
-                        'App rating will open the store listing once publishing is configured.',
-                      );
-                      break;
-                    case 'Log Out':
-                      ref.read(authControllerProvider.notifier).logout().then((
-                        _,
-                      ) {
-                        if (!context.mounted) return;
-                        Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          AppRoutes.login,
-                          (route) => false,
-                        );
-                      });
-                      break;
-                    case 'Delete Account':
-                      showDialog<void>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Delete Account'),
-                          content: const Text(
-                            'Account deletion needs backend confirmation and is not enabled yet.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Close'),
-                            ),
-                          ],
-                        ),
-                      );
-                      break;
-                  }
-                },
-              ),
-              if (i < items.length - 1)
-                Divider(
-                  color: AppColors.border,
-                  height: 1,
-                  indent: 56,
-                  endIndent: 16,
-                ),
-            ],
-          );
-        }),
+      child: child,
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = destructive ? Colors.red : AppColors.textPrimary;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        onTap: onTap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+          side: BorderSide(color: destructive ? Colors.red.shade200 : AppColors.border),
+        ),
+        tileColor: AppColors.cardDark,
+        leading: Icon(icon, color: foreground),
+        title: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: foreground,
+          ),
+        ),
+        trailing: Icon(Icons.chevron_right, color: foreground),
       ),
     );
   }

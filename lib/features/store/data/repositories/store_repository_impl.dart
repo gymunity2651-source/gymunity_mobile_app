@@ -28,7 +28,7 @@ class StoreRepositoryImpl implements StoreRepository {
           .limit(limit);
 
       if (category != null && category.isNotEmpty && category != 'All') {
-        query = query.eq('category', category);
+        query = query.ilike('category', category.trim());
       }
 
       final rows = (await query) as List<dynamic>;

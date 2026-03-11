@@ -8,209 +8,301 @@ import '../../../../core/constants/app_sizes.dart';
 import '../../../coach/domain/entities/coach_entity.dart';
 import '../providers/coaches_providers.dart';
 
-class CoachesScreen extends ConsumerWidget {
+class CoachesScreen extends ConsumerStatefulWidget {
   const CoachesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CoachesScreen> createState() => _CoachesScreenState();
+}
+
+class _CoachesScreenState extends ConsumerState<CoachesScreen> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final specialties = ref.watch(coachSpecialtiesProvider);
     final selectedSpecialty = ref.watch(selectedCoachSpecialtyProvider);
-    final coaches = ref.watch(coachListProvider).valueOrNull ?? _fallback;
+    final searchQuery = ref.watch(coachSearchQueryProvider);
+    final coachesAsync = ref.watch(coachListProvider);
+    final coaches = ref.watch(filteredCoachListProvider);
+
+    if (_searchController.text != searchQuery) {
+      _searchController.value = TextEditingValue(
+        text: searchQuery,
+        selection: TextSelection.collapsed(offset: searchQuery.length),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.screenPadding,
-                  vertical: AppSizes.lg,
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.menu, color: AppColors.textDark, size: 26),
-                    const Spacer(),
-                    Text(
-                      'GymUnity',
-                      style: GoogleFonts.inter(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                    const Spacer(),
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: AppColors.orange,
-                      child: const Icon(
-                        Icons.person,
-                        color: AppColors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.screenPadding,
-                ),
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.lightSurface,
-                    borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                    border: Border.all(color: AppColors.border),
+        child: RefreshIndicator.adaptive(
+          onRefresh: () => ref.refresh(coachListProvider.future),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.screenPadding,
+                    vertical: AppSizes.lg,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Row(
                     children: [
                       const Icon(
-                        Icons.search,
-                        color: AppColors.textMuted,
-                        size: 22,
+                        Icons.groups_outlined,
+                        color: AppColors.textDark,
+                        size: 26,
                       ),
-                      const SizedBox(width: 10),
+                      const Spacer(),
                       Text(
-                        'Search coaches by name or style',
+                        'Coach Marketplace',
                         style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: AppColors.textMuted,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const Spacer(),
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: AppColors.orange,
+                        child: const Icon(
+                          Icons.person,
+                          color: AppColors.white,
+                          size: 20,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 36,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
+              SliverToBoxAdapter(
+                child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSizes.screenPadding,
                   ),
-                  separatorBuilder: (_, _) => const SizedBox(width: 10),
-                  itemCount: specialties.length,
-                  itemBuilder: (context, index) {
-                    final selected = selectedSpecialty == index;
-                    return GestureDetector(
-                      onTap: () {
-                        ref
-                                .read(selectedCoachSpecialtyProvider.notifier)
-                                .state =
-                            index;
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? AppColors.orange
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(
-                            AppSizes.radiusFull,
-                          ),
-                          border: selected
-                              ? null
-                              : Border.all(color: AppColors.border),
-                        ),
-                        child: Text(
-                          specialties[index],
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: selected
-                                ? AppColors.white
-                                : AppColors.textSecondary,
+                  child: SearchBar(
+                    controller: _searchController,
+                    hintText: 'Search coaches by name, specialty, or badge',
+                    onChanged: (value) {
+                      ref.read(coachSearchQueryProvider.notifier).state = value;
+                    },
+                    leading: const Icon(
+                      Icons.search,
+                      color: AppColors.textMuted,
+                      size: 22,
+                    ),
+                    trailing: [
+                      if (searchQuery.isNotEmpty)
+                        IconButton(
+                          onPressed: _clearSearch,
+                          icon: const Icon(
+                            Icons.close,
+                            color: AppColors.textMuted,
+                            size: 20,
                           ),
                         ),
+                    ],
+                    backgroundColor: const WidgetStatePropertyAll(
+                      AppColors.lightSurface,
+                    ),
+                    surfaceTintColor: const WidgetStatePropertyAll(
+                      AppColors.transparent,
+                    ),
+                    elevation: const WidgetStatePropertyAll(0),
+                    side: const WidgetStatePropertyAll(
+                      BorderSide(color: AppColors.border),
+                    ),
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
                       ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 22)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.screenPadding,
-                ),
-                child: Text(
-                  'Top Rated Coaches',
-                  style: GoogleFonts.inter(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textDark,
+                    ),
+                    hintStyle: WidgetStatePropertyAll(
+                      GoogleFonts.inter(
+                        fontSize: 14,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    textStyle: WidgetStatePropertyAll(
+                      GoogleFonts.inter(
+                        fontSize: 14,
+                        color: AppColors.textDark,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 14)),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSizes.screenPadding,
-              ),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final coach = coaches[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 18),
-                    child: _CoachCard(
-                      coach: coach,
-                      onViewProfile: () =>
-                          Navigator.pushNamed(context, AppRoutes.coachDetails),
-                      onViewPackages: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.subscriptionPackages,
-                      ),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 36,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.screenPadding,
                     ),
-                  );
-                }, childCount: coaches.length),
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemCount: specialties.length,
+                    itemBuilder: (context, index) {
+                      final selected = selectedSpecialty == index;
+                      return GestureDetector(
+                        onTap: () {
+                          ref
+                              .read(selectedCoachSpecialtyProvider.notifier)
+                              .state = index;
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? AppColors.orange
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(
+                              AppSizes.radiusFull,
+                            ),
+                            border: selected
+                                ? null
+                                : Border.all(color: AppColors.border),
+                          ),
+                          child: Text(
+                            specialties[index],
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? AppColors.white
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
-            ),
-          ],
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSizes.screenPadding,
+                    18,
+                    AppSizes.screenPadding,
+                    0,
+                  ),
+                  child: Text(
+                    _resultsLabel(
+                      coaches.length,
+                      specialties[selectedSpecialty],
+                      searchQuery,
+                    ),
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 18)),
+              if (coachesAsync.isLoading && coaches.isEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.screenPadding,
+                  ),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => const Padding(
+                        padding: EdgeInsets.only(bottom: 18),
+                        child: _CoachCardSkeleton(),
+                      ),
+                      childCount: 3,
+                    ),
+                  ),
+                )
+              else if (coaches.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.screenPadding,
+                    ),
+                    child: _EmptyCoachState(
+                      onClearFilters: _clearFilters,
+                      searchQuery: searchQuery,
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.screenPadding,
+                  ),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final coach = coaches[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 18),
+                        child: _CoachCard(
+                          coach: coach,
+                          onViewProfile: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.coachDetails,
+                            arguments: coach,
+                          ),
+                          onViewPackages: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.subscriptionPackages,
+                            arguments: coach,
+                          ),
+                        ),
+                      );
+                    }, childCount: coaches.length),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  static const List<CoachEntity> _fallback = <CoachEntity>[
-    CoachEntity(
-      id: 'demo-1',
-      name: 'Alex Rivera',
-      specialty: 'STRENGTH & CONDITIONING',
-      rateLabel: '\$55/hr',
-      rating: '4.9',
-      reviewsLabel: '120+ Reviews',
-      badge: 'Elite Certified',
-    ),
-    CoachEntity(
-      id: 'demo-2',
-      name: 'Sarah Jenkins',
-      specialty: 'YOGA & MINDFULNESS',
-      rateLabel: '\$45/hr',
-      rating: '5.0',
-      reviewsLabel: '85 Reviews',
-      badge: 'Vinyasa Master',
-    ),
-    CoachEntity(
-      id: 'demo-3',
-      name: 'Marcus Thorne',
-      specialty: 'HIIT & ATHLETICS',
-      rateLabel: '\$60/hr',
-      rating: '4.8',
-      reviewsLabel: '210 Reviews',
-      badge: 'Pro Athlete Coach',
-    ),
-  ];
+  void _clearSearch() {
+    _searchController.clear();
+    ref.read(coachSearchQueryProvider.notifier).state = '';
+  }
+
+  void _clearFilters() {
+    _clearSearch();
+    ref.read(selectedCoachSpecialtyProvider.notifier).state = 0;
+  }
+
+  String _resultsLabel(int count, String specialty, String query) {
+    final buffer = StringBuffer('$count coach');
+    if (count != 1) {
+      buffer.write('es');
+    }
+    if (specialty != 'All') {
+      buffer.write(' in $specialty');
+    }
+    if (query.isNotEmpty) {
+      buffer.write(' for "$query"');
+    }
+    return buffer.toString();
+  }
 }
 
 class _CoachCard extends StatelessWidget {
@@ -398,6 +490,100 @@ class _InfoChip extends StatelessWidget {
           fontWeight: FontWeight.w500,
           color: AppColors.textSecondary,
         ),
+      ),
+    );
+  }
+}
+
+class _CoachCardSkeleton extends StatelessWidget {
+  const _CoachCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      ),
+      child: Column(
+        children: [
+          Container(
+            height: 180,
+            decoration: const BoxDecoration(
+              color: Color(0xFFEAEAEA),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(AppSizes.radiusLg),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Container(height: 12, color: const Color(0xFFEAEAEA)),
+                const SizedBox(height: 10),
+                Container(height: 12, color: const Color(0xFFEAEAEA)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyCoachState extends StatelessWidget {
+  const _EmptyCoachState({
+    required this.onClearFilters,
+    required this.searchQuery,
+  });
+
+  final VoidCallback onClearFilters;
+  final String searchQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.search_off_outlined,
+            color: AppColors.textMuted,
+            size: 36,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            searchQuery.isEmpty
+                ? 'No coaches matched this filter yet.'
+                : 'No coaches matched "$searchQuery".',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try another specialty or clear the search to widen the marketplace.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              height: 1.45,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton(
+            onPressed: onClearFilters,
+            child: const Text('Clear filters'),
+          ),
+        ],
       ),
     );
   }
