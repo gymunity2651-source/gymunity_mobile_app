@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../monetization/presentation/providers/monetization_providers.dart';
 import '../providers/settings_providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -15,6 +17,10 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final preferences = ref.watch(settingsPreferencesProvider);
     final controller = ref.read(settingsPreferencesProvider.notifier);
+    final config = AppConfig.current;
+    final showSubscriptionSettings = ref.watch(
+      shouldShowSubscriptionSettingsProvider,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -40,6 +46,15 @@ class SettingsScreen extends ConsumerWidget {
             label: 'Change Password',
             onTap: () => Navigator.pushNamed(context, AppRoutes.forgotPassword),
           ),
+          if (showSubscriptionSettings)
+            _ActionTile(
+              icon: Icons.workspace_premium_outlined,
+              label: 'AI Premium',
+              onTap: () => Navigator.pushNamed(
+                context,
+                AppRoutes.subscriptionManagement,
+              ),
+            ),
           const SizedBox(height: 24),
           _SectionTitle(title: 'Preferences'),
           const SizedBox(height: 10),
@@ -152,16 +167,19 @@ class SettingsScreen extends ConsumerWidget {
             label: 'Help & Support',
             onTap: () => Navigator.pushNamed(context, AppRoutes.helpSupport),
           ),
-          _ActionTile(
-            icon: Icons.privacy_tip_outlined,
-            label: 'Privacy Policy',
-            onTap: () => Navigator.pushNamed(context, AppRoutes.privacyPolicy),
-          ),
-          _ActionTile(
-            icon: Icons.description_outlined,
-            label: 'Terms of Service',
-            onTap: () => Navigator.pushNamed(context, AppRoutes.terms),
-          ),
+          if (config.privacyPolicyUrl.trim().isNotEmpty)
+            _ActionTile(
+              icon: Icons.privacy_tip_outlined,
+              label: 'Privacy Policy',
+              onTap: () =>
+                  Navigator.pushNamed(context, AppRoutes.privacyPolicy),
+            ),
+          if (config.termsUrl.trim().isNotEmpty)
+            _ActionTile(
+              icon: Icons.description_outlined,
+              label: 'Terms of Service',
+              onTap: () => Navigator.pushNamed(context, AppRoutes.terms),
+            ),
           const SizedBox(height: 24),
           _SectionTitle(title: 'Account Actions'),
           const SizedBox(height: 10),
@@ -186,21 +204,7 @@ class SettingsScreen extends ConsumerWidget {
             label: 'Delete Account',
             destructive: true,
             onTap: () {
-              showDialog<void>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Delete Account'),
-                  content: const Text(
-                    'Delete account still needs backend confirmation and should be connected carefully before going live.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Close'),
-                    ),
-                  ],
-                ),
-              );
+              Navigator.pushNamed(context, AppRoutes.deleteAccount);
             },
           ),
           const SizedBox(height: 18),
@@ -280,7 +284,9 @@ class _ActionTile extends StatelessWidget {
         onTap: onTap,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-          side: BorderSide(color: destructive ? Colors.red.shade200 : AppColors.border),
+          side: BorderSide(
+            color: destructive ? Colors.red.shade200 : AppColors.border,
+          ),
         ),
         tileColor: AppColors.cardDark,
         leading: Icon(icon, color: foreground),

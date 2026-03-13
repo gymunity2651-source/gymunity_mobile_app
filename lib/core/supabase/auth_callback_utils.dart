@@ -1,3 +1,4 @@
+import '../config/app_config.dart';
 import '../constants/auth_constants.dart';
 
 class AuthCallbackUtils {
@@ -15,7 +16,7 @@ class AuthCallbackUtils {
 
     if (route.startsWith('/?') || route.startsWith('/#')) {
       return Uri.tryParse(
-        '${AppAuthConstants.googleOAuthRedirect}${route.substring(1)}',
+        '${AppAuthConstants.oauthRedirect}${route.substring(1)}',
       );
     }
 
@@ -23,8 +24,9 @@ class AuthCallbackUtils {
   }
 
   static bool isAuthCallback(Uri uri) {
-    if (uri.scheme != AppAuthConstants.googleOAuthScheme ||
-        uri.host != AppAuthConstants.googleOAuthHost) {
+    final acceptedSchemes = AppConfig.current.acceptedAuthRedirectSchemes;
+    if (!acceptedSchemes.contains(uri.scheme) ||
+        uri.host != AppAuthConstants.oauthHost) {
       return false;
     }
 
@@ -33,6 +35,11 @@ class AuthCallbackUtils {
         params.containsKey('access_token') ||
         params.containsKey('refresh_token') ||
         params.containsKey('error');
+  }
+
+  static bool isRecoveryCallback(Uri uri) {
+    final type = mergedParams(uri)['type']?.trim().toLowerCase();
+    return type == 'recovery';
   }
 
   static Map<String, String> mergedParams(Uri uri) {

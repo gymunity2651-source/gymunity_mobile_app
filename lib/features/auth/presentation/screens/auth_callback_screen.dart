@@ -25,24 +25,21 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref
-          .read(googleOAuthControllerProvider.notifier)
+          .read(authFlowControllerProvider.notifier)
           .handleCallbackRoute(widget.routeName);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final googleOAuthState = ref.watch(googleOAuthControllerProvider);
-    ref.listen<GoogleOAuthState>(googleOAuthControllerProvider, (
-      previous,
-      next,
-    ) {
+    final authFlowState = ref.watch(authFlowControllerProvider);
+    ref.listen<AuthFlowState>(authFlowControllerProvider, (previous, next) {
       if (!mounted) return;
 
-      if (next.status == GoogleOAuthStatus.success &&
+      if (next.status == AuthFlowStatus.success &&
           next.resolvedRoute != null &&
           next.resolvedRoute != previous?.resolvedRoute) {
-        ref.read(googleOAuthControllerProvider.notifier).clearOutcome();
+        ref.read(authFlowControllerProvider.notifier).clearOutcome();
         Navigator.pushNamedAndRemoveUntil(
           context,
           next.resolvedRoute!,
@@ -77,7 +74,7 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
                     ),
                     alignment: Alignment.center,
                     child: Icon(
-                      googleOAuthState.status == GoogleOAuthStatus.failure
+                      authFlowState.status == AuthFlowStatus.failure
                           ? Icons.error_outline
                           : Icons.shield_outlined,
                       color: AppColors.orange,
@@ -86,9 +83,13 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    googleOAuthState.status == GoogleOAuthStatus.failure
-                        ? 'Google Sign-In'
-                        : AppStrings.completingGoogleSignIn,
+                    authFlowState.status == AuthFlowStatus.failure
+                        ? (authFlowState.activeProvider == null
+                              ? 'Password Recovery'
+                              : '${authFlowState.activeProvider!.label} Sign-In')
+                        : (authFlowState.activeProvider == null
+                              ? AppStrings.completingPasswordRecovery
+                              : AppStrings.completingGoogleSignIn),
                     style: GoogleFonts.spaceGrotesk(
                       fontSize: 26,
                       fontWeight: FontWeight.w700,
@@ -98,10 +99,12 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    googleOAuthState.status == GoogleOAuthStatus.failure
-                        ? (googleOAuthState.errorMessage ??
+                    authFlowState.status == AuthFlowStatus.failure
+                        ? (authFlowState.errorMessage ??
                               AppStrings.googleSignInDidNotComplete)
-                        : 'Please wait while GymUnity links your Google account and restores your session.',
+                        : (authFlowState.activeProvider == null
+                              ? 'Please wait while GymUnity verifies your password recovery request.'
+                              : 'Please wait while GymUnity links your account and restores your session.'),
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: AppColors.textSecondary,
@@ -110,12 +113,12 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 28),
-                  if (googleOAuthState.status == GoogleOAuthStatus.failure)
+                  if (authFlowState.status == AuthFlowStatus.failure)
                     CustomButton(
                       label: AppStrings.backToLogin.toUpperCase(),
                       onPressed: () {
                         ref
-                            .read(googleOAuthControllerProvider.notifier)
+                            .read(authFlowControllerProvider.notifier)
                             .clearOutcome();
                         Navigator.pushNamedAndRemoveUntil(
                           context,

@@ -55,23 +55,29 @@ void main() {
     testWidgets('member onboarding stays on screen when completion fails', (
       tester,
     ) async {
-      final userRepository = FakeUserRepository()
-        ..completeOnboardingError = Exception('Onboarding failed');
+      final memberRepository = FakeMemberRepository()
+        ..upsertError = Exception('Onboarding failed');
 
       await _pumpScreen(
         tester,
         const MemberOnboardingScreen(),
         overrides: <Override>[
-          userRepositoryProvider.overrideWithValue(userRepository),
+          userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+          memberRepositoryProvider.overrideWithValue(memberRepository),
           coachRepositoryProvider.overrideWithValue(FakeCoachRepository()),
         ],
       );
 
-      for (int i = 0; i < 3; i++) {
-        await tester.tap(find.text('CONTINUE'));
-        await tester.pumpAndSettle();
-      }
-
+      await tester.tap(find.text('CONTINUE'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('CONTINUE'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Beginner'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('CONTINUE'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('1-2 days/week'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('GET STARTED'));
       await tester.pump();
 
@@ -82,20 +88,26 @@ void main() {
     testWidgets('seller onboarding stays on screen when completion fails', (
       tester,
     ) async {
-      final userRepository = FakeUserRepository()
-        ..completeOnboardingError = Exception('Seller onboarding failed');
+      final sellerRepository = FakeSellerRepository()
+        ..upsertError = Exception('Seller onboarding failed');
 
       await _pumpScreen(
         tester,
         const SellerOnboardingScreen(),
         overrides: <Override>[
-          userRepositoryProvider.overrideWithValue(userRepository),
+          userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+          sellerRepositoryProvider.overrideWithValue(sellerRepository),
           coachRepositoryProvider.overrideWithValue(FakeCoachRepository()),
         ],
       );
 
       await tester.tap(find.text('CONTINUE'));
       await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(0), 'FitGear Pro');
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        'Supplements and equipment for committed training.',
+      );
       await tester.tap(find.text('CONTINUE'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('LAUNCH STORE'));
@@ -122,6 +134,20 @@ void main() {
 
       await tester.tap(find.text('CONTINUE'));
       await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).at(2),
+        'Performance coach for strength-focused members.',
+      );
+      await tester.enterText(
+        find.byType(TextFormField).at(3),
+        'Weekly programming, async support, and accountability.',
+      );
+      await tester.tap(find.text('CONTINUE'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        'A complete starter package with weekly check-ins.',
+      );
       await tester.tap(find.text('CONTINUE'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('START COACHING'));

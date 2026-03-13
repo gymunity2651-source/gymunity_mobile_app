@@ -4,10 +4,7 @@ import '../../../../core/di/providers.dart';
 import 'chat_providers.dart';
 
 class ChatControllerState {
-  const ChatControllerState({
-    this.isSending = false,
-    this.errorMessage,
-  });
+  const ChatControllerState({this.isSending = false, this.errorMessage});
 
   final bool isSending;
   final String? errorMessage;
@@ -49,10 +46,7 @@ class ChatController extends StateNotifier<ChatControllerState> {
       state = state.copyWith(isSending: false, clearError: true);
       return true;
     } catch (e) {
-      state = state.copyWith(
-        isSending: false,
-        errorMessage: e.toString(),
-      );
+      state = state.copyWith(isSending: false, errorMessage: e.toString());
       return false;
     }
   }
@@ -60,5 +54,5 @@ class ChatController extends StateNotifier<ChatControllerState> {
 
 final chatControllerProvider =
     StateNotifierProvider<ChatController, ChatControllerState>((ref) {
-  return ChatController(ref);
-});
+      return ChatController(ref);
+    });

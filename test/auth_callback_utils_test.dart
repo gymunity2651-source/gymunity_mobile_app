@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_app/core/constants/auth_constants.dart';
 import 'package:my_app/core/supabase/auth_callback_utils.dart';
 
 void main() {
@@ -7,14 +8,14 @@ void main() {
       final uri = AuthCallbackUtils.uriFromRouteName('/?code=test-code');
 
       expect(uri, isNotNull);
-      expect(uri!.scheme, 'gymunity');
-      expect(uri.host, 'auth-callback');
+      expect(uri!.scheme, AppAuthConstants.oauthScheme);
+      expect(uri.host, AppAuthConstants.oauthHost);
       expect(AuthCallbackUtils.authorizationCode(uri), 'test-code');
     });
 
     test('normalizes fragment callback params into query params', () {
       final uri = Uri.parse(
-        'gymunity://auth-callback#code=test-code&state=abc123',
+        '${AppAuthConstants.oauthRedirect}#code=test-code&state=abc123',
       );
 
       final normalized = AuthCallbackUtils.normalize(uri);
@@ -26,7 +27,7 @@ void main() {
 
     test('prefers error_description over generic error', () {
       final uri = Uri.parse(
-        'gymunity://auth-callback?error=access_denied&error_description=OAuth%20blocked',
+        '${AppAuthConstants.oauthRedirect}?error=access_denied&error_description=OAuth%20blocked',
       );
 
       expect(AuthCallbackUtils.errorMessage(uri), 'OAuth blocked');
@@ -36,7 +37,9 @@ void main() {
       'builds the same callback fingerprint for equivalent callback forms',
       () {
         final routeUri = AuthCallbackUtils.uriFromRouteName('/?code=test-code');
-        final customUri = Uri.parse('gymunity://auth-callback?code=test-code');
+        final customUri = Uri.parse(
+          '${AppAuthConstants.oauthRedirect}?code=test-code',
+        );
 
         expect(routeUri, isNotNull);
         expect(

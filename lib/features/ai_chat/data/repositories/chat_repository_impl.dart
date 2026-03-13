@@ -28,19 +28,29 @@ class ChatRepositoryImpl implements ChatRepository {
           id: map['id'] as String,
           userId: map['user_id'] as String,
           title: map['title'] as String? ?? 'New chat',
-          updatedAt: DateTime.tryParse(map['updated_at'] as String? ?? '') ??
+          updatedAt:
+              DateTime.tryParse(map['updated_at'] as String? ?? '') ??
               DateTime.now(),
         );
       }).toList();
-    } catch (_) {
-      return <ChatSessionEntity>[];
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    } catch (e, st) {
+      throw NetworkFailure(
+        message: 'Unable to load AI chat sessions.',
+        cause: e,
+        stackTrace: st,
+      );
     }
   }
 
   @override
-  Future<ChatSessionEntity> createSession({
-    String? title,
-  }) async {
+  Future<ChatSessionEntity> createSession({String? title}) async {
     final user = _client.auth.currentUser;
     if (user == null) {
       throw const AuthFailure(message: 'No authenticated user found.');
@@ -60,33 +70,32 @@ class ChatRepositoryImpl implements ChatRepository {
       userId: row['user_id'] as String,
       title: row['title'] as String? ?? 'New chat',
       updatedAt:
-          DateTime.tryParse(row['updated_at'] as String? ?? '') ?? DateTime.now(),
+          DateTime.tryParse(row['updated_at'] as String? ?? '') ??
+          DateTime.now(),
     );
   }
 
   @override
   Stream<List<ChatMessageEntity>> watchMessages(String sessionId) {
-    try {
-      return _client
-          .from('chat_messages')
-          .stream(primaryKey: <String>['id'])
-          .eq('session_id', sessionId)
-          .order('created_at')
-          .map((rows) => rows.map((row) {
-                final map = row;
-                return ChatMessageEntity(
-                  id: map['id'] as String,
-                  sessionId: map['session_id'] as String,
-                  sender: map['sender'] as String? ?? 'assistant',
-                  content: map['content'] as String? ?? '',
-                  createdAt:
-                      DateTime.tryParse(map['created_at'] as String? ?? '') ??
-                          DateTime.now(),
-                );
-              }).toList());
-    } catch (_) {
-      return Stream<List<ChatMessageEntity>>.value(<ChatMessageEntity>[]);
-    }
+    return _client
+        .from('chat_messages')
+        .stream(primaryKey: <String>['id'])
+        .eq('session_id', sessionId)
+        .order('created_at')
+        .map(
+          (rows) => rows.map((row) {
+            final map = row;
+            return ChatMessageEntity(
+              id: map['id'] as String,
+              sessionId: map['session_id'] as String,
+              sender: map['sender'] as String? ?? 'assistant',
+              content: map['content'] as String? ?? '',
+              createdAt:
+                  DateTime.tryParse(map['created_at'] as String? ?? '') ??
+                  DateTime.now(),
+            );
+          }).toList(),
+        );
   }
 
   @override
@@ -105,7 +114,6 @@ class ChatRepositoryImpl implements ChatRepository {
       'content': message,
     });
 
-    String assistantContent = 'I could not generate a response right now.';
     try {
       final functionResponse = await _client.functions.invoke(
         'ai-chat',
@@ -116,39 +124,56 @@ class ChatRepositoryImpl implements ChatRepository {
         },
       );
       final data = functionResponse.data;
+      var assistantContent = 'I could not generate a response right now.';
       if (data is Map<String, dynamic>) {
+        final errorMessage = data['error'] as String?;
+        if (errorMessage != null && errorMessage.trim().isNotEmpty) {
+          throw NetworkFailure(message: errorMessage);
+        }
         assistantContent =
             data['assistant_message'] as String? ?? assistantContent;
       }
-    } catch (_) {
-      assistantContent = 'I am temporarily unavailable. Please try again.';
+      final row = await _client
+          .from('chat_messages')
+          .insert(<String, dynamic>{
+            'session_id': sessionId,
+            'sender': 'assistant',
+            'content': assistantContent,
+          })
+          .select('id,session_id,sender,content,created_at')
+          .single();
+
+      await _client
+          .from('chat_sessions')
+          .update(<String, dynamic>{
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', sessionId);
+
+      return ChatMessageEntity(
+        id: row['id'] as String,
+        sessionId: row['session_id'] as String,
+        sender: row['sender'] as String? ?? 'assistant',
+        content: row['content'] as String? ?? assistantContent,
+        createdAt:
+            DateTime.tryParse(row['created_at'] as String? ?? '') ??
+            DateTime.now(),
+      );
+    } on FunctionException catch (e, st) {
+      throw NetworkFailure(
+        message: e.details?.toString() ?? 'Unable to reach the AI assistant.',
+        cause: e,
+        stackTrace: st,
+      );
+    } catch (e, st) {
+      if (e is AppFailure) {
+        rethrow;
+      }
+      throw NetworkFailure(
+        message: 'Unable to reach the AI assistant right now.',
+        cause: e,
+        stackTrace: st,
+      );
     }
-
-    final row = await _client
-        .from('chat_messages')
-        .insert(<String, dynamic>{
-          'session_id': sessionId,
-          'sender': 'assistant',
-          'content': assistantContent,
-        })
-        .select('id,session_id,sender,content,created_at')
-        .single();
-
-    await _client
-        .from('chat_sessions')
-        .update(<String, dynamic>{
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        })
-        .eq('id', sessionId);
-
-    return ChatMessageEntity(
-      id: row['id'] as String,
-      sessionId: row['session_id'] as String,
-      sender: row['sender'] as String? ?? 'assistant',
-      content: row['content'] as String? ?? assistantContent,
-      createdAt:
-          DateTime.tryParse(row['created_at'] as String? ?? '') ?? DateTime.now(),
-    );
   }
 }
-

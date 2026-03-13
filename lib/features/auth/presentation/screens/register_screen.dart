@@ -1,16 +1,18 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/di/providers.dart';
-import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/social_button.dart';
+import '../../domain/entities/auth_provider_type.dart';
 import '../../domain/entities/otp_flow.dart';
 import '../controllers/google_oauth_controller.dart';
 import '../providers/auth_providers.dart';
@@ -50,20 +52,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      ref.read(googleOAuthControllerProvider.notifier).handleAppResumed();
+      ref.read(authFlowControllerProvider.notifier).handleAppResumed();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
-    final googleOAuthState = ref.watch(googleOAuthControllerProvider);
-    ref.listen<GoogleOAuthState>(googleOAuthControllerProvider, (
-      previous,
-      next,
-    ) {
-      _handleGoogleOAuthState(previous, next);
+    final authFlowState = ref.watch(authFlowControllerProvider);
+    ref.listen<AuthFlowState>(authFlowControllerProvider, (previous, next) {
+      _handleAuthFlowState(previous, next);
     });
+    final showAppleButton =
+        !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.iOS &&
+        AppConfig.current.enableAppleSignIn;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -242,15 +245,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                               label: AppStrings.continueWithGoogle,
                               icon: Icons.g_mobiledata,
                               expand: false,
-                              onPressed: googleOAuthState.isBusy
+                              onPressed: authFlowState.isBusy
                                   ? null
                                   : _signInWithGoogle,
                             ),
                           ),
-                          if (googleOAuthState.isBusy) ...[
+                          if (authFlowState.isBusy) ...[
                             const SizedBox(height: 12),
                             Text(
-                              AppStrings.completingGoogleSignIn,
+                              authFlowState.activeProvider ==
+                                      AuthProviderType.apple
+                                  ? 'Completing Apple sign-in...'
+                                  : AppStrings.completingGoogleSignIn,
                               style: GoogleFonts.inter(
                                 color: AppColors.textSecondary,
                                 fontSize: 12,
@@ -258,21 +264,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                               ),
                             ),
                           ],
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: SocialButton(
-                              label: AppStrings.apple,
-                              icon: Icons.apple,
-                              expand: false,
-                              onPressed: () {
-                                showAppFeedback(
-                                  context,
-                                  'Apple sign-up will be enabled after OAuth setup is connected.',
-                                );
-                              },
+                          if (showAppleButton) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: SocialButton(
+                                label: 'Continue with Apple',
+                                icon: Icons.apple,
+                                expand: false,
+                                onPressed: authFlowState.isBusy
+                                    ? null
+                                    : _signInWithApple,
+                              ),
                             ),
-                          ),
+                          ],
                           const SizedBox(height: 28),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -369,25 +374,39 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       return;
     }
 
-    final route = await ref.read(authRouteResolverProvider).resolveAfterAuth();
-    if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+    try {
+      final route = await ref
+          .read(authRouteResolverProvider)
+          .resolveAfterAuth();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage(
+        'Unable to load your account state right now. Please try again.',
+      );
+    }
   }
 
   Future<void> _signInWithGoogle() async {
-    await ref.read(googleOAuthControllerProvider.notifier).startGoogleOAuth();
+    await ref
+        .read(authFlowControllerProvider.notifier)
+        .startOAuth(AuthProviderType.google);
   }
 
-  void _handleGoogleOAuthState(
-    GoogleOAuthState? previous,
-    GoogleOAuthState next,
-  ) {
+  Future<void> _signInWithApple() async {
+    await ref
+        .read(authFlowControllerProvider.notifier)
+        .startOAuth(AuthProviderType.apple);
+  }
+
+  void _handleAuthFlowState(AuthFlowState? previous, AuthFlowState next) {
     if (!mounted) return;
 
-    if (next.status == GoogleOAuthStatus.success &&
+    if (next.status == AuthFlowStatus.success &&
         next.resolvedRoute != null &&
         next.resolvedRoute != previous?.resolvedRoute) {
-      ref.read(googleOAuthControllerProvider.notifier).clearOutcome();
+      ref.read(authFlowControllerProvider.notifier).clearOutcome();
       Navigator.pushNamedAndRemoveUntil(
         context,
         next.resolvedRoute!,
@@ -396,11 +415,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       return;
     }
 
-    if (next.status == GoogleOAuthStatus.failure &&
+    if (next.status == AuthFlowStatus.failure &&
         next.errorMessage != null &&
         next.errorMessage != previous?.errorMessage) {
       _showMessage(next.errorMessage!);
-      ref.read(googleOAuthControllerProvider.notifier).clearOutcome();
+      ref.read(authFlowControllerProvider.notifier).clearOutcome();
     }
   }
 

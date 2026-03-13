@@ -13,4 +13,3 @@ class ChatMessageEntity {
   final String content;
   final DateTime createdAt;
 }
-

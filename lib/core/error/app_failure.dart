@@ -42,3 +42,47 @@ class StorageFailure extends AppFailure {
   });
 }
 
+class ValidationFailure extends AppFailure {
+  const ValidationFailure({
+    required super.message,
+    super.code,
+    super.cause,
+    super.stackTrace,
+  });
+}
+
+class ConflictFailure extends AppFailure {
+  const ConflictFailure({
+    required super.message,
+    super.code,
+    super.cause,
+    super.stackTrace,
+  });
+}
+
+class PaymentFailure extends AppFailure {
+  const PaymentFailure({
+    required super.message,
+    super.code,
+    super.cause,
+    super.stackTrace,
+  });
+}
+
+class ConfigFailure extends AppFailure {
+  const ConfigFailure({
+    required super.message,
+    super.code,
+    super.cause,
+    super.stackTrace,
+  });
+}
+
+class AccountDeletedFailure extends AppFailure {
+  const AccountDeletedFailure({
+    required super.message,
+    super.code,
+    super.cause,
+    super.stackTrace,
+  });
+}

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/di/providers.dart';
+import '../../domain/entities/auth_provider_type.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/otp_flow.dart';
 
@@ -105,11 +106,11 @@ class AuthController extends StateNotifier<AuthControllerState> {
     }
   }
 
-  Future<bool> signInWithGoogle() async {
+  Future<bool> signInWithOAuth(AuthProviderType provider) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final authRepo = _ref.read(authRepositoryProvider);
-      final launched = await authRepo.signInWithGoogle();
+      final launched = await authRepo.signInWithOAuth(provider: provider);
       state = state.copyWith(isLoading: false, clearError: true);
       return launched;
     } catch (e) {
@@ -179,6 +180,43 @@ class AuthController extends StateNotifier<AuthControllerState> {
     }
   }
 
+  Future<bool> updatePassword({required String newPassword}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final authRepo = _ref.read(authRepositoryProvider);
+      await authRepo.updatePassword(newPassword: newPassword);
+      state = state.copyWith(isLoading: false, clearError: true);
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: _messageFromError(e),
+      );
+      return false;
+    }
+  }
+
+  Future<AuthProviderType?> currentAuthProvider() {
+    return _ref.read(authRepositoryProvider).getCurrentAuthProvider();
+  }
+
+  Future<bool> deleteAccount({String? currentPassword}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final authRepo = _ref.read(authRepositoryProvider);
+      await authRepo.deleteAccount(currentPassword: currentPassword);
+      _ref.invalidate(currentUserProfileProvider);
+      state = state.copyWith(isLoading: false, clearError: true);
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: _messageFromError(e),
+      );
+      return false;
+    }
+  }
+
   String _messageFromError(Object error) {
     if (error is AppFailure) {
       return error.message;
@@ -197,14 +235,19 @@ class AuthController extends StateNotifier<AuthControllerState> {
     AuthSession session, {
     String? fallbackFullName,
   }) async {
-    if (session.userId != null && session.email != null) {
-      await _ref
-          .read(userRepositoryProvider)
-          .ensureUserAndProfile(
-            userId: session.userId!,
-            email: session.email!,
-            fullName: session.fullName ?? fallbackFullName,
-          );
+    try {
+      if (session.userId != null && session.email != null) {
+        await _ref
+            .read(userRepositoryProvider)
+            .ensureUserAndProfile(
+              userId: session.userId!,
+              email: session.email!,
+              fullName: session.fullName ?? fallbackFullName,
+            );
+      }
+    } on AccountDeletedFailure {
+      await _ref.read(authRepositoryProvider).logout();
+      rethrow;
     }
     _ref.invalidate(currentUserProfileProvider);
   }

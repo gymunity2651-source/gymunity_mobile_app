@@ -12,6 +12,14 @@ class CoachRepositoryImpl implements CoachRepository {
 
   final SupabaseClient _client;
 
+  String get _userId {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw const AuthFailure(message: 'No authenticated coach found.');
+    }
+    return userId;
+  }
+
   @override
   Future<Paged<CoachEntity>> listCoaches({
     String? specialty,
@@ -19,20 +27,82 @@ class CoachRepositoryImpl implements CoachRepository {
     int limit = 20,
   }) async {
     try {
-      final rows = await _client.rpc(
-        'list_coach_directory',
-        params: <String, dynamic>{
-          'specialty_filter': specialty,
-          'limit_count': limit,
-        },
-      ) as List<dynamic>;
+      final rows =
+          await _client.rpc(
+                'list_coach_directory',
+                params: <String, dynamic>{
+                  'specialty_filter': specialty,
+                  'limit_count': limit,
+                },
+              )
+              as List<dynamic>;
 
       return Paged<CoachEntity>(
-        items: _mapCoachRows(rows),
+        items: rows
+            .map(
+              (dynamic row) => _mapCoachDirectory(row as Map<String, dynamic>),
+            )
+            .toList(growable: false),
         nextCursor: null,
       );
-    } catch (_) {
-      return _legacyListCoaches(specialty: specialty, limit: limit);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<CoachEntity?> getCoachDetails(String coachId) async {
+    try {
+      final profileRows =
+          await _client.rpc(
+                'get_coach_public_profile',
+                params: <String, dynamic>{'target_coach_id': coachId},
+              )
+              as List<dynamic>;
+      if (profileRows.isEmpty) {
+        return null;
+      }
+
+      final profile = profileRows.first as Map<String, dynamic>;
+      final packages = await listCoachPackages(
+        coachId: coachId,
+        activeOnly: true,
+      );
+      final availability = await listAvailability(coachId: coachId);
+      final reviews = await listCoachReviews(coachId);
+
+      return CoachEntity(
+        id: profile['user_id'] as String,
+        name: profile['full_name'] as String? ?? 'Coach',
+        avatarPath: profile['avatar_path'] as String?,
+        bio: profile['bio'] as String? ?? '',
+        specialties:
+            (profile['specialties'] as List<dynamic>? ?? const <dynamic>[])
+                .cast<String>(),
+        yearsExperience: profile['years_experience'] as int? ?? 0,
+        hourlyRate: (profile['hourly_rate'] as num?)?.toDouble() ?? 0,
+        pricingCurrency: profile['pricing_currency'] as String? ?? 'USD',
+        ratingAvg: (profile['rating_avg'] as num?)?.toDouble() ?? 0,
+        ratingCount: profile['rating_count'] as int? ?? 0,
+        isVerified: profile['is_verified'] as bool? ?? false,
+        deliveryMode: profile['delivery_mode'] as String?,
+        serviceSummary: profile['service_summary'] as String? ?? '',
+        packages: packages,
+        availability: availability,
+        reviews: reviews,
+      );
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
     }
   }
 
@@ -42,21 +112,251 @@ class CoachRepositoryImpl implements CoachRepository {
     required List<String> specialties,
     required int yearsExperience,
     required double hourlyRate,
+    required String deliveryMode,
+    required String serviceSummary,
   }) async {
-    final user = _client.auth.currentUser;
-    if (user == null) {
-      throw const AuthFailure(message: 'No authenticated coach found.');
-    }
-
+    final userId = _userId;
     try {
       await _client.from('coach_profiles').upsert(<String, dynamic>{
-        'user_id': user.id,
+        'user_id': userId,
         'bio': bio,
         'specialties': specialties,
         'years_experience': yearsExperience,
         'hourly_rate': hourlyRate,
+        'delivery_mode': deliveryMode,
+        'service_summary': serviceSummary,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       });
+      await _client
+          .from('profiles')
+          .update(<String, dynamic>{
+            'onboarding_completed': true,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('user_id', userId);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<List<CoachPackageEntity>> listCoachPackages({
+    String? coachId,
+    bool activeOnly = false,
+  }) async {
+    try {
+      if (coachId != null &&
+          coachId.isNotEmpty &&
+          coachId != _client.auth.currentUser?.id) {
+        final rows = await _client.rpc(
+          'list_coach_public_packages',
+          params: <String, dynamic>{'target_coach_id': coachId},
+        );
+        return (rows as List<dynamic>)
+            .map((dynamic row) => _mapPackage(row as Map<String, dynamic>))
+            .toList(growable: false);
+      }
+
+      dynamic query = _client
+          .from('coach_packages')
+          .select()
+          .eq('coach_id', coachId ?? _userId)
+          .order('created_at', ascending: true);
+      if (activeOnly) {
+        query = query.eq('is_active', true);
+      }
+      final rows = await query;
+      return (rows as List<dynamic>)
+          .map((dynamic row) => _mapPackage(row as Map<String, dynamic>))
+          .toList(growable: false);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<void> saveCoachPackage({
+    String? packageId,
+    required String title,
+    required String description,
+    required String billingCycle,
+    required double price,
+    bool isActive = true,
+  }) async {
+    try {
+      await _client
+          .from('coach_packages')
+          .upsert(
+            <String, dynamic>{
+              'id': packageId,
+              'coach_id': _userId,
+              'title': title,
+              'description': description,
+              'billing_cycle': billingCycle,
+              'price': price,
+              'is_active': isActive,
+            }..removeWhere((String key, dynamic value) => value == null),
+          );
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<void> deleteCoachPackage(String packageId) async {
+    try {
+      final linkedSubscriptions = await _client
+          .from('subscriptions')
+          .select('id')
+          .eq('package_id', packageId)
+          .limit(1);
+      if ((linkedSubscriptions as List<dynamic>).isEmpty) {
+        await _client
+            .from('coach_packages')
+            .delete()
+            .eq('id', packageId)
+            .eq('coach_id', _userId);
+        return;
+      }
+      await _client
+          .from('coach_packages')
+          .update(<String, dynamic>{'is_active': false})
+          .eq('id', packageId)
+          .eq('coach_id', _userId);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<List<CoachAvailabilitySlotEntity>> listAvailability({
+    String? coachId,
+  }) async {
+    try {
+      dynamic query = _client
+          .from('coach_availability_slots')
+          .select()
+          .eq('coach_id', coachId ?? _userId)
+          .order('weekday')
+          .order('start_time');
+      if (coachId != null && coachId != _client.auth.currentUser?.id) {
+        query = query.eq('is_active', true);
+      }
+      final rows = await query;
+      return (rows as List<dynamic>)
+          .map((dynamic row) => _mapAvailability(row as Map<String, dynamic>))
+          .toList(growable: false);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<void> saveAvailabilitySlot({
+    String? slotId,
+    required int weekday,
+    required String startTime,
+    required String endTime,
+    required String timezone,
+    bool isActive = true,
+  }) async {
+    try {
+      await _client
+          .from('coach_availability_slots')
+          .upsert(
+            <String, dynamic>{
+              'id': slotId,
+              'coach_id': _userId,
+              'weekday': weekday,
+              'start_time': startTime,
+              'end_time': endTime,
+              'timezone': timezone,
+              'is_active': isActive,
+            }..removeWhere((String key, dynamic value) => value == null),
+          );
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<void> deleteAvailabilitySlot(String slotId) async {
+    try {
+      await _client
+          .from('coach_availability_slots')
+          .delete()
+          .eq('id', slotId)
+          .eq('coach_id', _userId);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<CoachDashboardSummaryEntity> getDashboardSummary() async {
+    try {
+      final rows = await _client.rpc('coach_dashboard_summary');
+      final row = (rows as List<dynamic>).first as Map<String, dynamic>;
+      return CoachDashboardSummaryEntity(
+        activeClients: row['active_clients'] as int? ?? 0,
+        pendingRequests: row['pending_requests'] as int? ?? 0,
+        activePackages: row['active_packages'] as int? ?? 0,
+        activePlans: row['active_plans'] as int? ?? 0,
+        ratingAvg: (row['rating_avg'] as num?)?.toDouble() ?? 0,
+        ratingCount: row['rating_count'] as int? ?? 0,
+      );
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<List<CoachClientEntity>> listClients() async {
+    try {
+      final rows = await _client.rpc('list_coach_clients');
+      return (rows as List<dynamic>)
+          .map((dynamic row) => _mapClient(row as Map<String, dynamic>))
+          .toList(growable: false);
     } on PostgrestException catch (e, st) {
       throw NetworkFailure(
         message: e.message,
@@ -74,149 +374,317 @@ class CoachRepositoryImpl implements CoachRepository {
     required String title,
     required Map<String, dynamic> planJson,
   }) async {
-    final user = _client.auth.currentUser;
-    if (user == null) {
-      throw const AuthFailure(message: 'No authenticated coach found.');
+    try {
+      final row = await _client
+          .from('workout_plans')
+          .insert(<String, dynamic>{
+            'member_id': memberId,
+            'coach_id': _userId,
+            'source': source,
+            'title': title,
+            'plan_json': planJson,
+            'status': 'active',
+          })
+          .select()
+          .single();
+
+      await _client.from('notifications').insert(<String, dynamic>{
+        'user_id': memberId,
+        'type': 'coaching',
+        'title': 'New workout plan assigned',
+        'body': 'A coach assigned the plan "$title".',
+        'data': <String, dynamic>{
+          'workout_plan_id': row['id'],
+          'coach_id': _userId,
+        },
+      });
+
+      return _mapWorkoutPlan(row);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
     }
+  }
 
-    final row = await _client
-        .from('workout_plans')
-        .insert(<String, dynamic>{
-          'member_id': memberId,
-          'coach_id': user.id,
-          'source': source,
-          'title': title,
-          'plan_json': planJson,
-          'status': 'active',
-        })
-        .select('id,member_id,coach_id,source,title,status')
-        .single();
+  @override
+  Future<List<WorkoutPlanEntity>> listWorkoutPlans({String? memberId}) async {
+    try {
+      dynamic query = _client
+          .from('workout_plans')
+          .select()
+          .eq('coach_id', _userId)
+          .order('assigned_at', ascending: false);
+      if (memberId != null && memberId.isNotEmpty) {
+        query = query.eq('member_id', memberId);
+      }
+      final rows = await query;
+      return (rows as List<dynamic>)
+          .map((dynamic row) => _mapWorkoutPlan(row as Map<String, dynamic>))
+          .toList(growable: false);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
 
-    return WorkoutPlanEntity(
-      id: row['id'] as String,
-      memberId: row['member_id'] as String,
-      coachId: row['coach_id'] as String?,
-      source: row['source'] as String? ?? source,
-      title: row['title'] as String? ?? title,
-      status: row['status'] as String? ?? 'active',
-    );
+  @override
+  Future<void> updateWorkoutPlanStatus({
+    required String planId,
+    required String status,
+  }) async {
+    try {
+      await _client
+          .from('workout_plans')
+          .update(<String, dynamic>{
+            'status': status,
+            'completed_at': status == 'completed'
+                ? DateTime.now().toUtc().toIso8601String()
+                : null,
+          })
+          .eq('id', planId)
+          .eq('coach_id', _userId);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
   }
 
   @override
   Future<List<SubscriptionEntity>> listSubscriptions() async {
-    final user = _client.auth.currentUser;
-    if (user == null) return <SubscriptionEntity>[];
-
     try {
       final rows = await _client
           .from('subscriptions')
-          .select('id,member_id,coach_id,status,amount,plan_name')
-          .eq('coach_id', user.id)
+          .select(
+            'id,member_id,coach_id,package_id,plan_name,billing_cycle,amount,status,payment_method,starts_at,ends_at,activated_at,cancelled_at,created_at',
+          )
+          .eq('coach_id', _userId)
           .order('created_at', ascending: false);
-
-      return (rows as List<dynamic>).map((dynamic row) {
-        final map = row as Map<String, dynamic>;
-        return SubscriptionEntity(
-          id: map['id'] as String,
-          memberId: map['member_id'] as String,
-          coachId: map['coach_id'] as String,
-          status: map['status'] as String? ?? '',
-          amount: (map['amount'] as num?)?.toDouble() ?? 0,
-          planName: map['plan_name'] as String? ?? '',
-        );
-      }).toList();
-    } catch (_) {
-      return <SubscriptionEntity>[];
+      return (rows as List<dynamic>)
+          .map((dynamic row) => _mapSubscription(row as Map<String, dynamic>))
+          .toList(growable: false);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
     }
   }
 
-  Future<Paged<CoachEntity>> _legacyListCoaches({
-    String? specialty,
-    required int limit,
+  @override
+  Future<SubscriptionEntity> requestSubscription({
+    required String packageId,
+    String? note,
   }) async {
     try {
-      dynamic query = _client
-          .from('coach_profiles')
-          .select('''
-            user_id,
-            bio,
-            specialties,
-            hourly_rate,
-            rating_avg,
-            rating_count,
-            is_verified,
-            profiles!inner(full_name)
-          ''')
-          .limit(limit);
-
-      if (specialty != null && specialty.isNotEmpty && specialty != 'All') {
-        query = query.contains('specialties', <String>[specialty]);
-      }
-
-      final rows = (await query) as List<dynamic>;
-      return Paged<CoachEntity>(
-        items: _mapCoachRows(rows),
-        nextCursor: null,
+      final rows = await _client.rpc(
+        'request_coach_subscription',
+        params: <String, dynamic>{
+          'target_package_id': packageId,
+          'input_member_note': note,
+        },
       );
-    } catch (_) {
-      return const Paged<CoachEntity>(
-        items: <CoachEntity>[
-          CoachEntity(
-            id: 'demo-1',
-            name: 'Alex Rivera',
-            specialty: 'STRENGTH & CONDITIONING',
-            rateLabel: '\$55/hr',
-            rating: '4.9',
-            reviewsLabel: '120+ Reviews',
-            badge: 'Elite Certified',
-          ),
-          CoachEntity(
-            id: 'demo-2',
-            name: 'Sarah Jenkins',
-            specialty: 'YOGA & MINDFULNESS',
-            rateLabel: '\$45/hr',
-            rating: '5.0',
-            reviewsLabel: '85 Reviews',
-            badge: 'Vinyasa Master',
-          ),
-          CoachEntity(
-            id: 'demo-3',
-            name: 'Marcus Thorne',
-            specialty: 'HIIT & ATHLETICS',
-            rateLabel: '\$60/hr',
-            rating: '4.8',
-            reviewsLabel: '210 Reviews',
-            badge: 'Pro Athlete Coach',
-          ),
-        ],
+      return _mapSubscription(
+        (rows as List<dynamic>).first as Map<String, dynamic>,
+      );
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
       );
     }
   }
 
-  List<CoachEntity> _mapCoachRows(List<dynamic> rows) {
-    return rows.map((dynamic row) {
-      final map = row as Map<String, dynamic>;
-      final profile = map['profiles'] as Map<String, dynamic>? ?? const <String, dynamic>{};
-      final specialtyList =
-          (map['specialties'] as List<dynamic>? ?? <dynamic>[]).cast<String>();
-      final hourlyRate = (map['hourly_rate'] as num?)?.toDouble() ?? 0;
-      final ratingAvg = (map['rating_avg'] as num?)?.toDouble() ?? 0;
-      final ratingCount = map['rating_count'] as int? ?? 0;
-      final isVerified = map['is_verified'] as bool? ?? true;
-      final fullName =
-          map['full_name'] as String? ?? profile['full_name'] as String?;
-
-      return CoachEntity(
-        id: map['user_id'] as String,
-        name: fullName ?? 'Coach',
-        specialty:
-            (specialtyList.isNotEmpty ? specialtyList.join(' & ') : 'Fitness')
-                .toUpperCase(),
-        rateLabel: '\$${hourlyRate.toStringAsFixed(0)}/hr',
-        rating: ratingAvg.toStringAsFixed(1),
-        reviewsLabel: '$ratingCount Reviews',
-        badge: isVerified ? 'Verified Coach' : 'New Coach',
+  @override
+  Future<void> updateSubscriptionStatus({
+    required String subscriptionId,
+    required String newStatus,
+    String? note,
+  }) async {
+    try {
+      await _client.rpc(
+        'update_coach_subscription_status',
+        params: <String, dynamic>{
+          'target_subscription_id': subscriptionId,
+          'new_status': newStatus,
+          'note': note,
+        },
       );
-    }).toList();
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<List<CoachReviewEntity>> listCoachReviews(String coachId) async {
+    try {
+      final rows = await _client.rpc(
+        'list_coach_public_reviews',
+        params: <String, dynamic>{'target_coach_id': coachId},
+      );
+      return (rows as List<dynamic>)
+          .map((dynamic row) => _mapReview(row as Map<String, dynamic>))
+          .toList(growable: false);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<void> submitCoachReview({
+    required String coachId,
+    required String subscriptionId,
+    required int rating,
+    required String reviewText,
+  }) async {
+    try {
+      await _client.rpc(
+        'submit_coach_review',
+        params: <String, dynamic>{
+          'target_coach_id': coachId,
+          'target_subscription_id': subscriptionId,
+          'input_rating': rating,
+          'input_review_text': reviewText,
+        },
+      );
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  CoachEntity _mapCoachDirectory(Map<String, dynamic> row) {
+    return CoachEntity(
+      id: row['user_id'] as String,
+      name: row['full_name'] as String? ?? 'Coach',
+      specialties: (row['specialties'] as List<dynamic>? ?? const <dynamic>[])
+          .cast<String>(),
+      hourlyRate: (row['hourly_rate'] as num?)?.toDouble() ?? 0,
+      ratingAvg: (row['rating_avg'] as num?)?.toDouble() ?? 0,
+      ratingCount: row['rating_count'] as int? ?? 0,
+      isVerified: row['is_verified'] as bool? ?? false,
+    );
+  }
+
+  CoachPackageEntity _mapPackage(Map<String, dynamic> row) {
+    return CoachPackageEntity(
+      id: row['id'] as String,
+      coachId: row['coach_id'] as String,
+      title: row['title'] as String? ?? '',
+      description: row['description'] as String? ?? '',
+      billingCycle: row['billing_cycle'] as String? ?? 'monthly',
+      price: (row['price'] as num?)?.toDouble() ?? 0,
+      isActive: row['is_active'] as bool? ?? true,
+      createdAt: _parseDate(row['created_at']),
+    );
+  }
+
+  CoachAvailabilitySlotEntity _mapAvailability(Map<String, dynamic> row) {
+    return CoachAvailabilitySlotEntity(
+      id: row['id'] as String,
+      coachId: row['coach_id'] as String,
+      weekday: row['weekday'] as int? ?? 0,
+      startTime: row['start_time']?.toString() ?? '',
+      endTime: row['end_time']?.toString() ?? '',
+      timezone: row['timezone'] as String? ?? 'UTC',
+      isActive: row['is_active'] as bool? ?? true,
+    );
+  }
+
+  CoachClientEntity _mapClient(Map<String, dynamic> row) {
+    return CoachClientEntity(
+      subscriptionId: row['subscription_id'] as String,
+      memberId: row['member_id'] as String,
+      memberName: row['member_name'] as String? ?? 'Member',
+      packageTitle: row['package_title'] as String? ?? 'Subscription',
+      status: row['status'] as String? ?? 'pending_payment',
+      startedAt: _parseDate(row['started_at']) ?? DateTime.now(),
+      activePlanCount: row['active_plan_count'] as int? ?? 0,
+      lastSessionAt: _parseDate(row['last_session_at']),
+    );
+  }
+
+  WorkoutPlanEntity _mapWorkoutPlan(Map<String, dynamic> row) {
+    return WorkoutPlanEntity(
+      id: row['id'] as String,
+      memberId: row['member_id'] as String,
+      coachId: row['coach_id'] as String?,
+      source: row['source'] as String? ?? 'coach',
+      title: row['title'] as String? ?? '',
+      status: row['status'] as String? ?? 'active',
+      planJson: Map<String, dynamic>.from(
+        row['plan_json'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+      ),
+      startDate: _parseDate(row['start_date']),
+      endDate: _parseDate(row['end_date']),
+      assignedAt: _parseDate(row['assigned_at']),
+      updatedAt: _parseDate(row['updated_at']),
+      completedAt: _parseDate(row['completed_at']),
+    );
+  }
+
+  SubscriptionEntity _mapSubscription(Map<String, dynamic> row) {
+    return SubscriptionEntity(
+      id: row['id'] as String,
+      memberId: row['member_id'] as String,
+      coachId: row['coach_id'] as String,
+      packageId: row['package_id'] as String?,
+      planName: row['plan_name'] as String? ?? '',
+      billingCycle: row['billing_cycle'] as String? ?? 'monthly',
+      amount: (row['amount'] as num?)?.toDouble() ?? 0,
+      status: row['status'] as String? ?? 'pending_payment',
+      paymentMethod: row['payment_method'] as String? ?? 'manual',
+      startsAt: _parseDate(row['starts_at']),
+      endsAt: _parseDate(row['ends_at']),
+      activatedAt: _parseDate(row['activated_at']),
+      cancelledAt: _parseDate(row['cancelled_at']),
+      createdAt: _parseDate(row['created_at']),
+    );
+  }
+
+  CoachReviewEntity _mapReview(Map<String, dynamic> row) {
+    return CoachReviewEntity(
+      id: row['id'] as String,
+      memberDisplayName: row['member_display_name'] as String? ?? 'Member',
+      rating: row['rating'] as int? ?? 0,
+      reviewText: row['review_text'] as String? ?? '',
+      createdAt: _parseDate(row['created_at']) ?? DateTime.now(),
+    );
+  }
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    return DateTime.tryParse(value.toString());
   }
 }

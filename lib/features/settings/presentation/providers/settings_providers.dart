@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/di/providers.dart';
+
 enum MeasurementUnit { metric, imperial }
 
 enum AppLanguage { english, arabic }
@@ -106,70 +108,113 @@ class AppNotificationItem {
       isRead: isRead ?? this.isRead,
     );
   }
-}
 
-class NotificationsController extends StateNotifier<List<AppNotificationItem>> {
-  NotificationsController()
-    : super(
-        const <AppNotificationItem>[
-          AppNotificationItem(
-            id: 'n1',
-            title: 'Coach match found',
-            body: 'Two high-rated strength coaches now match your current goals.',
-            category: NotificationCategory.coaching,
-            timeLabel: 'Just now',
-          ),
-          AppNotificationItem(
-            id: 'n2',
-            title: 'Order update',
-            body: 'Your smart tracker order is packed and ready for shipment.',
-            category: NotificationCategory.orders,
-            timeLabel: '1h ago',
-          ),
-          AppNotificationItem(
-            id: 'n3',
-            title: 'AI suggestion ready',
-            body: 'GymUnity AI built a shorter leg-day variation based on your last chat.',
-            category: NotificationCategory.ai,
-            timeLabel: 'Today',
-          ),
-          AppNotificationItem(
-            id: 'n4',
-            title: 'Streak milestone',
-            body: 'You are one workout away from a 16-day streak.',
-            category: NotificationCategory.system,
-            timeLabel: 'Yesterday',
-            isRead: true,
-          ),
-        ],
-      );
-
-  void markRead(String id) {
-    state = [
-      for (final item in state)
-        if (item.id == id) item.copyWith(isRead: true) else item,
-    ];
+  factory AppNotificationItem.fromMap(Map<String, dynamic> map) {
+    return AppNotificationItem(
+      id: map['id'] as String,
+      title: map['title'] as String? ?? '',
+      body: map['body'] as String? ?? '',
+      category: _categoryFromType(map['type'] as String?),
+      timeLabel: _timeLabel(map['created_at'] as String?),
+      isRead: map['is_read'] as bool? ?? false,
+    );
   }
 
-  void markAllRead() {
-    state = [for (final item in state) item.copyWith(isRead: true)];
+  static NotificationCategory _categoryFromType(String? rawType) {
+    switch (rawType?.trim().toLowerCase()) {
+      case 'coaching':
+        return NotificationCategory.coaching;
+      case 'orders':
+        return NotificationCategory.orders;
+      case 'ai':
+        return NotificationCategory.ai;
+      default:
+        return NotificationCategory.system;
+    }
+  }
+
+  static String _timeLabel(String? rawDate) {
+    final createdAt = DateTime.tryParse(rawDate ?? '');
+    if (createdAt == null) {
+      return 'Recently';
+    }
+
+    final difference = DateTime.now().difference(createdAt);
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    }
+    if (difference.inHours < 1) {
+      return '${difference.inMinutes}m ago';
+    }
+    if (difference.inDays < 1) {
+      return '${difference.inHours}h ago';
+    }
+    return '${difference.inDays}d ago';
   }
 }
 
-final notificationsProvider =
-    StateNotifierProvider<NotificationsController, List<AppNotificationItem>>((
-      ref,
-    ) {
-      return NotificationsController();
-    });
+class NotificationsController {
+  NotificationsController(this._ref);
+
+  final Ref _ref;
+
+  Future<void> markRead(String id) async {
+    await _ref
+        .read(supabaseClientProvider)
+        .from('notifications')
+        .update(<String, dynamic>{'is_read': true})
+        .eq('id', id);
+  }
+
+  Future<void> markAllRead(List<String> notificationIds) async {
+    if (notificationIds.isEmpty) {
+      return;
+    }
+    await _ref
+        .read(supabaseClientProvider)
+        .from('notifications')
+        .update(<String, dynamic>{'is_read': true})
+        .inFilter('id', notificationIds);
+  }
+}
+
+final notificationsControllerProvider = Provider<NotificationsController>((
+  ref,
+) {
+  return NotificationsController(ref);
+});
+
+final notificationsProvider = StreamProvider<List<AppNotificationItem>>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  final user = client.auth.currentUser;
+  if (user == null) {
+    return Stream<List<AppNotificationItem>>.value(
+      const <AppNotificationItem>[],
+    );
+  }
+
+  return client
+      .from('notifications')
+      .stream(primaryKey: <String>['id'])
+      .eq('user_id', user.id)
+      .order('created_at', ascending: false)
+      .map((rows) {
+        return rows
+            .map((row) => AppNotificationItem.fromMap(row))
+            .toList(growable: false);
+      });
+});
 
 final notificationFilterProvider = StateProvider<NotificationFilter>(
   (ref) => NotificationFilter.all,
 );
 
-final filteredNotificationsProvider = Provider<List<AppNotificationItem>>((ref) {
+final filteredNotificationsProvider = Provider<List<AppNotificationItem>>((
+  ref,
+) {
   final filter = ref.watch(notificationFilterProvider);
-  final notifications = ref.watch(notificationsProvider);
+  final notifications =
+      ref.watch(notificationsProvider).valueOrNull ?? const [];
 
   if (filter == NotificationFilter.all) {
     return notifications;
@@ -190,7 +235,9 @@ final filteredNotificationsProvider = Provider<List<AppNotificationItem>>((ref) 
 
 final unreadNotificationsCountProvider = Provider<int>((ref) {
   return ref
-      .watch(notificationsProvider)
-      .where((notification) => !notification.isRead)
-      .length;
+          .watch(notificationsProvider)
+          .valueOrNull
+          ?.where((notification) => !notification.isRead)
+          .length ??
+      0;
 });

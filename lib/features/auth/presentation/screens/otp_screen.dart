@@ -316,9 +316,18 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       return;
     }
 
-    final route = await ref.read(authRouteResolverProvider).resolveAfterAuth();
-    if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+    try {
+      final route = await ref
+          .read(authRouteResolverProvider)
+          .resolveAfterAuth();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage(
+        'Unable to load your account state right now. Please try again.',
+      );
+    }
   }
 
   Future<void> _resendCode() async {

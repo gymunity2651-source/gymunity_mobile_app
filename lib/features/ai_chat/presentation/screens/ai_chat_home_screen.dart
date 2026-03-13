@@ -6,6 +6,8 @@ import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../monetization/presentation/providers/monetization_providers.dart';
+import '../../../monetization/presentation/screens/ai_premium_paywall_screen.dart';
 import '../../domain/entities/chat_session_entity.dart';
 import '../providers/chat_controller.dart';
 import '../providers/chat_providers.dart';
@@ -13,37 +15,66 @@ import '../providers/chat_providers.dart';
 class AiChatHomeScreen extends ConsumerWidget {
   const AiChatHomeScreen({super.key});
 
-  static const _fallbackChats = [
-    {
-      'title': 'High protein vegan meal plan',
-      'time': 'Yesterday',
-      'messages': '12 messages',
-      'icon': Icons.chat_bubble,
-      'color': AppColors.orange,
-    },
-    {
-      'title': 'Leg day hypertrophy routine',
-      'time': '2 days ago',
-      'messages': '8 messages',
-      'icon': Icons.fitness_center,
-      'color': AppColors.orange,
-    },
-    {
-      'title': 'Quick 15-min HIIT cardio',
-      'time': 'Monday',
-      'messages': '4 messages',
-      'icon': Icons.bolt,
-      'color': Colors.amber,
-    },
-  ];
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gateAsync = ref.watch(aiPremiumGateProvider);
+
+    return gateAsync.when(
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFF1A120B),
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.orange),
+        ),
+      ),
+      error: (error, stackTrace) => Scaffold(
+        backgroundColor: const Color(0xFF1A120B),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSizes.screenPadding),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'GymUnity could not verify AI Premium access right now.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                  onPressed: () => ref
+                      .read(currentSubscriptionSummaryProvider.notifier)
+                      .refreshFromBackend(),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      data: (gate) {
+        if (gate.requiresBilling && !gate.hasAccess) {
+          return AiPremiumPaywallScreen(
+            showBackButton: false,
+            lockReason: gate.message,
+          );
+        }
+        return const _AiChatHomeUnlocked();
+      },
+    );
+  }
+}
+
+class _AiChatHomeUnlocked extends ConsumerWidget {
+  const _AiChatHomeUnlocked();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatState = ref.watch(chatControllerProvider);
-    final sessions =
-        ref.watch(chatSessionsProvider).valueOrNull ??
-        const <ChatSessionEntity>[];
-    final hasSessions = sessions.isNotEmpty;
+    final sessionsAsync = ref.watch(chatSessionsProvider);
 
     Future<void> openConversation({
       String? sessionId,
@@ -52,11 +83,7 @@ class AiChatHomeScreen extends ConsumerWidget {
       if (seedPrompt != null && seedPrompt.trim().isNotEmpty) {
         ref.read(pendingChatPromptProvider.notifier).state = seedPrompt.trim();
       }
-      if (sessionId != null && sessionId.isNotEmpty) {
-        ref.read(activeChatSessionIdProvider.notifier).state = sessionId;
-      } else {
-        ref.read(activeChatSessionIdProvider.notifier).state = null;
-      }
+      ref.read(activeChatSessionIdProvider.notifier).state = sessionId;
       Navigator.pushNamed(
         context,
         AppRoutes.aiConversation,
@@ -69,13 +96,17 @@ class AiChatHomeScreen extends ConsumerWidget {
         final sessionId = await ref
             .read(chatControllerProvider.notifier)
             .createSessionIfNeeded(null);
-        if (!context.mounted) return;
+        if (!context.mounted) {
+          return;
+        }
         await openConversation(sessionId: sessionId);
-      } catch (error) {
-        if (!context.mounted) return;
+      } catch (_) {
+        if (!context.mounted) {
+          return;
+        }
         showAppFeedback(
           context,
-          'Unable to start a new AI chat until authentication and backend setup are available.',
+          'GymUnity could not start a new AI conversation right now.',
         );
       }
     }
@@ -94,167 +125,117 @@ class AiChatHomeScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   const Icon(
-                    Icons.menu,
+                    Icons.auto_awesome_outlined,
                     color: AppColors.textPrimary,
                     size: 26,
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 12),
                   Text(
-                    'GymUnity AI Assistant',
+                    'GymUnity AI Premium',
                     style: GoogleFonts.inter(
-                      fontSize: 17,
+                      fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const Spacer(),
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: AppColors.orange,
-                    child: const Icon(
-                      Icons.person,
-                      color: AppColors.white,
-                      size: 20,
                     ),
                   ),
                 ],
               ),
             ),
-            const Divider(color: AppColors.border, height: 1),
             Expanded(
-              child: SingleChildScrollView(
+              child: ListView(
                 padding: const EdgeInsets.all(AppSizes.screenPadding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
-                    Text(
-                      'How can I help you\ntoday?',
-                      style: GoogleFonts.inter(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                        height: 1.2,
-                      ),
+                children: [
+                  Text(
+                    'Use GymUnity AI for verified premium prompts and stored conversations only.',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: AppColors.textSecondary,
                     ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        _QuickChip(
-                          icon: Icons.auto_awesome,
-                          label: 'Build a workout plan',
-                          onTap: () => openConversation(
-                            seedPrompt:
-                                'Build a workout plan for me based on my current fitness level.',
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        _QuickChip(
-                          icon: Icons.restaurant,
-                          label: 'Nutrition tips',
-                          onTap: () => openConversation(
-                            seedPrompt:
-                                'Give me practical nutrition tips for my fitness goals.',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    Text(
-                      'Recent chats',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A1F14),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                        border: Border.all(
-                          color: AppColors.border.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _QuickChip(
+                        icon: Icons.auto_awesome,
+                        label: 'Build a workout plan',
+                        onTap: () => openConversation(
+                          seedPrompt:
+                              'Build a workout plan for me based on my current fitness level.',
                         ),
                       ),
-                      child: Column(
-                        children: List.generate(
-                          hasSessions ? sessions.length : _fallbackChats.length,
-                          (index) {
-                            final session = hasSessions
-                                ? sessions[index]
-                                : null;
-                            final fallback = hasSessions
-                                ? null
-                                : _fallbackChats[index];
-                            final title = hasSessions
-                                ? (session!.title.isEmpty
-                                      ? 'New chat'
-                                      : session.title)
-                                : fallback!['title'] as String;
-                            final subtitle = hasSessions
-                                ? _formatSessionTime(session!.updatedAt)
-                                : '${fallback!['time']} • ${fallback['messages']}';
-                            final icon = hasSessions
-                                ? Icons.chat_bubble
-                                : fallback!['icon'] as IconData;
-                            final iconColor = hasSessions
-                                ? AppColors.orange
-                                : fallback!['color'] as Color;
+                      _QuickChip(
+                        icon: Icons.restaurant,
+                        label: 'Nutrition tips',
+                        onTap: () => openConversation(
+                          seedPrompt:
+                              'Give me practical nutrition tips for my fitness goals.',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Recent chats',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  sessionsAsync.when(
+                    loading: () => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 30),
+                        child: CircularProgressIndicator(
+                          color: AppColors.orange,
+                        ),
+                      ),
+                    ),
+                    error: (error, stackTrace) => _StateCard(
+                      icon: Icons.cloud_off_outlined,
+                      title: 'Unable to load conversations',
+                      description:
+                          'GymUnity could not fetch AI sessions from the backend.',
+                      actionLabel: 'Retry',
+                      onTap: () => ref.refresh(chatSessionsProvider),
+                    ),
+                    data: (sessions) {
+                      if (sessions.isEmpty) {
+                        return _StateCard(
+                          icon: Icons.chat_bubble_outline,
+                          title: 'No conversations yet',
+                          description:
+                              'Start your first AI conversation and GymUnity will keep it here.',
+                          actionLabel: 'Start chat',
+                          onTap: startFreshChat,
+                        );
+                      }
 
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A1F14),
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.radiusLg,
+                          ),
+                          border: Border.all(
+                            color: AppColors.border.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Column(
+                          children: List.generate(sessions.length, (index) {
+                            final session = sessions[index];
                             return Column(
                               children: [
-                                ListTile(
-                                  leading: Container(
-                                    width: 42,
-                                    height: 42,
-                                    decoration: BoxDecoration(
-                                      color: iconColor.withValues(alpha: 0.15),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      icon,
-                                      color: iconColor,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    title,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    subtitle,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      color: AppColors.textMuted,
-                                    ),
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right,
-                                    color: AppColors.textMuted,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 4,
-                                  ),
-                                  onTap: () {
-                                    openConversation(
-                                      sessionId: session?.id,
-                                      seedPrompt: session == null
-                                          ? title
-                                          : null,
-                                    );
-                                  },
+                                _SessionTile(
+                                  session: session,
+                                  onTap: () =>
+                                      openConversation(sessionId: session.id),
                                 ),
-                                if (index <
-                                    (hasSessions
-                                            ? sessions.length
-                                            : _fallbackChats.length) -
-                                        1)
+                                if (index < sessions.length - 1)
                                   Divider(
                                     color: AppColors.border.withValues(
                                       alpha: 0.3,
@@ -265,12 +246,12 @@ class AiChatHomeScreen extends ConsumerWidget {
                                   ),
                               ],
                             );
-                          },
+                          }),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
             Padding(
@@ -289,14 +270,6 @@ class AiChatHomeScreen extends ConsumerWidget {
       ),
     );
   }
-
-  String _formatSessionTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final diff = now.difference(dateTime);
-    if (diff.inHours < 1) return 'Just now';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
-  }
 }
 
 class _QuickChip extends StatelessWidget {
@@ -312,35 +285,141 @@ class _QuickChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2A1F14),
-            borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-            border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: AppColors.orange, size: 18),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A1F14),
+          borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+          border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
         ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.orange, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SessionTile extends StatelessWidget {
+  const _SessionTile({required this.session, required this.onTap});
+
+  final ChatSessionEntity session;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: AppColors.orange.withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.chat_bubble_outline,
+          color: AppColors.orange,
+          size: 20,
+        ),
+      ),
+      title: Text(
+        session.title.isEmpty ? 'New chat' : session.title,
+        style: GoogleFonts.inter(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
+      subtitle: Text(
+        _formatSessionTime(session.updatedAt),
+        style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+      ),
+      trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    );
+  }
+
+  static String _formatSessionTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+    if (diff.inMinutes < 1) {
+      return 'Just now';
+    }
+    if (diff.inHours < 1) {
+      return '${diff.inMinutes}m ago';
+    }
+    if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    }
+    return '${diff.inDays}d ago';
+  }
+}
+
+class _StateCard extends StatelessWidget {
+  const _StateCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.actionLabel,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final String actionLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A1F14),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: AppColors.orange, size: 34),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              height: 1.45,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton(onPressed: onTap, child: Text(actionLabel)),
+        ],
       ),
     );
   }

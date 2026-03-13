@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/constants/app_strings.dart';
@@ -54,6 +55,31 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final pageData = AppConfig.current.isProduction
+        ? const [
+            {
+              'headline': 'Your Fitness,\nUnified.',
+              'subtitle':
+                  'One account for your training, AI guidance, and trusted GymUnity resources.',
+            },
+            {
+              'headline': 'AI-Guided\nMomentum.',
+              'subtitle':
+                  'Use GymUnity AI for workout ideas, habit prompts, and training clarity.',
+            },
+            {
+              'headline': 'Browse Trusted\nResources.',
+              'subtitle':
+                  'Explore curated products and coaches without fake checkout or demo flows.',
+            },
+            {
+              'headline': 'Own Your\nAccount.',
+              'subtitle':
+                  'Review privacy terms, support channels, and in-app account deletion before you commit.',
+            },
+          ]
+        : _pages;
+
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -203,9 +229,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 Expanded(
                   child: PageView.builder(
                     controller: _pageController,
-                    itemCount: _pages.length,
+                    itemCount: pageData.length,
                     itemBuilder: (context, index) {
-                      final page = _pages[index];
+                      final page = pageData[index];
                       return Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSizes.screenPadding,
@@ -305,7 +331,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 // â”€â”€ Page indicator â”€â”€
                 SmoothPageIndicator(
                   controller: _pageController,
-                  count: _pages.length,
+                  count: pageData.length,
                   effect: ExpandingDotsEffect(
                     dotHeight: 6,
                     dotWidth: 6,

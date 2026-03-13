@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../monetization/presentation/providers/monetization_providers.dart';
 import '../../domain/entities/chat_message_entity.dart';
 import '../providers/chat_controller.dart';
 import '../providers/chat_providers.dart';
@@ -32,9 +36,7 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
         ref.read(activeChatSessionIdProvider.notifier).state = widget.sessionId;
       });
     }
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _consumePendingPrompt(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _consumePendingPrompt());
   }
 
   @override
@@ -46,6 +48,52 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final gateAsync = ref.watch(aiPremiumGateProvider);
+
+    return gateAsync.when(
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFFF5F0EB),
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stackTrace) => Scaffold(
+        backgroundColor: const Color(0xFFF5F0EB),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSizes.screenPadding),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'GymUnity could not verify AI Premium access right now.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                  onPressed: () => ref
+                      .read(currentSubscriptionSummaryProvider.notifier)
+                      .refreshFromBackend(),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      data: (gate) {
+        if (gate.requiresBilling && !gate.hasAccess) {
+          return _LockedConversationScreen(message: gate.message);
+        }
+        return _buildUnlockedConversation(context);
+      },
+    );
+  }
+
+  Widget _buildUnlockedConversation(BuildContext context) {
     final controllerState = ref.watch(chatControllerProvider);
     final activeSessionId =
         ref.watch(activeChatSessionIdProvider) ?? widget.sessionId;
@@ -86,57 +134,21 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'GymUnity AI',
+                          'GymUnity AI Premium',
                           style: GoogleFonts.inter(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textDark,
                           ),
                         ),
-                        Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: AppColors.limeGreen,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Online • Elite Performance Coach',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: AppColors.orange,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'Verified premium conversation',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.orange,
+                          ),
                         ),
                       ],
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => showAppFeedback(
-                      context,
-                      'Voice and calls will be enabled after media features are connected.',
-                    ),
-                    child: const Icon(
-                      Icons.phone_outlined,
-                      color: AppColors.textDark,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  GestureDetector(
-                    onTap: () => showAppFeedback(
-                      context,
-                      'More AI conversation actions will appear here soon.',
-                    ),
-                    child: const Icon(
-                      Icons.more_vert,
-                      color: AppColors.textDark,
-                      size: 24,
                     ),
                   ),
                 ],
@@ -176,7 +188,7 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
                         sessionId: 'seed',
                         sender: 'assistant',
                         content:
-                            'Welcome back! Ask me for a workout plan, nutrition tips, or progress analysis.',
+                            'Welcome back. Ask for a workout structure, nutrition help, or an AI-guided plan.',
                         createdAt: DateTime.now(),
                       ),
                     ),
@@ -187,7 +199,7 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
                       child: Row(
                         children: [
                           Text(
-                            '• • •  ',
+                            '...  ',
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -209,35 +221,6 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
                 ],
               ),
             ),
-            SizedBox(
-              height: 40,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  _SuggestionChip(
-                    label: 'Show technique video',
-                    onTap: () => _handleSuggestion(
-                      'Show technique cues for the workout I am doing right now.',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  _SuggestionChip(
-                    label: 'Log equipment weight',
-                    onTap: () => _handleSuggestion(
-                      'Help me log the equipment weight for my next exercise.',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  _SuggestionChip(
-                    label: 'Add to plan',
-                    onTap: () => _handleSuggestion(
-                      'Add this recommendation to my training plan.',
-                    ),
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -247,70 +230,37 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
               ),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => showAppFeedback(
-                      context,
-                      'Attachments will be enabled after media upload support is connected.',
-                    ),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(
-                        color: AppColors.border,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.add,
-                        color: AppColors.textSecondary,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: _messageController,
-                      onSubmitted: (_) => _sendMessage(),
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        color: AppColors.textDark,
-                      ),
+                      minLines: 1,
+                      maxLines: 4,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _handleSend(),
                       decoration: InputDecoration(
-                        hintText: 'Ask GymUnity AI...',
-                        hintStyle: GoogleFonts.inter(
-                          fontSize: 15,
-                          color: AppColors.textMuted,
+                        hintText: 'Ask GymUnity AI Premium',
+                        filled: true,
+                        fillColor: AppColors.background,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.radiusFull,
+                          ),
+                          borderSide: BorderSide.none,
                         ),
-                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
                       ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => showAppFeedback(
-                      context,
-                      'Voice input will be enabled after audio capture is connected.',
-                    ),
-                    child: const Icon(
-                      Icons.mic_none,
-                      color: AppColors.textSecondary,
-                      size: 24,
                     ),
                   ),
                   const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: controllerState.isSending ? null : _sendMessage,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: AppColors.orange,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.send,
-                        color: AppColors.white,
-                        size: 20,
-                      ),
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: AppColors.orange,
+                    child: IconButton(
+                      onPressed: controllerState.isSending ? null : _handleSend,
+                      icon: const Icon(Icons.send, color: AppColors.white),
                     ),
                   ),
                 ],
@@ -322,175 +272,149 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
     );
   }
 
-  Future<void> _consumePendingPrompt() async {
-    if (_consumedPendingPrompt) return;
-    final pending = ref.read(pendingChatPromptProvider);
-    if (pending == null || pending.trim().isEmpty) return;
+  Widget _buildMessage(ChatMessageEntity message) {
+    final isUser = message.sender == 'user';
 
-    _consumedPendingPrompt = true;
-    ref.read(pendingChatPromptProvider.notifier).state = null;
-    _messageController.text = pending.trim();
-    await _sendMessage();
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        constraints: const BoxConstraints(maxWidth: 320),
+        decoration: BoxDecoration(
+          color: isUser ? AppColors.orange : Colors.white,
+          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+          border: Border.all(color: AppColors.border.withValues(alpha: 0.4)),
+        ),
+        child: Text(
+          message.content,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            height: 1.5,
+            color: isUser ? AppColors.white : AppColors.textDark,
+          ),
+        ),
+      ),
+    );
   }
 
-  Future<void> _handleSuggestion(String suggestion) async {
-    _messageController.text = suggestion;
-    await _sendMessage();
-  }
-
-  Future<void> _sendMessage() async {
-    final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+  Future<void> _handleSend() async {
+    final rawMessage = _messageController.text.trim();
+    if (rawMessage.isEmpty) {
+      return;
+    }
 
     final controller = ref.read(chatControllerProvider.notifier);
-    final existing = ref.read(activeChatSessionIdProvider) ?? widget.sessionId;
+    String? sessionId =
+        ref.read(activeChatSessionIdProvider) ?? widget.sessionId;
 
     try {
-      final sessionId = await controller.createSessionIfNeeded(existing);
+      sessionId = await controller.createSessionIfNeeded(sessionId);
       ref.read(activeChatSessionIdProvider.notifier).state = sessionId;
       _messageController.clear();
-
       final sent = await controller.sendMessage(
         sessionId: sessionId,
-        message: text,
+        message: rawMessage,
       );
-      if (!mounted) return;
-
-      if (!sent) {
-        final error =
-            ref.read(chatControllerProvider).errorMessage ??
-            'Unable to send your message right now.';
-        showAppFeedback(context, error);
+      if (!sent && mounted) {
+        showAppFeedback(
+          context,
+          ref.read(chatControllerProvider).errorMessage ??
+              'GymUnity could not send this message right now.',
+        );
+      }
+    } catch (_) {
+      if (!mounted) {
         return;
       }
-
-      _scrollToBottom();
-    } catch (_) {
-      if (!mounted) return;
       showAppFeedback(
         context,
-        'AI chat needs a signed-in user and a working backend connection before it can send messages.',
+        'GymUnity could not start this AI conversation right now.',
       );
     }
   }
 
+  void _consumePendingPrompt() {
+    if (_consumedPendingPrompt) {
+      return;
+    }
+    _consumedPendingPrompt = true;
+    final prompt = ref.read(pendingChatPromptProvider);
+    if (prompt == null || prompt.trim().isEmpty) {
+      return;
+    }
+    ref.read(pendingChatPromptProvider.notifier).state = null;
+    _messageController.text = prompt.trim();
+    unawaited(_handleSend());
+  }
+
   void _scrollToBottom() {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients) {
+      return;
+    }
     _scrollController.animateTo(
       _scrollController.position.maxScrollExtent,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
     );
   }
-
-  Widget _buildMessage(ChatMessageEntity message) {
-    final isUser = message.sender == 'user';
-    final timestamp = TimeOfDay.fromDateTime(message.createdAt).format(context);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        crossAxisAlignment: isUser
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          Text(
-            isUser ? 'You • $timestamp' : 'GymUnity AI • $timestamp',
-            style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: isUser
-                ? MainAxisAlignment.end
-                : MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (!isUser) ...[
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: const Color(0xFFE0E0E0),
-                  child: Text(
-                    'AI',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isUser ? AppColors.orange : Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(18),
-                      topRight: const Radius.circular(18),
-                      bottomLeft: Radius.circular(isUser ? 18 : 4),
-                      bottomRight: Radius.circular(isUser ? 4 : 18),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.black.withValues(alpha: 0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    message.content,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      color: isUser ? AppColors.white : AppColors.textDark,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ),
-              if (isUser) ...[
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: AppColors.orange.withValues(alpha: 0.2),
-                  child: const Icon(
-                    Icons.person,
-                    color: AppColors.textDark,
-                    size: 18,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class _SuggestionChip extends StatelessWidget {
-  const _SuggestionChip({required this.label, required this.onTap});
+class _LockedConversationScreen extends StatelessWidget {
+  const _LockedConversationScreen({required this.message});
 
-  final String label;
-  final VoidCallback onTap;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(AppSizes.radiusFull),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textDark,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F0EB),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSizes.screenPadding),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.lock_outline,
+                size: 42,
+                color: AppColors.orange,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'AI Premium required',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton(
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.aiPremiumPaywall),
+                child: const Text('View Plans'),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.subscriptionManagement,
+                ),
+                child: const Text('Subscription Status'),
+              ),
+            ],
           ),
         ),
       ),

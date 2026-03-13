@@ -1,6 +1,6 @@
 # Supabase Phase 1 Setup
 
-This project is now preconfigured to use the `pooelnnveljiikpdrvqw` Supabase project from a local `.env`.
+This project is now preconfigured to use the `pooelnnveljiikpdrvqw` Supabase project from a local `.env` that is converted into `--dart-define` values for Flutter.
 
 ## Local app config
 
@@ -12,12 +12,15 @@ The local `.env` file contains:
 
 `.env` is ignored by Git so the local project can run without committing credentials.
 
-If the `.env` file changes, regenerate env output:
+Use the helper scripts to launch or build the app with the correct defines:
 
 ```powershell
-dart run build_runner clean
-dart run build_runner build --delete-conflicting-outputs
+powershell -ExecutionPolicy Bypass -File .\scripts\flutter_run_dev.ps1 -DeviceId emulator-5554
 ```
+
+See also:
+
+- `docs/local_config_standardization.md`
 
 ## Dashboard work that still must be done
 

@@ -34,7 +34,13 @@ class AppStrings {
   static const String googleSignInDidNotComplete =
       'Google sign-in did not complete. Check Google provider / redirect configuration and try again.';
   static const String googleSignInSetupHint =
-      'Enable Google in Supabase and add gymunity://auth-callback to redirect URLs.';
+      'Enable Google in Supabase and add the configured GymUnity redirect URI to the allowed redirect URLs.';
+  static const String appleSignInSetupHint =
+      'Enable Apple in Supabase and add the configured GymUnity redirect URI to the allowed redirect URLs.';
+  static const String completingPasswordRecovery =
+      'Completing password recovery...';
+  static const String passwordRecoveryDidNotComplete =
+      'Password recovery did not complete. Open the latest reset email and try the link again.';
 
   // ── Register ──
   static const String createYourAccount = 'Create Your Account';
@@ -52,6 +58,10 @@ class AppStrings {
       'Enter your email and we\'ll send you\na password reset link';
   static const String sendResetCode = 'SEND RESET LINK';
   static const String backToLogin = 'Back to Login';
+  static const String setNewPassword = 'Set New Password';
+  static const String setNewPasswordSubtitle =
+      'Choose a new password for your GymUnity account.';
+  static const String updatePassword = 'UPDATE PASSWORD';
 
   // ── OTP ──
   static const String verification = 'Verification';
@@ -80,4 +90,8 @@ class AppStrings {
   static const String select = 'Select';
   static const String alreadyHaveAccountRole = 'Already have an account?';
   static const String logIn = 'Log in';
+
+  static String oauthSignInDidNotComplete(String providerLabel) {
+    return '$providerLabel sign-in did not complete. Check provider configuration and try again.';
+  }
 }

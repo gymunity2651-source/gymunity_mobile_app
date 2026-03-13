@@ -1,555 +1,378 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
+import '../../../user/domain/entities/profile_entity.dart';
 
 class MemberHomeContent extends ConsumerWidget {
   const MemberHomeContent({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
-    final firstName = (profile?.fullName?.trim().isNotEmpty ?? false)
-        ? profile!.fullName!.split(' ').first
-        : 'Alex';
+    final profileAsync = ref.watch(currentUserProfileProvider);
+    final aiPremiumEnabled = AppConfig.current.enableAiPremium;
 
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSizes.screenPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.orange, AppColors.electricBlue],
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const CircleAvatar(
-                    radius: 26,
-                    backgroundColor: AppColors.cardDark,
-                    child: Icon(Icons.person, color: AppColors.white, size: 28),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome back,',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    Text(
-                      'Hello, $firstName',
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(context, AppRoutes.notifications);
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: AppColors.glass,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.borderLight),
-                    ),
-                    child: const Icon(
-                      Icons.notifications_outlined,
-                      color: AppColors.textSecondary,
-                      size: 22,
-                    ),
-                  ),
-                ),
-              ],
+      child: RefreshIndicator.adaptive(
+        onRefresh: () => ref.refresh(currentUserProfileProvider.future),
+        child: profileAsync.when(
+          loading: () => const _HomeStateScaffold(
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.orange),
             ),
-            const SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.cardDark, AppColors.surfaceRaised],
-                ),
-                borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-                border: Border.all(color: AppColors.borderLight),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.black.withValues(alpha: 0.22),
-                    blurRadius: 22,
-                    offset: const Offset(0, 14),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Daily Progress',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.orange.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: AppColors.orange.withValues(alpha: 0.35),
-                          ),
-                        ),
-                        child: Text(
-                          'Today',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.orangeLight,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: const [
-                      _ProgressRing(
-                        value: 0.7,
-                        color: AppColors.orange,
-                        icon: Icons.local_fire_department,
-                        label: 'CALORIES',
-                        stat: '850 kcal',
-                      ),
-                      _ProgressRing(
-                        value: 0.85,
-                        color: AppColors.electricBlue,
-                        icon: Icons.directions_walk,
-                        label: 'STEPS',
-                        stat: '12,400',
-                      ),
-                      _ProgressRing(
-                        value: 0.6,
-                        color: Color(0xFFE04060),
-                        icon: Icons.favorite,
-                        label: 'HEART RATE',
-                        stat: '72 bpm',
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+          ),
+          error: (error, stackTrace) => _HomeStateScaffold(
+            child: _StatusCard(
+              icon: Icons.cloud_off_outlined,
+              title: 'Unable to load your account',
+              description:
+                  'GymUnity could not refresh your account details right now.',
+              actionLabel: 'Retry',
+              onTap: () => ref.refresh(currentUserProfileProvider),
             ),
-            const SizedBox(height: 28),
-            Row(
-              children: [
-                Text(
-                  'AI Recommendations',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
+          ),
+          data: (profile) {
+            if (profile == null) {
+              return _HomeStateScaffold(
+                child: _StatusCard(
+                  icon: Icons.person_search_outlined,
+                  title: 'Finish setting up your account',
+                  description:
+                      'Your GymUnity member profile is signed in, but the in-app profile is not complete yet.',
+                  actionLabel: 'Choose role',
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.roleSelection),
                 ),
-                const Spacer(),
-                Text(
-                  'Refresh',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.orange,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _buildAiCard(),
-            const SizedBox(height: 28),
-            Row(
-              children: [
-                Text(
-                  'Featured Coaches',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  'View all',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.orange,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              height: 230,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: const [
-                  _CoachMiniCard(
-                    name: 'Marcus Chen',
-                    rating: '4.9',
-                    reviews: '1.2k',
-                  ),
-                  SizedBox(width: 14),
-                  _CoachMiniCard(
-                    name: 'Sarah Miller',
-                    rating: '4.8',
-                    reviews: '850',
-                  ),
-                  SizedBox(width: 14),
-                  _CoachMiniCard(
-                    name: 'Jake Wilson',
-                    rating: '4.7',
-                    reviews: '600',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
+              );
+            }
 
-  Widget _buildAiCard() {
-    return Container(
-      height: 210,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF141D26), Color(0xFF111A2D), Color(0xFF1A2230)],
+            return _MemberHomeLoaded(
+              profile: profile,
+              aiPremiumEnabled: aiPremiumEnabled,
+            );
+          },
         ),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -40,
-            right: -20,
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.limeGreen.withValues(alpha: 0.14),
-                    AppColors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -30,
-            left: -10,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.electricBlue.withValues(alpha: 0.12),
-                    AppColors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.orange,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    'ADVANCED',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.white,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Morning HIIT Workout',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Focus: Explosive Power • 25 mins',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.orange, AppColors.orangeLight],
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.orange.withValues(alpha: 0.24),
-                    blurRadius: 18,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.play_arrow,
-                color: AppColors.white,
-                size: 30,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 }
 
-class _ProgressRing extends StatelessWidget {
-  const _ProgressRing({
-    required this.value,
-    required this.color,
-    required this.icon,
-    required this.label,
-    required this.stat,
+class _MemberHomeLoaded extends StatelessWidget {
+  const _MemberHomeLoaded({
+    required this.profile,
+    required this.aiPremiumEnabled,
   });
 
-  final double value;
-  final Color color;
-  final IconData icon;
-  final String label;
-  final String stat;
+  final ProfileEntity profile;
+  final bool aiPremiumEnabled;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final fullName = profile.fullName?.trim().isNotEmpty == true
+        ? profile.fullName!.trim()
+        : 'GymUnity Member';
+    final firstName = fullName.split(' ').first;
+    final email = profile.email?.trim().isNotEmpty == true
+        ? profile.email!.trim()
+        : 'No email available';
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(AppSizes.screenPadding),
       children: [
-        SizedBox(
-          width: 72,
-          height: 72,
-          child: CustomPaint(
-            painter: _RingPainter(value: value, color: color),
-            child: Center(child: Icon(icon, color: color, size: 24)),
-          ),
-        ),
-        const SizedBox(height: 10),
         Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textMuted,
-            letterSpacing: 1,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          stat,
-          style: GoogleFonts.inter(
-            fontSize: 14,
+          'Welcome back, $firstName',
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 28,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
           ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'This member dashboard only shows live account-backed entry points that are ready for review.',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            height: 1.5,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.cardDark,
+            borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                fullName,
+                style: GoogleFonts.inter(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                email,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _Pill(
+                    label: profile.onboardingCompleted
+                        ? 'Member profile ready'
+                        : 'Onboarding pending',
+                    accent: profile.onboardingCompleted
+                        ? AppColors.limeGreen
+                        : AppColors.orange,
+                  ),
+                  const _Pill(
+                    label: 'Submission-safe navigation',
+                    accent: AppColors.electricBlue,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        _SectionTitle(title: 'Quick Actions'),
+        const SizedBox(height: 12),
+        _QuickActionCard(
+          icon: Icons.auto_awesome_outlined,
+          title: aiPremiumEnabled ? 'Open AI Premium' : 'Open AI Assistant',
+          description:
+              aiPremiumEnabled
+              ? 'Review the store-billed AI Premium path or open your verified AI conversations.'
+              : 'Send a real prompt, view real sessions, and handle backend failures explicitly.',
+          onTap: () => Navigator.pushNamed(context, AppRoutes.aiChatHome),
+        ),
+        const SizedBox(height: 12),
+        _QuickActionCard(
+          icon: Icons.storefront_outlined,
+          title: 'Browse Store',
+          description:
+              'Review the current product catalog without fake checkout or preview purchases.',
+          onTap: () => Navigator.pushNamed(context, AppRoutes.storeHome),
+        ),
+        const SizedBox(height: 12),
+        _QuickActionCard(
+          icon: Icons.groups_outlined,
+          title: 'Browse Coaches',
+          description:
+              'Compare listed coaches without demo package requests or fake checkout.',
+          onTap: () => Navigator.pushNamed(context, AppRoutes.coaches),
+        ),
+        const SizedBox(height: 12),
+        _QuickActionCard(
+          icon: Icons.settings_outlined,
+          title: 'Account Settings',
+          description:
+              'Manage legal links, notifications, support channels, logout, and account deletion.',
+          onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
         ),
       ],
     );
   }
 }
 
-class _RingPainter extends CustomPainter {
-  _RingPainter({required this.value, required this.color});
+class _HomeStateScaffold extends StatelessWidget {
+  const _HomeStateScaffold({required this.child});
 
-  final double value;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 4;
-    const strokeWidth = 6.0;
-
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = color.withValues(alpha: 0.15)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth,
-    );
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -pi / 2,
-      2 * pi * value,
-      false,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round,
-    );
-  }
+  final Widget child;
 
   @override
-  bool shouldRepaint(covariant _RingPainter old) {
-    return old.value != value || old.color != color;
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(AppSizes.screenPadding),
+      children: [const SizedBox(height: 20), child],
+    );
   }
 }
 
-class _CoachMiniCard extends StatelessWidget {
-  const _CoachMiniCard({
-    required this.name,
-    required this.rating,
-    required this.reviews,
+class _StatusCard extends StatelessWidget {
+  const _StatusCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.actionLabel,
+    required this.onTap,
   });
 
-  final String name;
-  final String rating;
-  final String reviews;
+  final IconData icon;
+  final String title;
+  final String description;
+  final String actionLabel;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 170,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppColors.cardDark, AppColors.surfaceRaised],
-        ),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        border: Border.all(color: AppColors.borderLight),
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF131A22), Color(0xFF1A2431)],
-                ),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(AppSizes.radiusLg),
-                ),
-              ),
-              child: const Center(
-                child: Icon(Icons.person, size: 48, color: AppColors.textMuted),
-              ),
+          Icon(icon, color: AppColors.orange, size: 36),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      rating,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '($reviews)',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          const SizedBox(height: 10),
+          Text(
+            description,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              height: 1.45,
+              color: AppColors.textSecondary,
             ),
+          ),
+          const SizedBox(height: 18),
+          ElevatedButton(
+            onPressed: onTap,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.orange,
+              foregroundColor: AppColors.white,
+            ),
+            child: Text(actionLabel),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: GoogleFonts.inter(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textMuted,
+      ),
+    );
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  const _QuickActionCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.cardDark,
+          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: AppColors.orange.withValues(alpha: 0.16),
+              child: Icon(icon, color: AppColors.orange),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({required this.label, required this.accent});
+
+  final String label;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: accent,
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/constants/app_strings.dart';
@@ -18,6 +19,72 @@ class RoleSelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final config = AppConfig.current;
+    final cards = <Widget>[
+      _RoleCard(
+        title: AppStrings.member,
+        description: AppStrings.memberDesc,
+        cta: AppStrings.memberCta,
+        icon: Icons.fitness_center,
+        badge: AppStrings.popular,
+        imagePath: 'assets/images/role_selection.png',
+        onSelect: () {
+          _onSelectRole(
+            context: context,
+            ref: ref,
+            role: AppRole.member,
+            route: AppRoutes.memberOnboarding,
+          );
+        },
+      ),
+    ];
+
+    if (config.enableSellerRole) {
+      cards.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: _RoleCard(
+            title: AppStrings.seller,
+            description: AppStrings.sellerDesc,
+            cta: AppStrings.sellerCta,
+            icon: Icons.storefront_outlined,
+            imagePath: 'assets/images/fitness_store_home.png',
+            onSelect: () {
+              _onSelectRole(
+                context: context,
+                ref: ref,
+                role: AppRole.seller,
+                route: AppRoutes.sellerOnboarding,
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    if (config.enableCoachRole) {
+      cards.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: _RoleCard(
+            title: AppStrings.coach,
+            description: AppStrings.coachDesc,
+            cta: AppStrings.coachCta,
+            icon: Icons.groups_outlined,
+            imagePath: 'assets/images/discover_coaches.png',
+            onSelect: () {
+              _onSelectRole(
+                context: context,
+                ref: ref,
+                role: AppRole.coach,
+                route: AppRoutes.coachOnboarding,
+              );
+            },
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
       body: SafeArea(
@@ -69,7 +136,9 @@ class RoleSelectionScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  AppStrings.roleSubtitle,
+                  config.isProduction
+                      ? 'Choose your member experience to continue into GymUnity.'
+                      : AppStrings.roleSubtitle,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: AppColors.textSecondary,
@@ -80,54 +149,7 @@ class RoleSelectionScreen extends ConsumerWidget {
             const SizedBox(height: 20),
 
             // â”€â”€ Role cards â”€â”€
-            _RoleCard(
-              title: AppStrings.member,
-              description: AppStrings.memberDesc,
-              cta: AppStrings.memberCta,
-              icon: Icons.fitness_center,
-              badge: AppStrings.popular,
-              imagePath: 'assets/images/role_selection.png',
-              onSelect: () {
-                _onSelectRole(
-                  context: context,
-                  ref: ref,
-                  role: AppRole.member,
-                  route: AppRoutes.memberOnboarding,
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            _RoleCard(
-              title: AppStrings.seller,
-              description: AppStrings.sellerDesc,
-              cta: AppStrings.sellerCta,
-              icon: Icons.storefront_outlined,
-              imagePath: 'assets/images/fitness_store_home.png',
-              onSelect: () {
-                _onSelectRole(
-                  context: context,
-                  ref: ref,
-                  role: AppRole.seller,
-                  route: AppRoutes.sellerOnboarding,
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            _RoleCard(
-              title: AppStrings.coach,
-              description: AppStrings.coachDesc,
-              cta: AppStrings.coachCta,
-              icon: Icons.groups_outlined,
-              imagePath: 'assets/images/discover_coaches.png',
-              onSelect: () {
-                _onSelectRole(
-                  context: context,
-                  ref: ref,
-                  role: AppRole.coach,
-                  route: AppRoutes.coachOnboarding,
-                );
-              },
-            ),
+            ...cards,
             const SizedBox(height: 24),
 
             // â”€â”€ Already have account â”€â”€

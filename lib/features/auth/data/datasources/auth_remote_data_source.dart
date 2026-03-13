@@ -1,11 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/constants/auth_constants.dart';
+import '../../domain/entities/auth_provider_type.dart';
 import '../../domain/entities/otp_flow.dart';
 
 class AuthRemoteDataSource {
   AuthRemoteDataSource(this._client);
 
   final SupabaseClient _client;
+  User? get currentAuthUser => _client.auth.currentUser;
 
   Future<AuthResponse> signUp({
     required String email,
@@ -26,13 +29,15 @@ class AuthRemoteDataSource {
     return _client.auth.signInWithPassword(email: email, password: password);
   }
 
-  // External setup required before this flow will work:
-  // Supabase Dashboard -> Authentication -> Providers -> Google
-  // Then add the same redirect URL to Supabase URL Configuration.
-  Future<bool> signInWithGoogle({required String redirectTo}) {
+  Future<bool> signInWithOAuth({
+    required OAuthProvider provider,
+    required String redirectTo,
+    LaunchMode authScreenLaunchMode = LaunchMode.platformDefault,
+  }) {
     return _client.auth.signInWithOAuth(
-      OAuthProvider.google,
+      provider,
       redirectTo: redirectTo,
+      authScreenLaunchMode: authScreenLaunchMode,
     );
   }
 
@@ -45,13 +50,53 @@ class AuthRemoteDataSource {
         await _client.auth.resend(type: OtpType.signup, email: email);
         break;
       case OtpFlowMode.recovery:
-        await _client.auth.resetPasswordForEmail(email);
+        await _client.auth.resetPasswordForEmail(
+          email,
+          redirectTo: AppAuthConstants.oauthRedirect,
+        );
         break;
     }
   }
 
   Future<void> requestPasswordReset({required String email}) {
-    return _client.auth.resetPasswordForEmail(email);
+    return _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: AppAuthConstants.oauthRedirect,
+    );
+  }
+
+  Future<UserResponse> updatePassword({required String newPassword}) {
+    return _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
+  Future<AuthResponse> reauthenticateWithPassword({
+    required String email,
+    required String password,
+  }) {
+    return _client.auth.signInWithPassword(email: email, password: password);
+  }
+
+  Future<FunctionResponse> invokeDeleteAccount({String? currentPassword}) {
+    return _client.functions.invoke(
+      'delete-account',
+      body: <String, dynamic>{
+        if (currentPassword != null && currentPassword.trim().isNotEmpty)
+          'current_password': currentPassword.trim(),
+      },
+    );
+  }
+
+  AuthProviderType? getCurrentProvider() {
+    final identities = currentAuthUser?.identities ?? const <UserIdentity>[];
+    final identityProvider = identities.isNotEmpty
+        ? identities.first.provider
+        : null;
+    final providerId =
+        currentAuthUser?.appMetadata['provider'] as String? ?? identityProvider;
+    if (providerId == null || providerId.trim().isEmpty) {
+      return null;
+    }
+    return AuthProviderType.fromProviderId(providerId);
   }
 
   Future<AuthResponse> verifyOtp({

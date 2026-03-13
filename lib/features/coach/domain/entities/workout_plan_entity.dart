@@ -6,6 +6,12 @@ class WorkoutPlanEntity {
     required this.source,
     required this.title,
     required this.status,
+    this.planJson = const <String, dynamic>{},
+    this.startDate,
+    this.endDate,
+    this.assignedAt,
+    this.updatedAt,
+    this.completedAt,
   });
 
   final String id;
@@ -14,5 +20,10 @@ class WorkoutPlanEntity {
   final String source;
   final String title;
   final String status;
+  final Map<String, dynamic> planJson;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final DateTime? assignedAt;
+  final DateTime? updatedAt;
+  final DateTime? completedAt;
 }
-

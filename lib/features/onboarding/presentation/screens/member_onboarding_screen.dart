@@ -89,9 +89,37 @@ class _MemberOnboardingScreenState
       return;
     }
 
+    final age = int.tryParse(_ageController.text.trim());
+    final height = double.tryParse(_heightController.text.trim());
+    final weight = double.tryParse(_weightController.text.trim());
+    if (age == null || age < 13) {
+      _showMessage('Enter a valid age to continue.');
+      return;
+    }
+    if (height == null || height <= 0) {
+      _showMessage('Enter a valid height in centimeters.');
+      return;
+    }
+    if (weight == null || weight <= 0) {
+      _showMessage('Enter a valid weight in kilograms.');
+      return;
+    }
+    if (_selectedExperience < 0 || _selectedFrequency < 0) {
+      _showMessage('Complete all onboarding steps before continuing.');
+      return;
+    }
+
     final success = await ref
         .read(onboardingControllerProvider.notifier)
-        .completeMemberOnboarding();
+        .completeMemberOnboarding(
+          goal: _goalValue(_goals[_selectedGoal].title),
+          age: age,
+          gender: _genderValue(_selectedGender),
+          heightCm: height,
+          currentWeightKg: weight,
+          trainingFrequency: _frequencyValue(_frequencies[_selectedFrequency]),
+          experienceLevel: _experienceValue(_experiences[_selectedExperience]),
+        );
     if (!mounted) return;
     if (!success) {
       _showMessage(
@@ -106,6 +134,37 @@ class _MemberOnboardingScreenState
       AppRoutes.memberHome,
       (route) => false,
     );
+  }
+
+  String _goalValue(String raw) {
+    return raw.trim().toLowerCase().replaceAll(' ', '_');
+  }
+
+  String _genderValue(String raw) {
+    final value = raw.trim().toLowerCase();
+    if (value == 'other') {
+      return 'prefer_not_to_say';
+    }
+    return value;
+  }
+
+  String _frequencyValue(String raw) {
+    switch (raw) {
+      case '1-2 days/week':
+        return '1_2_days_per_week';
+      case '3-4 days/week':
+        return '3_4_days_per_week';
+      case '5-6 days/week':
+        return '5_6_days_per_week';
+      case 'Every day':
+        return 'daily';
+      default:
+        return raw.trim().toLowerCase().replaceAll(' ', '_');
+    }
+  }
+
+  String _experienceValue(String raw) {
+    return raw.trim().toLowerCase();
   }
 
   void _prevStep() {

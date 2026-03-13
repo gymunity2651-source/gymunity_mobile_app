@@ -28,7 +28,7 @@
 	     routing them into Flutter Navigator as raw paths like "/?code=...". -->
 	<key>FlutterDeepLinkingEnabled</key>
 	<false/>
-	<!-- Placeholder OAuth callback. Keep this in sync with
+	<!-- Development OAuth callback. Keep this in sync with
 	     Supabase Dashboard -> Authentication -> URL Configuration. -->
 	<key>CFBundleURLTypes</key>
 	<array>
@@ -40,6 +40,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>gymunity</string>
+				<string>gymunity-dev</string>
 			</array>
 		</dict>
 	</array>

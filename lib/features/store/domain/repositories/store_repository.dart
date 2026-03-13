@@ -1,6 +1,8 @@
 import '../../../../core/result/paged.dart';
+import '../entities/cart_entity.dart';
 import '../entities/order_entity.dart';
 import '../entities/product_entity.dart';
+import '../entities/shipping_address_entity.dart';
 
 abstract class StoreRepository {
   Future<Paged<ProductEntity>> listProducts({
@@ -9,28 +11,48 @@ abstract class StoreRepository {
     int limit = 20,
   });
 
-  Future<void> createOrUpdateProduct({
-    String? productId,
-    required String title,
-    required String description,
-    required String category,
-    required double price,
-    required int stockQty,
-    List<String> imagePaths = const <String>[],
+  Future<ProductEntity?> getProductById(String productId);
+
+  Future<CartEntity> getCart();
+
+  Future<CartEntity> addToCart({
+    required ProductEntity product,
+    int quantity = 1,
   });
 
-  Future<String> uploadProductImage({
+  Future<CartEntity> updateCartQuantity({
     required String productId,
-    required List<int> bytes,
-    String extension = 'jpg',
+    required int quantity,
   });
 
-  Future<OrderEntity> placeOrder({
-    required String sellerId,
-    required List<Map<String, dynamic>> items,
-    required double totalAmount,
-    String currency = 'USD',
+  Future<CartEntity> removeCartItem(String productId);
+
+  Future<CartEntity> clearInvalidCartItems();
+
+  Future<Set<String>> getFavoriteIds();
+
+  Future<List<ProductEntity>> getFavoriteProducts();
+
+  Future<bool> toggleFavorite(ProductEntity product);
+
+  Future<List<ShippingAddressEntity>> listShippingAddresses();
+
+  Future<ShippingAddressEntity> saveShippingAddress(
+    ShippingAddressEntity address,
+  );
+
+  Future<void> deleteShippingAddress(String addressId);
+
+  Future<List<ShippingAddressEntity>> setDefaultShippingAddress(
+    String addressId,
+  );
+
+  Future<List<OrderEntity>> placeOrderFromCart({
+    required String addressId,
+    required String idempotencyKey,
   });
 
   Future<List<OrderEntity>> listMyOrders();
+
+  Future<OrderEntity?> getMyOrderDetails(String orderId);
 }

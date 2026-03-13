@@ -12,18 +12,24 @@ flutter pub get
 
 2. Ensure the local `.env` file exists at the project root.
 
-3. Regenerate env output after changing `.env`:
+3. Run the app through the local config helper:
 
 ```powershell
-dart run build_runner clean
-dart run build_runner build --delete-conflicting-outputs
+powershell -ExecutionPolicy Bypass -File .\scripts\flutter_run_dev.ps1 -DeviceId emulator-5554
 ```
 
-4. Run the app:
+4. Build local Android artifacts through the same config path when needed:
 
 ```powershell
-flutter run
+powershell -ExecutionPolicy Bypass -File .\scripts\flutter_build_apk_dev.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\flutter_build_appbundle_dev.ps1
 ```
+
+Important:
+
+- GymUnity reads runtime config from `--dart-define`, not directly from `.env`.
+- Raw `flutter run` does not read `.env` automatically.
+- Local helper commands are documented in `docs/local_config_standardization.md`.
 
 ## Supabase setup
 

@@ -3,7 +3,8 @@
 GymUnity uses Supabase browser-based OAuth for Google sign-in.
 
 ## In App
-- Redirect placeholder used everywhere: `gymunity://auth-callback`
+- Primary development redirect used by the app: `gymunity://auth-callback`
+- Backward-compatible development redirect still accepted by the app: `gymunity-dev://auth-callback`
 - Android custom scheme: `gymunity`
 - iOS custom scheme: `gymunity`
 
@@ -19,7 +20,11 @@ Flutter does not read those values at runtime for browser-based Supabase OAuth.
 2. Enable Google
 3. Insert the Google `Client ID` and `Client Secret`
 4. Open `Authentication -> URL Configuration`
-5. Add `gymunity://auth-callback` to `Additional Redirect URLs`
+5. Set `Site URL` to a real app/web URL that you control. Do not leave it as `http://localhost:3000` in mobile testing.
+6. Add `gymunity://auth-callback` to `Additional Redirect URLs`
+7. If you still have older test builds, you may also keep `gymunity-dev://auth-callback`
+
+If Supabase redirects to `localhost:3000/?code=...`, that means your project is still falling back to the configured `Site URL` instead of the mobile deep link.
 
 ## Google Cloud Console
 1. Create OAuth credentials for the Google provider used by Supabase

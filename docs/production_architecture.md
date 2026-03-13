@@ -19,8 +19,10 @@ Use `.env.example` as template and provide:
 - `SUPABASE_ANON_KEY`
 - `OPENAI_MODEL` (optional override)
 
+GymUnity runtime config is sourced from `--dart-define`, not direct `.env` reads inside Flutter. Local scripts convert `.env` into the correct define set.
+
 ## Next operational steps
 1. Apply the SQL bundle in `supabase/sql/phase1_dashboard_setup.sql` through Supabase Dashboard SQL Editor.
 2. Keep Email auth enabled with confirm-email turned on.
-3. Regenerate env output after editing `.env`.
+3. Use the helper scripts in `scripts/` for local run/build flows after editing `.env`.
 4. Deploy `ai-chat` later when phase 2 secrets are available.

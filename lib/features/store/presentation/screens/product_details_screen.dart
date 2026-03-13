@@ -8,6 +8,8 @@ import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../domain/entities/product_entity.dart';
 import '../providers/store_providers.dart';
+import '../store_ui_utils.dart';
+import '../widgets/store_product_image.dart';
 
 class ProductDetailsScreen extends ConsumerWidget {
   const ProductDetailsScreen({super.key, this.product});
@@ -16,338 +18,281 @@ class ProductDetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedProduct =
-        product ??
-        const ProductEntity(
-          id: 'preview',
-          name: 'GymUnity Product Preview',
-          category: 'Equipment',
-          price: 0,
-        );
-    final isWishlisted = ref.watch(storeWishlistProvider).contains(
-      selectedProduct.id,
-    );
+    if (product == null) {
+      return const _UnavailableProductScreen();
+    }
+
+    final productAsync = ref.watch(storeProductDetailsProvider(product!.id));
+    final favoriteIds =
+        ref.watch(favoriteIdsProvider).valueOrNull ?? const <String>{};
     final cartCount = ref.watch(storeCartCountProvider);
+    final currentProduct = productAsync.valueOrNull ?? product!;
+    final isFavorite = favoriteIds.contains(currentProduct.id);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSizes.screenPadding),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, AppRoutes.cart),
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          const Icon(
-                            Icons.shopping_bag_outlined,
-                            color: AppColors.textPrimary,
-                            size: 24,
-                          ),
-                          if (cartCount > 0)
-                            Positioned(
-                              right: -8,
-                              top: -8,
-                              child: Container(
-                                width: 18,
-                                height: 18,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.orange,
-                                  shape: BoxShape.circle,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  '$cartCount',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      appBar: AppBar(
+        title: const Text('Product Details'),
+        actions: [
+          IconButton(
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.favorites),
+            icon: Icon(
+              isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: isFavorite ? AppColors.orange : null,
             ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.screenPadding,
-                ),
-                child: Container(
-                  height: 280,
-                  decoration: BoxDecoration(
-                    color: AppColors.cardDark,
-                    borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      _iconForCategory(selectedProduct.category),
-                      size: 96,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSizes.screenPadding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.orange.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
-                      ),
-                      child: Text(
-                        selectedProduct.category.toUpperCase(),
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.orange,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      selectedProduct.name,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text(
-                          '\$${selectedProduct.price.toStringAsFixed(2)}',
-                          style: GoogleFonts.inter(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.orange,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.limeGreen.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(
-                              AppSizes.radiusFull,
-                            ),
-                          ),
-                          child: Text(
-                            'In stock',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.limeGreen,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      _descriptionFor(selectedProduct),
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        height: 1.55,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Why users pick this',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ..._benefitsFor(selectedProduct.category).map(
-                      (benefit) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(top: 2),
-                              child: Icon(
-                                Icons.check_circle,
-                                color: AppColors.limeGreen,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                benefit,
-                                style: GoogleFonts.inter(
-                                  fontSize: 14,
-                                  color: AppColors.textSecondary,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(
-          AppSizes.screenPadding,
-          10,
-          AppSizes.screenPadding,
-          16,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  ref.read(storeWishlistProvider.notifier).toggle(selectedProduct);
-                  final nextValue = ref
-                      .read(storeWishlistProvider)
-                      .contains(selectedProduct.id);
-                  showAppFeedback(
-                    context,
-                    nextValue
-                        ? '${selectedProduct.name} saved to wishlist.'
-                        : '${selectedProduct.name} removed from wishlist.',
-                  );
-                },
-                icon: Icon(
-                  isWishlisted ? Icons.favorite : Icons.favorite_border,
-                ),
-                label: Text(isWishlisted ? 'Saved' : 'Wishlist'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  ref.read(storeCartProvider.notifier).add(selectedProduct);
-                  showAppFeedback(
-                    context,
-                    '${selectedProduct.name} added to your cart.',
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orange,
-                  foregroundColor: AppColors.white,
-                ),
+          ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
                 icon: const Icon(Icons.shopping_bag_outlined),
-                label: const Text('Add to cart'),
               ),
+              if (cartCount > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: const BoxDecoration(
+                      color: AppColors.orange,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$cartCount',
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+      body: RefreshIndicator.adaptive(
+        onRefresh: () async =>
+            ref.refresh(storeProductDetailsProvider(product!.id).future),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(AppSizes.screenPadding),
+          children: [
+            StoreProductImage(
+              product: currentProduct,
+              width: double.infinity,
+              height: 260,
+              borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              currentProduct.name,
+              style: GoogleFonts.inter(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              currentProduct.category,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '${currentProduct.currency} ${currentProduct.price.toStringAsFixed(2)}',
+              style: GoogleFonts.inter(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: AppColors.orange,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _MetaRow(
+              label: 'Availability',
+              value: currentProduct.isAvailable
+                  ? '${currentProduct.stockQty} in stock'
+                  : 'Currently unavailable',
+              valueColor: currentProduct.isAvailable
+                  ? AppColors.textPrimary
+                  : AppColors.error,
+            ),
+            if (currentProduct.isLowStock && currentProduct.isAvailable)
+              _MetaRow(
+                label: 'Low stock',
+                value: 'Only ${currentProduct.stockQty} units left',
+                valueColor: AppColors.orange,
+              ),
+            const SizedBox(height: 18),
+            Text(
+              currentProduct.description.trim().isEmpty
+                  ? 'No product description was provided for this listing.'
+                  : currentProduct.description,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                height: 1.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            if (productAsync.hasError) ...[
+              const SizedBox(height: 14),
+              Text(
+                describeStoreError(
+                  productAsync.error!,
+                  fallbackMessage:
+                      'GymUnity could not refresh this product right now.',
+                ),
+                style: GoogleFonts.inter(fontSize: 13, color: AppColors.error),
+              ),
+            ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      try {
+                        final next = await ref
+                            .read(favoriteIdsProvider.notifier)
+                            .toggle(currentProduct);
+                        if (!context.mounted) {
+                          return;
+                        }
+                        showAppFeedback(
+                          context,
+                          next
+                              ? '${currentProduct.name} added to favorites.'
+                              : '${currentProduct.name} removed from favorites.',
+                        );
+                      } catch (error) {
+                        if (!context.mounted) {
+                          return;
+                        }
+                        showAppFeedback(
+                          context,
+                          describeStoreError(
+                            error,
+                            fallbackMessage: 'Unable to update your favorites.',
+                          ),
+                        );
+                      }
+                    },
+                    icon: Icon(
+                      isFavorite ? Icons.favorite : Icons.favorite_border,
+                    ),
+                    label: Text(isFavorite ? 'Saved' : 'Save'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: currentProduct.isAvailable
+                        ? () async {
+                            try {
+                              await ref
+                                  .read(storeCartControllerProvider.notifier)
+                                  .add(currentProduct);
+                              if (!context.mounted) {
+                                return;
+                              }
+                              showAppFeedback(
+                                context,
+                                '${currentProduct.name} added to your cart.',
+                              );
+                            } catch (error) {
+                              if (!context.mounted) {
+                                return;
+                              }
+                              showAppFeedback(
+                                context,
+                                describeStoreError(
+                                  error,
+                                  fallbackMessage:
+                                      'Unable to update your cart.',
+                                ),
+                              );
+                            }
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.orange,
+                      foregroundColor: AppColors.white,
+                    ),
+                    child: const Text('Add to cart'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  static IconData _iconForCategory(String category) {
-    switch (category.trim().toLowerCase()) {
-      case 'supplements':
-        return Icons.local_drink_outlined;
-      case 'equipment':
-        return Icons.fitness_center;
-      case 'apparel':
-        return Icons.checkroom_outlined;
-      case 'accessories':
-        return Icons.watch_outlined;
-      default:
-        return Icons.inventory_2_outlined;
-    }
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({
+    required this.label,
+    required this.value,
+    this.valueColor = AppColors.textPrimary,
+  });
+
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Text(
+            '$label: ',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.inter(fontSize: 14, color: valueColor),
+            ),
+          ),
+        ],
+      ),
+    );
   }
+}
 
-  static String _descriptionFor(ProductEntity product) {
-    final category = product.category.trim().toLowerCase();
-    switch (category) {
-      case 'supplements':
-        return 'Built for consistent training days with straightforward nutrition support, clean packaging, and a formula that fits a performance-first routine.';
-      case 'equipment':
-        return 'Designed for daily use, home setups, and serious sessions without sacrificing grip, balance, or durability.';
-      case 'apparel':
-        return 'Comfortable enough for all-day wear and dependable enough for high-output workouts, warmups, and recovery sessions.';
-      case 'accessories':
-        return 'A practical upgrade for athletes who want cleaner tracking, easier carry, and less friction between workouts.';
-      default:
-        return 'A curated GymUnity product picked to make training more consistent, easier to manage, and more enjoyable week after week.';
-    }
-  }
+class _UnavailableProductScreen extends StatelessWidget {
+  const _UnavailableProductScreen();
 
-  static List<String> _benefitsFor(String category) {
-    switch (category.trim().toLowerCase()) {
-      case 'supplements':
-        return const [
-          'Easy to fit into a structured training plan.',
-          'Clear performance value without unnecessary complexity.',
-          'Good option when you want repeatable results and fast replenishment.',
-        ];
-      case 'equipment':
-        return const [
-          'Supports home or gym sessions with minimal setup time.',
-          'Reliable enough for repeated use across the week.',
-          'Pairs well with guided plans from coaches and AI workouts.',
-        ];
-      case 'apparel':
-        return const [
-          'Moves well during strength, cardio, and hybrid sessions.',
-          'Helps keep focus on the workout instead of the fit.',
-          'Works across training, recovery, and casual daily use.',
-        ];
-      case 'accessories':
-        return const [
-          'Reduces friction around tracking, recovery, or gym carry.',
-          'Adds convenience without adding clutter to the routine.',
-          'Useful for users building more disciplined training habits.',
-        ];
-      default:
-        return const [
-          'Chosen to support a smoother training routine.',
-          'Simple enough for daily use and consistent habits.',
-          'Works well alongside the rest of the GymUnity member flow.',
-        ];
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSizes.screenPadding),
+          child: Text(
+            'This route was opened without a product payload.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

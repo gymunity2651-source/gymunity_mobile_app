@@ -2,12 +2,34 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../domain/entities/account_status.dart';
+
 class UserRemoteDataSource {
   UserRemoteDataSource(this._client);
 
   final SupabaseClient _client;
 
   User? get currentAuthUser => _client.auth.currentUser;
+
+  Future<AccountStatus> fetchAccountStatus(String userId) async {
+    final data = await _client
+        .from('users')
+        .select('is_active,deleted_at')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (data == null) {
+      return AccountStatus.missing;
+    }
+
+    final deletedAt = data['deleted_at'] as String?;
+    if (deletedAt != null && deletedAt.trim().isNotEmpty) {
+      return AccountStatus.deleted;
+    }
+
+    final isActive = data['is_active'] as bool? ?? true;
+    return isActive ? AccountStatus.active : AccountStatus.inactive;
+  }
 
   Future<Map<String, dynamic>?> fetchProfile(String userId) async {
     final data = await _client
@@ -19,6 +41,7 @@ class UserRemoteDataSource {
           phone,
           country,
           onboarding_completed,
+          deleted_at,
           role_id,
           roles(code)
         ''')
@@ -81,6 +104,23 @@ class UserRemoteDataSource {
         .from('profiles')
         .update(<String, dynamic>{
           'avatar_path': avatarPath,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('user_id', userId);
+  }
+
+  Future<void> updateProfileDetails({
+    required String userId,
+    required String fullName,
+    String? phone,
+    String? country,
+  }) {
+    return _client
+        .from('profiles')
+        .update(<String, dynamic>{
+          'full_name': fullName,
+          'phone': phone,
+          'country': country,
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         })
         .eq('user_id', userId);

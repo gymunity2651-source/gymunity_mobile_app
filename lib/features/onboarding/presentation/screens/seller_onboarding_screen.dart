@@ -66,9 +66,25 @@ class _SellerOnboardingScreenState
       return;
     }
 
+    final storeName = _storeNameController.text.trim();
+    final storeDescription = _storeDescController.text.trim();
+    if (storeName.isEmpty) {
+      _showMessage('Enter a store name to continue.');
+      return;
+    }
+    if (storeDescription.isEmpty) {
+      _showMessage('Enter a short store description to continue.');
+      return;
+    }
+
     final success = await ref
         .read(onboardingControllerProvider.notifier)
-        .completeSellerOnboarding();
+        .completeSellerOnboarding(
+          storeName: storeName,
+          storeDescription: storeDescription,
+          primaryCategory: _categoryValue(_categories[_selectedCategory].title),
+          shippingScope: _shippingValue(_shippingOptions[_selectedShipping]),
+        );
     if (!mounted) return;
     if (!success) {
       _showMessage(
@@ -83,6 +99,25 @@ class _SellerOnboardingScreenState
       AppRoutes.sellerDashboard,
       (route) => false,
     );
+  }
+
+  String _categoryValue(String raw) {
+    return raw.trim().toLowerCase().replaceAll(' ', '_');
+  }
+
+  String _shippingValue(String raw) {
+    switch (raw) {
+      case 'Local only':
+        return 'local_only';
+      case 'National':
+        return 'national';
+      case 'International':
+        return 'international';
+      case 'Digital products':
+        return 'digital_products';
+      default:
+        return raw.trim().toLowerCase().replaceAll(' ', '_');
+    }
   }
 
   void _prevStep() {

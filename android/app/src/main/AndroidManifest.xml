@@ -30,7 +30,7 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Placeholder OAuth callback. Keep this in sync with
+            <!-- Primary development OAuth callback. Keep this in sync with
                  Supabase Dashboard -> Authentication -> URL Configuration. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
@@ -38,6 +38,15 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data
                     android:scheme="gymunity"
+                    android:host="auth-callback" />
+            </intent-filter>
+            <!-- Backward-compatible callback support for older dev builds/config. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="gymunity-dev"
                     android:host="auth-callback" />
             </intent-filter>
         </activity>

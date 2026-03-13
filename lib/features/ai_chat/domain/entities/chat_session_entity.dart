@@ -11,4 +11,3 @@ class ChatSessionEntity {
   final String title;
   final DateTime updatedAt;
 }
-

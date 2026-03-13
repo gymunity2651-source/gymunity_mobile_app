@@ -1,8 +1,4 @@
-enum AppRole {
-  member,
-  coach,
-  seller,
-}
+enum AppRole { member, coach, seller }
 
 extension AppRoleX on AppRole {
   String get code {
@@ -53,4 +49,3 @@ AppRole? appRoleFromId(int? id) {
       return null;
   }
 }
-

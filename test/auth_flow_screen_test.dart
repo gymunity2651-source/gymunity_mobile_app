@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/app/routes.dart';
+import 'package:my_app/core/config/app_config.dart';
 import 'package:my_app/core/di/providers.dart';
 import 'package:my_app/core/supabase/auth_callback_utils.dart';
 import 'package:my_app/features/auth/domain/entities/auth_session.dart';
@@ -20,6 +21,32 @@ import 'package:my_app/features/user/domain/entities/user_entity.dart';
 import 'test_doubles.dart';
 
 void main() {
+  setUpAll(() {
+    AppConfig.debugOverrideForTests(
+      AppConfig(
+        environment: AppEnvironment.dev,
+        supabaseUrl: 'https://example.supabase.co',
+        supabaseAnonKey: 'test-anon-key',
+        authRedirectScheme: 'gymunity-dev',
+        authRedirectHost: 'auth-callback',
+        privacyPolicyUrl: '',
+        termsUrl: '',
+        supportUrl: '',
+        supportEmail: '',
+        supportEmailSubject: 'GymUnity support request',
+        reviewerLoginHelpUrl: '',
+        openAiModel: 'gpt-4o-mini',
+        enableCoachRole: true,
+        enableSellerRole: true,
+        enableAppleSignIn: true,
+        enableStorePurchases: true,
+        enableCoachSubscriptions: true,
+      ),
+    );
+  });
+
+  tearDownAll(AppConfig.clearDebugOverride);
+
   group('Auth screens', () {
     testWidgets('register routes to OTP when email verification is required', (
       tester,
@@ -298,7 +325,7 @@ void main() {
 
       expect(
         find.text(
-          'Google sign-in did not complete. Check Google provider / redirect configuration and try again.',
+          'Google sign-in did not complete. Check provider configuration and try again.',
         ),
         findsOneWidget,
       );

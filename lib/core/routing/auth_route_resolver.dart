@@ -11,14 +11,14 @@ class AuthRouteResolver {
   Future<String> resolveInitialRoute() async {
     final currentUser = await _userRepository.getCurrentUser();
     if (currentUser == null) return AppRoutes.welcome;
-    final profile = await _safeProfile();
+    final profile = await _userRepository.getProfile();
     return _resolveByProfile(profile);
   }
 
   Future<String> resolveAfterAuth() async {
     final currentUser = await _userRepository.getCurrentUser();
     if (currentUser == null) return AppRoutes.login;
-    final profile = await _safeProfile();
+    final profile = await _userRepository.getProfile();
     return _resolveByProfile(profile);
   }
 
@@ -41,14 +41,6 @@ class AuthRouteResolver {
         return AppRoutes.coachOnboarding;
       case AppRole.seller:
         return AppRoutes.sellerOnboarding;
-    }
-  }
-
-  Future<ProfileEntity?> _safeProfile() async {
-    try {
-      return await _userRepository.getProfile();
-    } catch (_) {
-      return null;
     }
   }
 

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../coach/domain/repositories/coach_repository.dart';
+import '../../../member/domain/repositories/member_repository.dart';
+import '../../../seller/domain/repositories/seller_repository.dart';
 import '../../domain/entities/app_role.dart';
 import '../../domain/repositories/user_repository.dart';
 
@@ -31,6 +33,8 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
 
   UserRepository get _userRepo => _ref.read(userRepositoryProvider);
   CoachRepository get _coachRepo => _ref.read(coachRepositoryProvider);
+  MemberRepository get _memberRepo => _ref.read(memberRepositoryProvider);
+  SellerRepository get _sellerRepo => _ref.read(sellerRepositoryProvider);
 
   Future<bool> saveRole(AppRole role) async {
     state = state.copyWith(isLoading: true, clearError: true);
@@ -48,29 +52,26 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
     }
   }
 
-  Future<bool> completeMemberOnboarding() async {
-    return _completeBaseOnboarding();
-  }
-
-  Future<bool> completeSellerOnboarding() async {
-    return _completeBaseOnboarding();
-  }
-
-  Future<bool> completeCoachOnboarding({
-    required String bio,
-    required List<String> specialties,
-    required int yearsExperience,
-    required double hourlyRate,
+  Future<bool> completeMemberOnboarding({
+    required String goal,
+    required int age,
+    required String gender,
+    required double heightCm,
+    required double currentWeightKg,
+    required String trainingFrequency,
+    required String experienceLevel,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      await _coachRepo.upsertCoachProfile(
-        bio: bio,
-        specialties: specialties,
-        yearsExperience: yearsExperience,
-        hourlyRate: hourlyRate,
+      await _memberRepo.upsertMemberProfile(
+        goal: goal,
+        age: age,
+        gender: gender,
+        heightCm: heightCm,
+        currentWeightKg: currentWeightKg,
+        trainingFrequency: trainingFrequency,
+        experienceLevel: experienceLevel,
       );
-      await _userRepo.completeOnboarding();
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
       return true;
@@ -83,10 +84,72 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
     }
   }
 
-  Future<bool> _completeBaseOnboarding() async {
+  Future<bool> completeSellerOnboarding({
+    required String storeName,
+    required String storeDescription,
+    required String primaryCategory,
+    required String shippingScope,
+    String? supportEmail,
+  }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      await _userRepo.completeOnboarding();
+      await _sellerRepo.upsertSellerProfile(
+        storeName: storeName,
+        storeDescription: storeDescription,
+        primaryCategory: primaryCategory,
+        shippingScope: shippingScope,
+        supportEmail: supportEmail,
+      );
+      _ref.invalidate(currentUserProfileProvider);
+      state = state.copyWith(isLoading: false, clearError: true);
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: _messageFromError(e),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> completeCoachOnboarding({
+    required String bio,
+    required List<String> specialties,
+    required int yearsExperience,
+    required double hourlyRate,
+    required String deliveryMode,
+    required String serviceSummary,
+    required String packageTitle,
+    required String packageDescription,
+    required String billingCycle,
+    required double packagePrice,
+    required int availabilityWeekday,
+    required String availabilityStartTime,
+    required String availabilityEndTime,
+    required String availabilityTimezone,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _coachRepo.upsertCoachProfile(
+        bio: bio,
+        specialties: specialties,
+        yearsExperience: yearsExperience,
+        hourlyRate: hourlyRate,
+        deliveryMode: deliveryMode,
+        serviceSummary: serviceSummary,
+      );
+      await _coachRepo.saveCoachPackage(
+        title: packageTitle,
+        description: packageDescription,
+        billingCycle: billingCycle,
+        price: packagePrice,
+      );
+      await _coachRepo.saveAvailabilitySlot(
+        weekday: availabilityWeekday,
+        startTime: availabilityStartTime,
+        endTime: availabilityEndTime,
+        timezone: availabilityTimezone,
+      );
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
       return true;

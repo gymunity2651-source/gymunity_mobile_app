@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/app_failure.dart';
+import '../../domain/entities/account_status.dart';
 import '../../domain/entities/app_role.dart';
 import '../../domain/entities/profile_entity.dart';
 import '../../domain/entities/user_entity.dart';
@@ -9,9 +10,8 @@ import '../datasources/user_remote_data_source.dart';
 import '../models/profile_model.dart';
 
 class UserRepositoryImpl implements UserRepository {
-  UserRepositoryImpl({
-    required UserRemoteDataSource remoteDataSource,
-  }) : _remoteDataSource = remoteDataSource;
+  UserRepositoryImpl({required UserRemoteDataSource remoteDataSource})
+    : _remoteDataSource = remoteDataSource;
 
   final UserRemoteDataSource _remoteDataSource;
 
@@ -20,6 +20,31 @@ class UserRepositoryImpl implements UserRepository {
     final user = _remoteDataSource.currentAuthUser;
     if (user == null || user.email == null) return null;
     return UserEntity(id: user.id, email: user.email!);
+  }
+
+  @override
+  Future<AccountStatus> getAccountStatus({String? userId}) async {
+    final targetUserId = userId ?? _remoteDataSource.currentAuthUser?.id;
+    if (targetUserId == null || targetUserId.isEmpty) {
+      return AccountStatus.missing;
+    }
+
+    try {
+      return await _remoteDataSource.fetchAccountStatus(targetUserId);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    } catch (e, st) {
+      throw NetworkFailure(
+        message: 'Unable to read account status.',
+        cause: e,
+        stackTrace: st,
+      );
+    }
   }
 
   @override
@@ -56,11 +81,17 @@ class UserRepositoryImpl implements UserRepository {
     String? fullName,
   }) async {
     try {
+      final accountStatus = await _remoteDataSource.fetchAccountStatus(userId);
+      if (accountStatus.isDeletedLike) {
+        throw const AccountDeletedFailure(
+          message:
+              'This account has been deleted or deactivated. Contact support if you need assistance.',
+        );
+      }
       await _remoteDataSource.upsertUser(id: userId, email: email);
-      await _remoteDataSource.upsertProfile(
-        userId: userId,
-        fullName: fullName,
-      );
+      await _remoteDataSource.upsertProfile(userId: userId, fullName: fullName);
+    } on AccountDeletedFailure {
+      rethrow;
     } on PostgrestException catch (e, st) {
       throw NetworkFailure(
         message: e.message,
@@ -85,10 +116,7 @@ class UserRepositoryImpl implements UserRepository {
     }
 
     try {
-      await _remoteDataSource.updateRole(
-        userId: user.id,
-        roleId: role.roleId,
-      );
+      await _remoteDataSource.updateRole(userId: user.id, roleId: role.roleId);
     } on PostgrestException catch (e, st) {
       throw NetworkFailure(
         message: e.message,
@@ -123,6 +151,39 @@ class UserRepositoryImpl implements UserRepository {
     } catch (e, st) {
       throw NetworkFailure(
         message: 'Unable to complete onboarding.',
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<void> updateProfileDetails({
+    required String fullName,
+    String? phone,
+    String? country,
+  }) async {
+    final user = _remoteDataSource.currentAuthUser;
+    if (user == null) {
+      throw const AuthFailure(message: 'No authenticated user found.');
+    }
+    try {
+      await _remoteDataSource.updateProfileDetails(
+        userId: user.id,
+        fullName: fullName,
+        phone: phone,
+        country: country,
+      );
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    } catch (e, st) {
+      throw NetworkFailure(
+        message: 'Unable to update profile details.',
         cause: e,
         stackTrace: st,
       );

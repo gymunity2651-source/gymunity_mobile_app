@@ -12,7 +12,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val CALLBACK_METHOD_CHANNEL = "gymunity/auth_callback"
         private const val CALLBACK_EVENT_CHANNEL = "gymunity/auth_callback_events"
-        private const val CALLBACK_SCHEME = "gymunity"
+        private val CALLBACK_SCHEMES = setOf("gymunity", "gymunity-dev")
         private const val CALLBACK_HOST = "auth-callback"
     }
 
@@ -82,7 +82,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun matchesAuthCallback(uri: Uri): Boolean {
-        if (uri.scheme != CALLBACK_SCHEME || uri.host != CALLBACK_HOST) {
+        if (uri.scheme !in CALLBACK_SCHEMES || uri.host != CALLBACK_HOST) {
             return false
         }
 

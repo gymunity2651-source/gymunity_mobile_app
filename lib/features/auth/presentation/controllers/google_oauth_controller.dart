@@ -3,14 +3,17 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../app/routes.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/supabase/auth_callback_ingress.dart';
 import '../../../../core/supabase/auth_callback_utils.dart';
+import '../../domain/entities/auth_provider_type.dart';
 import '../../domain/entities/auth_session.dart';
 import 'auth_controller.dart';
 
-enum GoogleOAuthStatus {
+enum AuthFlowStatus {
   idle,
   launching,
   waitingForCallback,
@@ -19,41 +22,48 @@ enum GoogleOAuthStatus {
   failure,
 }
 
-class GoogleOAuthState {
-  const GoogleOAuthState({
-    this.status = GoogleOAuthStatus.idle,
+class AuthFlowState {
+  const AuthFlowState({
+    this.status = AuthFlowStatus.idle,
     this.errorMessage,
     this.resolvedRoute,
+    this.activeProvider,
   });
 
-  final GoogleOAuthStatus status;
+  final AuthFlowStatus status;
   final String? errorMessage;
   final String? resolvedRoute;
+  final AuthProviderType? activeProvider;
 
   bool get isBusy =>
-      status == GoogleOAuthStatus.launching ||
-      status == GoogleOAuthStatus.waitingForCallback ||
-      status == GoogleOAuthStatus.completing;
+      status == AuthFlowStatus.launching ||
+      status == AuthFlowStatus.waitingForCallback ||
+      status == AuthFlowStatus.completing;
 
-  GoogleOAuthState copyWith({
-    GoogleOAuthStatus? status,
+  AuthFlowState copyWith({
+    AuthFlowStatus? status,
     String? errorMessage,
     String? resolvedRoute,
+    AuthProviderType? activeProvider,
     bool clearError = false,
     bool clearResolvedRoute = false,
+    bool clearProvider = false,
   }) {
-    return GoogleOAuthState(
+    return AuthFlowState(
       status: status ?? this.status,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       resolvedRoute: clearResolvedRoute
           ? null
           : resolvedRoute ?? this.resolvedRoute,
+      activeProvider: clearProvider
+          ? null
+          : activeProvider ?? this.activeProvider,
     );
   }
 }
 
-class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
-  GoogleOAuthController(
+class AuthFlowController extends StateNotifier<AuthFlowState> {
+  AuthFlowController(
     this._ref, {
     required AuthController authController,
     required AuthControllerState Function() readAuthControllerState,
@@ -65,15 +75,17 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
        _authCallbackIngress = authCallbackIngress,
        _timeout = timeout,
        _pollInterval = pollInterval,
-       super(const GoogleOAuthState()) {
-    _authSessionSubscription = _ref
-        .read(authRepositoryProvider)
-        .watchSession()
-        .listen(_handleAuthSessionStream);
-    _callbackSubscription = _authCallbackIngress.uriStream.listen(
-      _handleIncomingCallbackUri,
-    );
-    unawaited(_initializeCallbackIngress());
+       super(const AuthFlowState()) {
+    if (AppConfig.current.validationErrorMessage == null) {
+      _authSessionSubscription = _ref
+          .read(authRepositoryProvider)
+          .watchSession()
+          .listen(_handleAuthSessionStream);
+      _callbackSubscription = _authCallbackIngress.uriStream.listen(
+        _handleIncomingCallbackUri,
+      );
+      unawaited(_initializeCallbackIngress());
+    }
   }
 
   final Ref _ref;
@@ -87,25 +99,30 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
   Timer? _timeoutTimer;
   Timer? _pollTimer;
   bool _isCompleting = false;
+  bool _pendingRecoveryFlow = false;
   String? _activeCallbackFingerprint;
   final Set<String> _completedCallbackFingerprints = <String>{};
 
-  Future<bool> startGoogleOAuth() async {
+  Future<bool> startOAuth(AuthProviderType provider) async {
     if (state.isBusy) {
       return false;
     }
 
     _resetInternalState();
+    _pendingRecoveryFlow = false;
     _activeCallbackFingerprint = null;
-    state = const GoogleOAuthState(status: GoogleOAuthStatus.launching);
+    state = AuthFlowState(
+      status: AuthFlowStatus.launching,
+      activeProvider: provider,
+    );
 
-    final launched = await _authController.signInWithGoogle();
+    final launched = await _authController.signInWithOAuth(provider);
     if (!launched) {
-      state = GoogleOAuthState(
-        status: GoogleOAuthStatus.failure,
+      state = AuthFlowState(
+        status: AuthFlowStatus.failure,
+        activeProvider: provider,
         errorMessage:
-            _readAuthControllerState().errorMessage ??
-            AppStrings.googleSignInSetupHint,
+            _readAuthControllerState().errorMessage ?? _setupHintFor(provider),
       );
       return false;
     }
@@ -131,9 +148,9 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
   }
 
   void clearOutcome() {
-    if (state.status == GoogleOAuthStatus.success ||
-        state.status == GoogleOAuthStatus.failure) {
-      state = const GoogleOAuthState();
+    if (state.status == AuthFlowStatus.success ||
+        state.status == AuthFlowStatus.failure) {
+      state = const AuthFlowState();
     }
   }
 
@@ -155,8 +172,10 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
   }
 
   void _enterWaitingState() {
-    state = const GoogleOAuthState(
-      status: GoogleOAuthStatus.waitingForCallback,
+    state = state.copyWith(
+      status: AuthFlowStatus.waitingForCallback,
+      clearError: true,
+      clearResolvedRoute: true,
     );
     _startTimeout();
     _startPolling();
@@ -166,7 +185,11 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
     _timeoutTimer?.cancel();
     _timeoutTimer = Timer(_timeout, () {
       if (state.isBusy) {
-        _setFailure(AppStrings.googleSignInDidNotComplete);
+        _setFailure(
+          state.activeProvider == null
+              ? AppStrings.passwordRecoveryDidNotComplete
+              : '${state.activeProvider!.label} sign-in did not complete. Check provider configuration and try again.',
+        );
       }
     });
   }
@@ -191,6 +214,11 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
       return;
     }
 
+    if (_pendingRecoveryFlow) {
+      _completeRecoveryFlow();
+      return;
+    }
+
     await _completeWithSession(session);
   }
 
@@ -198,6 +226,12 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
     if (session == null || !session.isAuthenticated || !state.isBusy) {
       return;
     }
+
+    if (_pendingRecoveryFlow) {
+      _completeRecoveryFlow();
+      return;
+    }
+
     unawaited(_completeWithSession(session));
   }
 
@@ -226,13 +260,22 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
       return;
     }
 
+    _pendingRecoveryFlow = AuthCallbackUtils.isRecoveryCallback(uri);
+
     if (!state.isBusy) {
+      state = state.copyWith(
+        activeProvider: _pendingRecoveryFlow ? null : state.activeProvider,
+      );
       _enterWaitingState();
     }
 
     try {
       final session = await _hydrateSessionFromCallbackUri(uri);
       if (session != null) {
+        if (_pendingRecoveryFlow) {
+          _completeRecoveryFlow();
+          return;
+        }
         await _completeWithSession(session);
         return;
       }
@@ -252,7 +295,7 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
 
     _isCompleting = true;
     state = state.copyWith(
-      status: GoogleOAuthStatus.completing,
+      status: AuthFlowStatus.completing,
       clearError: true,
       clearResolvedRoute: true,
     );
@@ -265,18 +308,39 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
       _markActiveCallbackCompleted();
       _setFailure(
         _readAuthControllerState().errorMessage ??
-            AppStrings.googleSignInDidNotComplete,
+            AppStrings.oauthSignInDidNotComplete(
+              state.activeProvider?.label ?? 'Sign-in',
+            ),
       );
       return;
     }
 
-    final route = await _ref.read(authRouteResolverProvider).resolveAfterAuth();
+    try {
+      final route = await _ref
+          .read(authRouteResolverProvider)
+          .resolveAfterAuth();
+      _resetInternalState();
+      _markActiveCallbackCompleted();
+      _isCompleting = false;
+      state = AuthFlowState(
+        status: AuthFlowStatus.success,
+        activeProvider: state.activeProvider,
+        resolvedRoute: route,
+      );
+    } catch (error) {
+      _isCompleting = false;
+      _markActiveCallbackCompleted();
+      _setFailure(_messageFromCallbackError(error));
+    }
+  }
+
+  void _completeRecoveryFlow() {
     _resetInternalState();
     _markActiveCallbackCompleted();
     _isCompleting = false;
-    state = GoogleOAuthState(
-      status: GoogleOAuthStatus.success,
-      resolvedRoute: route,
+    state = const AuthFlowState(
+      status: AuthFlowStatus.success,
+      resolvedRoute: AppRoutes.resetPassword,
     );
   }
 
@@ -340,14 +404,19 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
     if (raw.startsWith('Exception: ')) {
       return raw.replaceFirst('Exception: ', '');
     }
+    if (raw.startsWith('Bad state: ')) {
+      return raw.replaceFirst('Bad state: ', '');
+    }
     return raw;
   }
 
   void _setFailure(String message) {
     _resetInternalState();
+    _pendingRecoveryFlow = false;
     _isCompleting = false;
-    state = GoogleOAuthState(
-      status: GoogleOAuthStatus.failure,
+    state = AuthFlowState(
+      status: AuthFlowStatus.failure,
+      activeProvider: state.activeProvider,
       errorMessage: message,
     );
   }
@@ -360,10 +429,21 @@ class GoogleOAuthController extends StateNotifier<GoogleOAuthState> {
   }
 
   void _markActiveCallbackCompleted() {
-    final fingerprint = _activeCallbackFingerprint;
-    if (fingerprint != null) {
-      _completedCallbackFingerprints.add(fingerprint);
+    final activeFingerprint = _activeCallbackFingerprint;
+    if (activeFingerprint != null) {
+      _completedCallbackFingerprints.add(activeFingerprint);
     }
     _activeCallbackFingerprint = null;
+  }
+
+  String _setupHintFor(AuthProviderType provider) {
+    switch (provider) {
+      case AuthProviderType.google:
+        return AppStrings.googleSignInSetupHint;
+      case AuthProviderType.apple:
+        return AppStrings.appleSignInSetupHint;
+      case AuthProviderType.emailPassword:
+        return AppStrings.googleSignInSetupHint;
+    }
   }
 }

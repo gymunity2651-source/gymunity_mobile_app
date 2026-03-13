@@ -8,6 +8,7 @@ import '../features/auth/presentation/screens/auth_callback_screen.dart';
 import '../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/otp_screen.dart';
+import '../features/auth/presentation/screens/reset_password_screen.dart';
 import '../features/auth/presentation/screens/role_selection_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/auth/presentation/screens/splash_screen.dart';
@@ -18,6 +19,8 @@ import '../features/coaches/presentation/screens/coach_details_screen.dart';
 import '../features/coaches/presentation/screens/subscription_packages_screen.dart';
 import '../features/member/presentation/screens/member_home_screen.dart';
 import '../features/member/presentation/screens/member_profile_screen.dart';
+import '../features/monetization/presentation/screens/ai_premium_paywall_screen.dart';
+import '../features/monetization/presentation/screens/subscription_management_screen.dart';
 import '../features/onboarding/presentation/screens/coach_onboarding_screen.dart';
 import '../features/onboarding/presentation/screens/member_onboarding_screen.dart';
 import '../features/onboarding/presentation/screens/seller_onboarding_screen.dart';
@@ -25,13 +28,19 @@ import '../features/seller/presentation/screens/seller_dashboard_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
 import '../features/settings/presentation/screens/notifications_screen.dart';
 import '../features/settings/presentation/screens/support_and_legal_screens.dart';
+import '../features/settings/presentation/screens/delete_account_screen.dart';
 import '../features/store/domain/entities/product_entity.dart';
 import '../features/store/presentation/screens/cart_screen.dart';
 import '../features/store/presentation/screens/checkout_preview_screen.dart';
+import '../features/store/presentation/screens/favorites_screen.dart';
+import '../features/store/presentation/screens/my_orders_screen.dart';
 import '../features/store/presentation/screens/product_details_screen.dart';
 import '../features/store/presentation/screens/store_catalog_screen.dart';
 import '../features/store/presentation/screens/store_home_screen.dart';
 import '../features/coach/domain/entities/coach_entity.dart';
+import '../features/seller/presentation/screens/seller_orders_screen.dart';
+import '../features/seller/presentation/screens/seller_product_editor_screen.dart';
+import '../features/seller/presentation/screens/seller_product_management_screen.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -41,6 +50,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
+  static const String resetPassword = '/reset-password';
   static const String otp = '/otp';
   static const String authCallback = '/auth-callback';
   static const String roleSelection = '/role-selection';
@@ -59,10 +69,13 @@ class AppRoutes {
   static const String aiChatHome = '/ai-chat-home';
   static const String aiConversation = '/ai-conversation';
   static const String aiGeneratedPlan = '/ai-generated-plan';
+  static const String aiPremiumPaywall = '/ai-premium';
+  static const String subscriptionManagement = '/subscription-management';
 
   static const String storeHome = '/store-home';
   static const String productList = '/product-list';
   static const String productDetails = '/product-details';
+  static const String favorites = '/favorites';
   static const String cart = '/cart';
   static const String checkout = '/checkout';
   static const String orders = '/orders';
@@ -87,6 +100,7 @@ class AppRoutes {
 
   static const String notifications = '/notifications';
   static const String settings = '/settings';
+  static const String deleteAccount = '/delete-account';
   static const String helpSupport = '/help-support';
   static const String privacyPolicy = '/privacy-policy';
   static const String terms = '/terms';
@@ -107,6 +121,8 @@ class AppRoutes {
         return _buildRoute(const RegisterScreen());
       case forgotPassword:
         return _buildRoute(const ForgotPasswordScreen());
+      case resetPassword:
+        return _buildRoute(const ResetPasswordScreen());
       case otp:
         final args = settings.arguments;
         if (args is OtpFlowArgs) {
@@ -171,6 +187,10 @@ class AppRoutes {
               'AI plans will appear here after the chat flow is connected to workout plan persistence.',
           icon: Icons.auto_awesome,
         );
+      case aiPremiumPaywall:
+        return _buildRoute(const AiPremiumPaywallScreen());
+      case subscriptionManagement:
+        return _buildRoute(const SubscriptionManagementScreen());
 
       case storeHome:
         return _buildRoute(const StoreHomeScreen());
@@ -183,26 +203,21 @@ class AppRoutes {
             product: product is ProductEntity ? product : null,
           ),
         );
+      case favorites:
+        return _buildRoute(const FavoritesScreen());
       case cart:
         return _buildRoute(const CartScreen());
       case checkout:
-        return _buildRoute(const CheckoutPreviewScreen());
+        return _buildRoute(const CheckoutScreen());
       case orders:
-        return _featureRoute(
-          title: 'My Orders',
-          description:
-              'Order history and fulfillment updates will appear here after member order queries are connected.',
-          icon: Icons.shopping_bag_outlined,
-        );
+        return _buildRoute(const MyOrdersScreen());
 
       case coaches:
         return _buildRoute(const CoachesScreen());
       case coachDetails:
         final coach = settings.arguments;
         return _buildRoute(
-          CoachDetailsScreen(
-            coach: coach is CoachEntity ? coach : null,
-          ),
+          CoachDetailsScreen(coach: coach is CoachEntity ? coach : null),
         );
       case subscriptionPackages:
         final coach = settings.arguments;
@@ -222,33 +237,18 @@ class AppRoutes {
       case sellerDashboard:
         return _buildRoute(const SellerDashboardScreen());
       case productManagement:
-        return _featureRoute(
-          title: 'Product Management',
-          description:
-              'Inventory controls, publishing state, and stock updates will be managed here for sellers.',
-          icon: Icons.inventory_2_outlined,
-        );
+        return _buildRoute(const SellerProductManagementScreen());
       case addProduct:
-        return _featureRoute(
-          title: 'Add Product',
-          description:
-              'Sellers will create new listings here with pricing, media, stock, and category details.',
-          icon: Icons.add_box_outlined,
-        );
+        return _buildRoute(const SellerProductEditorScreen());
       case editProduct:
-        return _featureRoute(
-          title: 'Edit Product',
-          description:
-              'Existing product listings will be updated here once product editing flows are completed.',
-          icon: Icons.edit_outlined,
+        final product = settings.arguments;
+        return _buildRoute(
+          SellerProductEditorScreen(
+            product: product is ProductEntity ? product : null,
+          ),
         );
       case sellerOrders:
-        return _featureRoute(
-          title: 'Seller Orders',
-          description:
-              'Incoming orders, status updates, and fulfillment actions will be managed here for the seller.',
-          icon: Icons.receipt_long_outlined,
-        );
+        return _buildRoute(const SellerOrdersScreen());
       case sellerProfile:
         return _featureRoute(
           title: 'Seller Profile',
@@ -275,9 +275,9 @@ class AppRoutes {
         );
       case addPackage:
         return _featureRoute(
-          title: 'Create Package',
+          title: 'Create Coaching Package',
           description:
-              'Coaches will create new subscription packages here once package publishing is connected.',
+              'Coaches will create new coaching packages here once package publishing is connected.',
           icon: Icons.add_circle_outline,
         );
       case coachProfile:
@@ -292,6 +292,8 @@ class AppRoutes {
         return _buildRoute(const NotificationsScreen());
       case AppRoutes.settings:
         return _buildRoute(const SettingsScreen());
+      case deleteAccount:
+        return _buildRoute(const DeleteAccountScreen());
       case helpSupport:
         return _buildRoute(const HelpSupportScreen());
       case privacyPolicy:

@@ -8,6 +8,8 @@ import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../domain/entities/product_entity.dart';
 import '../providers/store_providers.dart';
+import '../store_ui_utils.dart';
+import '../widgets/store_product_image.dart';
 
 class StoreCatalogScreen extends ConsumerStatefulWidget {
   const StoreCatalogScreen({super.key});
@@ -33,12 +35,11 @@ class _StoreCatalogScreenState extends ConsumerState<StoreCatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final categories = ref.watch(storeCategoriesProvider);
-    final selectedCategory = ref.watch(selectedStoreCategoryProvider);
     final searchQuery = ref.watch(storeSearchQueryProvider);
     final productsAsync = ref.watch(storeProductsProvider);
     final products = ref.watch(filteredStoreProductsProvider);
-    final wishlistIds = ref.watch(storeWishlistProvider);
+    final favoriteIds =
+        ref.watch(favoriteIdsProvider).valueOrNull ?? const <String>{};
 
     if (_searchController.text != searchQuery) {
       _searchController.value = TextEditingValue(
@@ -49,15 +50,9 @@ class _StoreCatalogScreenState extends ConsumerState<StoreCatalogScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('All Products'),
-      ),
+      appBar: AppBar(title: const Text('All Products')),
       body: RefreshIndicator.adaptive(
-        onRefresh: () => ref.refresh(storeProductsProvider.future),
+        onRefresh: () async => ref.refresh(storeProductsProvider.future),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(AppSizes.screenPadding),
@@ -65,10 +60,9 @@ class _StoreCatalogScreenState extends ConsumerState<StoreCatalogScreen> {
             SearchBar(
               controller: _searchController,
               hintText: 'Search the catalog',
-              onChanged: (value) {
-                ref.read(storeSearchQueryProvider.notifier).state = value;
-              },
-              leading: const Icon(Icons.search, color: AppColors.textMuted),
+              onChanged: (value) =>
+                  ref.read(storeSearchQueryProvider.notifier).state = value,
+              leading: const Icon(Icons.search),
               trailing: [
                 if (searchQuery.isNotEmpty)
                   IconButton(
@@ -76,108 +70,126 @@ class _StoreCatalogScreenState extends ConsumerState<StoreCatalogScreen> {
                       _searchController.clear();
                       ref.read(storeSearchQueryProvider.notifier).state = '';
                     },
-                    icon: const Icon(Icons.close, color: AppColors.textMuted),
+                    icon: const Icon(Icons.close),
                   ),
               ],
-              backgroundColor: const WidgetStatePropertyAll(AppColors.fieldFill),
-              surfaceTintColor: const WidgetStatePropertyAll(
-                AppColors.transparent,
-              ),
-              elevation: const WidgetStatePropertyAll(0),
-              side: const WidgetStatePropertyAll(
-                BorderSide(color: AppColors.border),
-              ),
-              shape: WidgetStatePropertyAll(
-                RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                ),
-              ),
-              hintStyle: WidgetStatePropertyAll(
-                GoogleFonts.inter(
-                  fontSize: 14,
-                  color: AppColors.textMuted,
-                ),
-              ),
-              textStyle: WidgetStatePropertyAll(
-                GoogleFonts.inter(
-                  fontSize: 14,
-                  color: AppColors.textPrimary,
-                ),
-              ),
             ),
             const SizedBox(height: 16),
-            Text(
-              '${products.length} result${products.length == 1 ? '' : 's'} in ${categories[selectedCategory]}',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 14),
-            if (productsAsync.isLoading && products.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 40),
+            productsAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.only(top: 48),
                 child: Center(child: CircularProgressIndicator()),
-              )
-            else if (products.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 40),
-                child: Text(
-                  'No products matched the active search or category.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              )
-            else
-              ...products.map(
-                (product) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _CatalogRow(
-                    product: product,
-                    isWishlisted: wishlistIds.contains(product.id),
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.productDetails,
-                      arguments: product,
-                    ),
-                    onAdd: () {
-                      ref.read(storeCartProvider.notifier).add(product);
-                      showAppFeedback(
-                        context,
-                        '${product.name} added to your cart.',
-                      );
-                    },
-                    onToggleWishlist: () {
-                      ref.read(storeWishlistProvider.notifier).toggle(product);
-                    },
-                  ),
-                ),
               ),
+              error: (error, stackTrace) => _CatalogMessage(
+                message: describeStoreError(
+                  error,
+                  fallbackMessage:
+                      'GymUnity could not load the catalog right now.',
+                ),
+                actionLabel: 'Retry',
+                onAction: () => ref.invalidate(storeProductsProvider),
+              ),
+              data: (_) {
+                if (products.isEmpty) {
+                  return _CatalogMessage(
+                    message: searchQuery.trim().isNotEmpty
+                        ? 'No products matched your search.'
+                        : 'No active store products are available right now.',
+                  );
+                }
+
+                return Column(
+                  children: products
+                      .map(
+                        (product) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _CatalogTile(
+                            product: product,
+                            isFavorite: favoriteIds.contains(product.id),
+                            onTap: () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.productDetails,
+                              arguments: product,
+                            ),
+                            onFavorite: () => _toggleFavorite(product),
+                            onAddToCart: () => _addToCart(product),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                );
+              },
+            ),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _toggleFavorite(ProductEntity product) async {
+    try {
+      final isFavorite = await ref
+          .read(favoriteIdsProvider.notifier)
+          .toggle(product);
+      if (!mounted) {
+        return;
+      }
+      showAppFeedback(
+        context,
+        isFavorite
+            ? '${product.name} added to favorites.'
+            : '${product.name} removed from favorites.',
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      showAppFeedback(
+        context,
+        describeStoreError(
+          error,
+          fallbackMessage: 'Unable to update your favorites.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _addToCart(ProductEntity product) async {
+    try {
+      await ref.read(storeCartControllerProvider.notifier).add(product);
+      if (!mounted) {
+        return;
+      }
+      showAppFeedback(context, '${product.name} added to your cart.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      showAppFeedback(
+        context,
+        describeStoreError(
+          error,
+          fallbackMessage: 'Unable to update your cart.',
+        ),
+      );
+    }
+  }
 }
 
-class _CatalogRow extends StatelessWidget {
-  const _CatalogRow({
+class _CatalogTile extends StatelessWidget {
+  const _CatalogTile({
     required this.product,
-    required this.isWishlisted,
+    required this.isFavorite,
     required this.onTap,
-    required this.onAdd,
-    required this.onToggleWishlist,
+    required this.onFavorite,
+    required this.onAddToCart,
   });
 
   final ProductEntity product;
-  final bool isWishlisted;
+  final bool isFavorite;
   final VoidCallback onTap;
-  final VoidCallback onAdd;
-  final VoidCallback onToggleWishlist;
+  final VoidCallback onFavorite;
+  final VoidCallback onAddToCart;
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +197,7 @@ class _CatalogRow extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSizes.radiusLg),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppColors.cardDark,
           borderRadius: BorderRadius.circular(AppSizes.radiusLg),
@@ -193,18 +205,7 @@ class _CatalogRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceRaised,
-                borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-              ),
-              child: const Icon(
-                Icons.inventory_2_outlined,
-                color: AppColors.textMuted,
-              ),
-            ),
+            StoreProductImage(product: product, width: 72, height: 72),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -228,38 +229,83 @@ class _CatalogRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '\$${product.price.toStringAsFixed(2)}',
+                    '${product.currency} ${product.price.toStringAsFixed(2)}',
                     style: GoogleFonts.inter(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: AppColors.orange,
                     ),
                   ),
+                  if (!product.isAvailable)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Currently unavailable',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
             Column(
               children: [
                 IconButton(
-                  onPressed: onToggleWishlist,
+                  onPressed: onFavorite,
                   icon: Icon(
-                    isWishlisted ? Icons.favorite : Icons.favorite_border,
-                    color: isWishlisted
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite
                         ? AppColors.orange
                         : AppColors.textSecondary,
                   ),
                 ),
                 IconButton(
-                  onPressed: onAdd,
-                  icon: const Icon(
-                    Icons.add_shopping_cart_outlined,
-                    color: AppColors.textPrimary,
-                  ),
+                  onPressed: product.isAvailable ? onAddToCart : null,
+                  icon: const Icon(Icons.add_shopping_cart_outlined),
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CatalogMessage extends StatelessWidget {
+  const _CatalogMessage({
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 60),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              height: 1.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 14),
+            ElevatedButton(onPressed: onAction, child: Text(actionLabel!)),
+          ],
+        ],
       ),
     );
   }

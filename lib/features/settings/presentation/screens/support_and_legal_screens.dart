@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
+import '../../../../core/services/external_link_service.dart';
 import '../../../../core/widgets/app_feedback.dart';
 
 class HelpSupportScreen extends StatelessWidget {
@@ -10,6 +12,8 @@ class HelpSupportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = AppConfig.current;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -23,7 +27,7 @@ class HelpSupportScreen extends StatelessWidget {
         padding: const EdgeInsets.all(AppSizes.screenPadding),
         children: [
           Text(
-            'Support contact options, common answers, and issue reporting live here now instead of a dead-end placeholder.',
+            'Need help with login, account deletion, or reviewer access? Use one of the verified support channels below.',
             style: GoogleFonts.inter(
               fontSize: 14,
               height: 1.5,
@@ -31,51 +35,74 @@ class HelpSupportScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          _SupportCard(
-            icon: Icons.chat_bubble_outline,
-            title: 'Chat with support',
-            description:
-                'Best for login issues, account confusion, and broken flows inside the app.',
-            onTap: () {
-              showAppFeedback(
-                context,
-                'Live support chat will connect here once your support channel is ready.',
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          _SupportCard(
-            icon: Icons.email_outlined,
-            title: 'Email support',
-            description:
-                'Use this when you need to attach details or want a written follow-up.',
-            onTap: () {
-              showAppFeedback(
-                context,
-                'Support email will open here after your contact address is configured.',
-              );
-            },
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Popular topics',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+          if (config.supportUrl.trim().isNotEmpty)
+            _SupportCard(
+              icon: Icons.support_agent_outlined,
+              title: 'Support Center',
+              description:
+                  'Open the configured support portal for help articles and direct support.',
+              onTap: () async {
+                final opened = await ExternalLinkService.openSupportUrl();
+                if (!context.mounted || opened) {
+                  return;
+                }
+                showAppFeedback(context, 'Unable to open the support URL.');
+              },
             ),
-          ),
-          const SizedBox(height: 12),
-          ...const [
-            'How role selection affects the dashboard you receive.',
-            'Why some commerce and subscription actions are still preview-only.',
-            'How AI chat, coaches, and store flows connect together inside GymUnity.',
-          ].map(
-            (topic) => Padding(
-              padding: EdgeInsets.only(bottom: 10),
-              child: _FaqRow(topic: topic),
+          if (config.supportEmail.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _SupportCard(
+              icon: Icons.email_outlined,
+              title: 'Email Support',
+              description:
+                  'Use the configured support email for account issues or reviewer follow-up.',
+              onTap: () async {
+                final opened = await ExternalLinkService.composeSupportEmail(
+                  subject: config.supportEmailSubject,
+                );
+                if (!context.mounted || opened) {
+                  return;
+                }
+                showAppFeedback(context, 'Unable to open the email client.');
+              },
             ),
-          ),
+          ],
+          if (config.reviewerLoginHelpUrl.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _SupportCard(
+              icon: Icons.fact_check_outlined,
+              title: 'Reviewer Access',
+              description:
+                  'Open the reviewer instructions configured for this environment.',
+              onTap: () async {
+                final opened = await ExternalLinkService.openReviewerHelp();
+                if (!context.mounted || opened) {
+                  return;
+                }
+                showAppFeedback(
+                  context,
+                  'Unable to open the reviewer access instructions.',
+                );
+              },
+            ),
+          ],
+          if (config.supportUrl.trim().isEmpty &&
+              config.supportEmail.trim().isEmpty)
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppColors.cardDark,
+                borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Text(
+                'Support contact details are not configured for this build.',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -87,25 +114,20 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _LegalDocumentScreen(
+    return _LegalDocumentScreen(
       title: 'Privacy Policy',
-      sections: [
-        _LegalSection(
-          heading: 'Data you provide',
-          body:
-              'GymUnity stores the account details and profile data needed to deliver your role-based experience, including onboarding choices and connected content.',
-        ),
-        _LegalSection(
-          heading: 'Operational usage',
-          body:
-              'Activity data, chats, store actions, and subscriptions are used to render dashboards, personalize recommendations, and keep the app functional.',
-        ),
-        _LegalSection(
-          heading: 'Product status',
-          body:
-              'Some parts of the app still run in preview mode. Where a flow is local-only, the interface now states that clearly instead of implying a live transaction happened.',
-        ),
-      ],
+      body:
+          'GymUnity uses the approved privacy policy hosted at the configured legal URL for this environment.',
+      actionLabel: 'OPEN PRIVACY POLICY',
+      onAction: () async {
+        final opened = await ExternalLinkService.openPrivacyPolicy();
+        if (!context.mounted || opened) {
+          return;
+        }
+        showAppFeedback(context, 'Unable to open the privacy policy URL.');
+      },
+      fallbackMessage: 'No privacy policy URL is configured for this build.',
+      isConfigured: AppConfig.current.privacyPolicyUrl.trim().isNotEmpty,
     );
   }
 }
@@ -115,25 +137,20 @@ class TermsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _LegalDocumentScreen(
+    return _LegalDocumentScreen(
       title: 'Terms of Service',
-      sections: [
-        _LegalSection(
-          heading: 'Account use',
-          body:
-              'Members, coaches, and sellers are expected to use the platform according to their selected role and keep account access secure.',
-        ),
-        _LegalSection(
-          heading: 'Marketplace and coaching',
-          body:
-              'Product discovery and package comparison are available in-app. Final payment and subscription enforcement should not be considered live until the backend checkout phase is connected.',
-        ),
-        _LegalSection(
-          heading: 'AI guidance',
-          body:
-              'AI output is supportive product functionality and should be reviewed by the user before acting on it for training or nutrition decisions.',
-        ),
-      ],
+      body:
+          'GymUnity uses the approved terms of service hosted at the configured legal URL for this environment.',
+      actionLabel: 'OPEN TERMS',
+      onAction: () async {
+        final opened = await ExternalLinkService.openTerms();
+        if (!context.mounted || opened) {
+          return;
+        }
+        showAppFeedback(context, 'Unable to open the terms URL.');
+      },
+      fallbackMessage: 'No terms of service URL is configured for this build.',
+      isConfigured: AppConfig.current.termsUrl.trim().isNotEmpty,
     );
   }
 }
@@ -141,11 +158,19 @@ class TermsScreen extends StatelessWidget {
 class _LegalDocumentScreen extends StatelessWidget {
   const _LegalDocumentScreen({
     required this.title,
-    required this.sections,
+    required this.body,
+    required this.actionLabel,
+    required this.onAction,
+    required this.fallbackMessage,
+    required this.isConfigured,
   });
 
   final String title;
-  final List<_LegalSection> sections;
+  final String body;
+  final String actionLabel;
+  final Future<void> Function() onAction;
+  final String fallbackMessage;
+  final bool isConfigured;
 
   @override
   Widget build(BuildContext context) {
@@ -158,11 +183,10 @@ class _LegalDocumentScreen extends StatelessWidget {
         ),
         title: Text(title),
       ),
-      body: ListView.separated(
+      body: ListView(
         padding: const EdgeInsets.all(AppSizes.screenPadding),
-        itemBuilder: (context, index) {
-          final section = sections[index];
-          return Container(
+        children: [
+          Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: AppColors.cardDark,
@@ -173,28 +197,37 @@ class _LegalDocumentScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  section.heading,
+                  title,
                   style: GoogleFonts.inter(
-                    fontSize: 18,
+                    fontSize: 22,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  section.body,
+                  isConfigured ? body : fallbackMessage,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     height: 1.5,
                     color: AppColors.textSecondary,
                   ),
                 ),
+                if (isConfigured) ...[
+                  const SizedBox(height: 18),
+                  ElevatedButton(
+                    onPressed: onAction,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.orange,
+                      foregroundColor: AppColors.white,
+                    ),
+                    child: Text(actionLabel),
+                  ),
+                ],
               ],
             ),
-          );
-        },
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemCount: sections.length,
+          ),
+        ],
       ),
     );
   }
@@ -258,45 +291,10 @@ class _SupportCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Icon(Icons.chevron_right, color: AppColors.textMuted),
+            const Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
           ],
         ),
       ),
     );
   }
-}
-
-class _FaqRow extends StatelessWidget {
-  const _FaqRow({required this.topic});
-
-  final String topic;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardDark,
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Text(
-        topic,
-        style: GoogleFonts.inter(
-          fontSize: 14,
-          color: AppColors.textSecondary,
-        ),
-      ),
-    );
-  }
-}
-
-class _LegalSection {
-  const _LegalSection({
-    required this.heading,
-    required this.body,
-  });
-
-  final String heading;
-  final String body;
 }

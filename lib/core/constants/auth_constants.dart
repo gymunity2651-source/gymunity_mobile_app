@@ -1,9 +1,9 @@
+import '../config/app_config.dart';
+
 class AppAuthConstants {
   AppAuthConstants._();
 
-  // This redirect must match Supabase Dashboard -> Authentication
-  // -> URL Configuration -> Additional Redirect URLs.
-  static const String googleOAuthRedirect = 'gymunity://auth-callback';
-  static const String googleOAuthScheme = 'gymunity';
-  static const String googleOAuthHost = 'auth-callback';
+  static String get oauthRedirect => AppConfig.current.authRedirectUri;
+  static String get oauthScheme => AppConfig.current.authRedirectScheme;
+  static String get oauthHost => AppConfig.current.authRedirectHost;
 }

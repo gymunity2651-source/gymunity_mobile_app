@@ -162,8 +162,9 @@ class _CoachesScreenState extends ConsumerState<CoachesScreen> {
                       return GestureDetector(
                         onTap: () {
                           ref
-                              .read(selectedCoachSpecialtyProvider.notifier)
-                              .state = index;
+                                  .read(selectedCoachSpecialtyProvider.notifier)
+                                  .state =
+                              index;
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
@@ -456,7 +457,7 @@ class _CoachCard extends StatelessWidget {
                           backgroundColor: AppColors.orange,
                           foregroundColor: AppColors.white,
                         ),
-                        child: const Text('View Packages'),
+                        child: const Text('Coaching Packages'),
                       ),
                     ),
                   ],
