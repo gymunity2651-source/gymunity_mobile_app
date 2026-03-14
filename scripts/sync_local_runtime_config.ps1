@@ -32,7 +32,6 @@ $allowedKeys = @(
   "SUPPORT_EMAIL",
   "SUPPORT_EMAIL_SUBJECT",
   "REVIEWER_LOGIN_HELP_URL",
-  "OPENAI_MODEL",
   "ENABLE_COACH_ROLE",
   "ENABLE_SELLER_ROLE",
   "ENABLE_APPLE_SIGN_IN",
@@ -83,3 +82,4 @@ if (-not (Test-Path $outputDir)) {
 }
 
 $values | ConvertTo-Json | Set-Content -Path $outputPath -Encoding UTF8
+

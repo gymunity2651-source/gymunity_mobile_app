@@ -16,6 +16,8 @@ import '../../features/monetization/data/repositories/billing_repository_impl.da
 import '../../features/monetization/data/repositories/entitlement_repository_impl.dart';
 import '../../features/monetization/domain/repositories/billing_repository.dart';
 import '../../features/monetization/domain/repositories/entitlement_repository.dart';
+import '../../features/planner/data/repositories/planner_repository_impl.dart';
+import '../../features/planner/domain/repositories/planner_repository.dart';
 import '../../features/seller/data/repositories/seller_repository_impl.dart';
 import '../../features/seller/domain/repositories/seller_repository.dart';
 import '../../features/store/data/repositories/store_repository_impl.dart';
@@ -85,6 +87,11 @@ final coachRepositoryProvider = Provider<CoachRepository>((ref) {
 final memberRepositoryProvider = Provider<MemberRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return MemberRepositoryImpl(client);
+});
+
+final plannerRepositoryProvider = Provider<PlannerRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return PlannerRepositoryImpl(client);
 });
 
 final sellerRepositoryProvider = Provider<SellerRepository>((ref) {

@@ -11,7 +11,7 @@ class NotificationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final preferences = ref.watch(settingsPreferencesProvider);
+    final preferences = ref.watch(resolvedSettingsPreferencesProvider);
     final filter = ref.watch(notificationFilterProvider);
     final notificationsAsync = ref.watch(notificationsProvider);
     final notifications = ref.watch(filteredNotificationsProvider);
@@ -37,9 +37,6 @@ class NotificationsScreen extends ConsumerWidget {
                           .map((notification) => notification.id)
                           .toList(growable: false),
                     );
-                if (!context.mounted) {
-                  return;
-                }
               },
               child: const Text('Mark all read'),
             ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,7 +21,43 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
+  static const Duration _minimumSplashDuration = Duration(milliseconds: 900);
+
   bool _hasNavigated = false;
+  late final Future<void> _minimumDisplayFuture;
+  ProviderSubscription<AppBootstrapState>? _bootstrapSubscription;
+  ProviderSubscription<AuthFlowState>? _authFlowSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _minimumDisplayFuture = Future<void>.delayed(_minimumSplashDuration);
+
+    _bootstrapSubscription = ref.listenManual<AppBootstrapState>(
+      appBootstrapControllerProvider,
+      (previous, next) {
+        _handleBootstrapState(next);
+      },
+      fireImmediately: true,
+    );
+
+    if (AppConfig.current.validationErrorMessage == null) {
+      _authFlowSubscription = ref.listenManual<AuthFlowState>(
+        authFlowControllerProvider,
+        (previous, next) {
+          _handleAuthFlowState(previous, next);
+        },
+        fireImmediately: true,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _bootstrapSubscription?.close();
+    _authFlowSubscription?.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,29 +66,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final authFlowState = hasValidConfig
         ? ref.watch(authFlowControllerProvider)
         : const AuthFlowState();
-
-    _scheduleResolvedNavigation(bootstrapState, authFlowState);
-
-    ref.listen<AppBootstrapState>(appBootstrapControllerProvider, (
-      previous,
-      next,
-    ) {
-      _handleBootstrapState(next);
-    });
-    if (hasValidConfig) {
-      ref.listen<AuthFlowState>(authFlowControllerProvider, (previous, next) {
-        if (!mounted || _hasNavigated) {
-          return;
-        }
-
-        if (next.status == AuthFlowStatus.success &&
-            next.resolvedRoute != null &&
-            next.resolvedRoute != previous?.resolvedRoute) {
-          ref.read(authFlowControllerProvider.notifier).clearOutcome();
-          _navigateTo(next.resolvedRoute!);
-        }
-      });
-    }
 
     final message = switch (bootstrapState.status) {
       AppBootstrapStatus.loading => 'Preparing your release environment...',
@@ -64,6 +79,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       AppBootstrapStatus.deletedAccount =>
         bootstrapState.message ?? 'This account is no longer available.',
     };
+
+    final showProgress =
+        !_hasNavigated &&
+        (bootstrapState.status == AppBootstrapStatus.loading ||
+            bootstrapState.status == AppBootstrapStatus.authenticated ||
+            bootstrapState.status == AppBootstrapStatus.unauthenticated ||
+            authFlowState.isBusy);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -132,8 +154,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    if (bootstrapState.status == AppBootstrapStatus.loading ||
-                        authFlowState.isBusy)
+                    if (showProgress)
                       const LinearProgressIndicator(
                         color: AppColors.limeGreen,
                         backgroundColor: AppColors.border,
@@ -238,24 +259,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     }
   }
 
-  void _scheduleResolvedNavigation(
-    AppBootstrapState bootstrapState,
-    AuthFlowState authFlowState,
+  void _handleAuthFlowState(
+    AuthFlowState? previous,
+    AuthFlowState next,
   ) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _hasNavigated) {
-        return;
-      }
+    if (!mounted || _hasNavigated) {
+      return;
+    }
 
-      if (authFlowState.status == AuthFlowStatus.success &&
-          authFlowState.resolvedRoute != null) {
-        ref.read(authFlowControllerProvider.notifier).clearOutcome();
-        _navigateTo(authFlowState.resolvedRoute!);
-        return;
-      }
-
-      _handleBootstrapState(bootstrapState);
-    });
+    if (next.status == AuthFlowStatus.success &&
+        next.resolvedRoute != null &&
+        next.resolvedRoute != previous?.resolvedRoute) {
+      ref.read(authFlowControllerProvider.notifier).clearOutcome();
+      _navigateTo(next.resolvedRoute!);
+    }
   }
 
   void _navigateTo(String routeName) {
@@ -263,6 +280,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       return;
     }
     _hasNavigated = true;
-    Navigator.pushReplacementNamed(context, routeName);
+    unawaited(_navigateAfterMinimumDisplay(routeName));
+  }
+
+  Future<void> _navigateAfterMinimumDisplay(String routeName) async {
+    await _minimumDisplayFuture;
+    if (!mounted) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.pushReplacementNamed(context, routeName);
+    });
   }
 }

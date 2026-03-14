@@ -35,7 +35,6 @@ void main() {
         supportEmail: '',
         supportEmailSubject: 'GymUnity support request',
         reviewerLoginHelpUrl: '',
-        openAiModel: 'gpt-4o-mini',
         enableCoachRole: true,
         enableSellerRole: true,
         enableAppleSignIn: true,
@@ -392,8 +391,10 @@ List<Override> _overrides({
   FakeAuthRepository? authRepository,
   FakeUserRepository? userRepository,
   FakeCoachRepository? coachRepository,
+  FakeMemberRepository? memberRepository,
   FakeStoreRepository? storeRepository,
   FakeChatRepository? chatRepository,
+  FakePlannerRepository? plannerRepository,
   FakeAuthCallbackIngress? authCallbackIngress,
   Duration? googleOAuthTimeout,
   Duration? googleOAuthPollInterval,
@@ -411,11 +412,17 @@ List<Override> _overrides({
     coachRepositoryProvider.overrideWithValue(
       coachRepository ?? FakeCoachRepository(),
     ),
+    memberRepositoryProvider.overrideWithValue(
+      memberRepository ?? FakeMemberRepository(),
+    ),
     storeRepositoryProvider.overrideWithValue(
       storeRepository ?? FakeStoreRepository(),
     ),
     chatRepositoryProvider.overrideWithValue(
       chatRepository ?? FakeChatRepository(),
+    ),
+    plannerRepositoryProvider.overrideWithValue(
+      plannerRepository ?? FakePlannerRepository(),
     ),
     if (googleOAuthTimeout != null)
       googleOAuthTimeoutProvider.overrideWithValue(googleOAuthTimeout),

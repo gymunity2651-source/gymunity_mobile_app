@@ -14,6 +14,24 @@ final chatSessionsProvider = FutureProvider<List<ChatSessionEntity>>((
   return repo.listSessions();
 });
 
+final chatSessionProvider = Provider.family<ChatSessionEntity?, String?>((
+  ref,
+  sessionId,
+) {
+  if (sessionId == null || sessionId.isEmpty) {
+    return null;
+  }
+  final sessions =
+      ref.watch(chatSessionsProvider).valueOrNull ??
+      const <ChatSessionEntity>[];
+  for (final session in sessions) {
+    if (session.id == sessionId) {
+      return session;
+    }
+  }
+  return null;
+});
+
 final chatMessagesProvider =
     StreamProvider.family<List<ChatMessageEntity>, String>((ref, sessionId) {
       final repo = ref.watch(chatRepositoryProvider);

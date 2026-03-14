@@ -24,6 +24,10 @@ import '../features/monetization/presentation/screens/subscription_management_sc
 import '../features/onboarding/presentation/screens/coach_onboarding_screen.dart';
 import '../features/onboarding/presentation/screens/member_onboarding_screen.dart';
 import '../features/onboarding/presentation/screens/seller_onboarding_screen.dart';
+import '../features/planner/presentation/route_args.dart';
+import '../features/planner/presentation/screens/ai_generated_plan_screen.dart';
+import '../features/planner/presentation/screens/workout_day_details_screen.dart';
+import '../features/planner/presentation/screens/workout_plan_screen.dart';
 import '../features/seller/presentation/screens/seller_dashboard_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
 import '../features/settings/presentation/screens/notifications_screen.dart';
@@ -161,17 +165,23 @@ class AppRoutes {
           icon: Icons.trending_up,
         );
       case workoutPlan:
-        return _featureRoute(
-          title: 'Workout Plans',
-          description:
-              'Coach-authored plans and AI plans will live here together once workout persistence is fully wired.',
-          icon: Icons.fitness_center,
+        final args = settings.arguments;
+        return _buildRoute(
+          WorkoutPlanScreen(
+            planId: args is WorkoutPlanArgs ? args.planId : null,
+          ),
         );
       case workoutDetails:
+        final args = settings.arguments;
+        if (args is WorkoutDayArgs) {
+          return _buildRoute(
+            WorkoutDayDetailsScreen(planId: args.planId, dayId: args.dayId),
+          );
+        }
         return _featureRoute(
           title: 'Workout Details',
           description:
-              'Detailed exercise steps, sets, reps, and notes will appear here when workout content is ready.',
+              'A plan day id is required to open task details from the active planner.',
           icon: Icons.list_alt,
         );
 
@@ -181,10 +191,19 @@ class AppRoutes {
         final sessionId = settings.arguments as String?;
         return _buildRoute(AiConversationScreen(sessionId: sessionId));
       case aiGeneratedPlan:
+        final args = settings.arguments;
+        if (args is AiGeneratedPlanArgs) {
+          return _buildRoute(
+            AiGeneratedPlanScreen(
+              sessionId: args.sessionId,
+              draftId: args.draftId,
+            ),
+          );
+        }
         return _featureRoute(
           title: 'AI Generated Plan',
           description:
-              'AI plans will appear here after the chat flow is connected to workout plan persistence.',
+              'A draft id is required to review and activate an AI-generated plan.',
           icon: Icons.auto_awesome,
         );
       case aiPremiumPaywall:

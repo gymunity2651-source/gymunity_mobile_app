@@ -35,7 +35,6 @@ class AppConfig {
     required this.supportEmail,
     required this.supportEmailSubject,
     required this.reviewerLoginHelpUrl,
-    required this.openAiModel,
     required this.enableCoachRole,
     required this.enableSellerRole,
     required this.enableAppleSignIn,
@@ -58,95 +57,90 @@ class AppConfig {
       final value = switch (key) {
         'APP_ENV' => const String.fromEnvironment('APP_ENV', defaultValue: ''),
         'SUPABASE_URL' => const String.fromEnvironment(
-            'SUPABASE_URL',
-            defaultValue: '',
-          ),
+          'SUPABASE_URL',
+          defaultValue: '',
+        ),
         'SUPABASE_ANON_KEY' => const String.fromEnvironment(
-            'SUPABASE_ANON_KEY',
-            defaultValue: '',
-          ),
+          'SUPABASE_ANON_KEY',
+          defaultValue: '',
+        ),
         'AUTH_REDIRECT_SCHEME' => const String.fromEnvironment(
-            'AUTH_REDIRECT_SCHEME',
-            defaultValue: '',
-          ),
+          'AUTH_REDIRECT_SCHEME',
+          defaultValue: '',
+        ),
         'AUTH_REDIRECT_HOST' => const String.fromEnvironment(
-            'AUTH_REDIRECT_HOST',
-            defaultValue: '',
-          ),
+          'AUTH_REDIRECT_HOST',
+          defaultValue: '',
+        ),
         'PRIVACY_POLICY_URL' => const String.fromEnvironment(
-            'PRIVACY_POLICY_URL',
-            defaultValue: '',
-          ),
+          'PRIVACY_POLICY_URL',
+          defaultValue: '',
+        ),
         'TERMS_OF_SERVICE_URL' => const String.fromEnvironment(
-            'TERMS_OF_SERVICE_URL',
-            defaultValue: '',
-          ),
+          'TERMS_OF_SERVICE_URL',
+          defaultValue: '',
+        ),
         'SUPPORT_URL' => const String.fromEnvironment(
-            'SUPPORT_URL',
-            defaultValue: '',
-          ),
+          'SUPPORT_URL',
+          defaultValue: '',
+        ),
         'SUPPORT_EMAIL' => const String.fromEnvironment(
-            'SUPPORT_EMAIL',
-            defaultValue: '',
-          ),
+          'SUPPORT_EMAIL',
+          defaultValue: '',
+        ),
         'SUPPORT_EMAIL_SUBJECT' => const String.fromEnvironment(
-            'SUPPORT_EMAIL_SUBJECT',
-            defaultValue: '',
-          ),
+          'SUPPORT_EMAIL_SUBJECT',
+          defaultValue: '',
+        ),
         'REVIEWER_LOGIN_HELP_URL' => const String.fromEnvironment(
-            'REVIEWER_LOGIN_HELP_URL',
-            defaultValue: '',
-          ),
-        'OPENAI_MODEL' => const String.fromEnvironment(
-            'OPENAI_MODEL',
-            defaultValue: '',
-          ),
+          'REVIEWER_LOGIN_HELP_URL',
+          defaultValue: '',
+        ),
         'ENABLE_COACH_ROLE' => const String.fromEnvironment(
-            'ENABLE_COACH_ROLE',
-            defaultValue: '',
-          ),
+          'ENABLE_COACH_ROLE',
+          defaultValue: '',
+        ),
         'ENABLE_SELLER_ROLE' => const String.fromEnvironment(
-            'ENABLE_SELLER_ROLE',
-            defaultValue: '',
-          ),
+          'ENABLE_SELLER_ROLE',
+          defaultValue: '',
+        ),
         'ENABLE_APPLE_SIGN_IN' => const String.fromEnvironment(
-            'ENABLE_APPLE_SIGN_IN',
-            defaultValue: '',
-          ),
+          'ENABLE_APPLE_SIGN_IN',
+          defaultValue: '',
+        ),
         'ENABLE_STORE_PURCHASES' => const String.fromEnvironment(
-            'ENABLE_STORE_PURCHASES',
-            defaultValue: '',
-          ),
+          'ENABLE_STORE_PURCHASES',
+          defaultValue: '',
+        ),
         'ENABLE_COACH_SUBSCRIPTIONS' => const String.fromEnvironment(
-            'ENABLE_COACH_SUBSCRIPTIONS',
-            defaultValue: '',
-          ),
+          'ENABLE_COACH_SUBSCRIPTIONS',
+          defaultValue: '',
+        ),
         'ENABLE_AI_PREMIUM' => const String.fromEnvironment(
-            'ENABLE_AI_PREMIUM',
-            defaultValue: '',
-          ),
+          'ENABLE_AI_PREMIUM',
+          defaultValue: '',
+        ),
         'APPLE_AI_PREMIUM_MONTHLY_PRODUCT_ID' => const String.fromEnvironment(
-            'APPLE_AI_PREMIUM_MONTHLY_PRODUCT_ID',
-            defaultValue: '',
-          ),
+          'APPLE_AI_PREMIUM_MONTHLY_PRODUCT_ID',
+          defaultValue: '',
+        ),
         'APPLE_AI_PREMIUM_ANNUAL_PRODUCT_ID' => const String.fromEnvironment(
-            'APPLE_AI_PREMIUM_ANNUAL_PRODUCT_ID',
-            defaultValue: '',
-          ),
+          'APPLE_AI_PREMIUM_ANNUAL_PRODUCT_ID',
+          defaultValue: '',
+        ),
         'GOOGLE_AI_PREMIUM_SUBSCRIPTION_ID' => const String.fromEnvironment(
-            'GOOGLE_AI_PREMIUM_SUBSCRIPTION_ID',
-            defaultValue: '',
-          ),
+          'GOOGLE_AI_PREMIUM_SUBSCRIPTION_ID',
+          defaultValue: '',
+        ),
         'GOOGLE_AI_PREMIUM_MONTHLY_BASE_PLAN_ID' =>
           const String.fromEnvironment(
             'GOOGLE_AI_PREMIUM_MONTHLY_BASE_PLAN_ID',
             defaultValue: '',
           ),
-        'GOOGLE_AI_PREMIUM_ANNUAL_BASE_PLAN_ID' =>
-          const String.fromEnvironment(
-            'GOOGLE_AI_PREMIUM_ANNUAL_BASE_PLAN_ID',
-            defaultValue: '',
-          ),
+        'GOOGLE_AI_PREMIUM_ANNUAL_BASE_PLAN_ID' => const String.fromEnvironment(
+          'GOOGLE_AI_PREMIUM_ANNUAL_BASE_PLAN_ID',
+          defaultValue: '',
+        ),
         _ => '',
       };
 
@@ -192,7 +186,6 @@ class AppConfig {
         defaultValue: 'GymUnity support request',
       ),
       reviewerLoginHelpUrl: read('REVIEWER_LOGIN_HELP_URL'),
-      openAiModel: read('OPENAI_MODEL', defaultValue: 'gpt-4o-mini'),
       enableCoachRole: readBool('ENABLE_COACH_ROLE', defaultValue: true),
       enableSellerRole: readBool('ENABLE_SELLER_ROLE', defaultValue: true),
       enableAppleSignIn: readBool('ENABLE_APPLE_SIGN_IN', defaultValue: true),
@@ -209,9 +202,7 @@ class AppConfig {
         'APPLE_AI_PREMIUM_MONTHLY_PRODUCT_ID',
       ),
       appleAiPremiumAnnualProductId: read('APPLE_AI_PREMIUM_ANNUAL_PRODUCT_ID'),
-      googleAiPremiumSubscriptionId: read(
-        'GOOGLE_AI_PREMIUM_SUBSCRIPTION_ID',
-      ),
+      googleAiPremiumSubscriptionId: read('GOOGLE_AI_PREMIUM_SUBSCRIPTION_ID'),
       googleAiPremiumMonthlyBasePlanId: read(
         'GOOGLE_AI_PREMIUM_MONTHLY_BASE_PLAN_ID',
       ),
@@ -255,7 +246,6 @@ class AppConfig {
   final String supportEmail;
   final String supportEmailSubject;
   final String reviewerLoginHelpUrl;
-  final String openAiModel;
   final bool enableCoachRole;
   final bool enableSellerRole;
   final bool enableAppleSignIn;
@@ -418,7 +408,6 @@ class AppConfig {
         defaultValue: 'GymUnity support request',
       ),
       reviewerLoginHelpUrl: read('REVIEWER_LOGIN_HELP_URL'),
-      openAiModel: read('OPENAI_MODEL', defaultValue: 'gpt-4o-mini'),
       enableCoachRole: readBool('ENABLE_COACH_ROLE', defaultValue: true),
       enableSellerRole: readBool('ENABLE_SELLER_ROLE', defaultValue: true),
       enableAppleSignIn: readBool('ENABLE_APPLE_SIGN_IN', defaultValue: true),
@@ -435,9 +424,7 @@ class AppConfig {
         'APPLE_AI_PREMIUM_MONTHLY_PRODUCT_ID',
       ),
       appleAiPremiumAnnualProductId: read('APPLE_AI_PREMIUM_ANNUAL_PRODUCT_ID'),
-      googleAiPremiumSubscriptionId: read(
-        'GOOGLE_AI_PREMIUM_SUBSCRIPTION_ID',
-      ),
+      googleAiPremiumSubscriptionId: read('GOOGLE_AI_PREMIUM_SUBSCRIPTION_ID'),
       googleAiPremiumMonthlyBasePlanId: read(
         'GOOGLE_AI_PREMIUM_MONTHLY_BASE_PLAN_ID',
       ),

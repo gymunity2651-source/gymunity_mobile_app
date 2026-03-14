@@ -512,14 +512,16 @@ class MemberRepositoryImpl implements MemberRepository {
       source: row['source'] as String? ?? 'coach',
       title: row['title'] as String? ?? '',
       status: row['status'] as String? ?? 'active',
-      planJson: Map<String, dynamic>.from(
-        row['plan_json'] as Map<String, dynamic>? ?? const <String, dynamic>{},
-      ),
+      planJson: _rowMap(row['plan_json']),
       startDate: _parseDate(row['start_date']),
       endDate: _parseDate(row['end_date']),
       assignedAt: _parseDate(row['assigned_at']),
       updatedAt: _parseDate(row['updated_at']),
       completedAt: _parseDate(row['completed_at']),
+      conversationSessionId: row['conversation_session_id'] as String?,
+      generatedFromDraftId: row['generated_from_draft_id'] as String?,
+      planVersion: (row['plan_version'] as num?)?.toInt() ?? 1,
+      defaultReminderTime: row['default_reminder_time'] as String?,
     );
   }
 
@@ -584,5 +586,17 @@ class MemberRepositoryImpl implements MemberRepository {
       return null;
     }
     return DateTime.tryParse(value.toString());
+  }
+
+  Map<String, dynamic> _rowMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+    if (value is Map) {
+      return value.map(
+        (dynamic key, dynamic rowValue) => MapEntry(key.toString(), rowValue),
+      );
+    }
+    return const <String, dynamic>{};
   }
 }

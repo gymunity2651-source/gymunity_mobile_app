@@ -22,9 +22,7 @@ class AiChatHomeScreen extends ConsumerWidget {
     return gateAsync.when(
       loading: () => const Scaffold(
         backgroundColor: Color(0xFF1A120B),
-        body: Center(
-          child: CircularProgressIndicator(color: AppColors.orange),
-        ),
+        body: Center(child: CircularProgressIndicator(color: AppColors.orange)),
       ),
       error: (error, stackTrace) => Scaffold(
         backgroundColor: const Color(0xFF1A120B),
@@ -76,37 +74,35 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
     final chatState = ref.watch(chatControllerProvider);
     final sessionsAsync = ref.watch(chatSessionsProvider);
 
-    Future<void> openConversation({
+    Future<void> openSession({
+      required ChatSessionType type,
       String? sessionId,
       String? seedPrompt,
     }) async {
-      if (seedPrompt != null && seedPrompt.trim().isNotEmpty) {
-        ref.read(pendingChatPromptProvider.notifier).state = seedPrompt.trim();
-      }
-      ref.read(activeChatSessionIdProvider.notifier).state = sessionId;
-      Navigator.pushNamed(
-        context,
-        AppRoutes.aiConversation,
-        arguments: sessionId,
-      );
-    }
-
-    Future<void> startFreshChat() async {
       try {
-        final sessionId = await ref
-            .read(chatControllerProvider.notifier)
-            .createSessionIfNeeded(null);
+        final resolvedSessionId =
+            sessionId ??
+            await ref
+                .read(chatControllerProvider.notifier)
+                .createSessionIfNeeded(null, type: type);
+        ref.read(activeChatSessionIdProvider.notifier).state =
+            resolvedSessionId;
+        ref.read(pendingChatPromptProvider.notifier).state = seedPrompt?.trim();
         if (!context.mounted) {
           return;
         }
-        await openConversation(sessionId: sessionId);
+        Navigator.pushNamed(
+          context,
+          AppRoutes.aiConversation,
+          arguments: resolvedSessionId,
+        );
       } catch (_) {
         if (!context.mounted) {
           return;
         }
         showAppFeedback(
           context,
-          'GymUnity could not start a new AI conversation right now.',
+          'GymUnity could not open this AI session right now.',
         );
       }
     }
@@ -118,67 +114,97 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSizes.screenPadding,
-                vertical: AppSizes.lg,
+              padding: const EdgeInsets.fromLTRB(
+                AppSizes.screenPadding,
+                AppSizes.lg,
+                AppSizes.screenPadding,
+                0,
               ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.auto_awesome_outlined,
-                    color: AppColors.textPrimary,
-                    size: 26,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'GymUnity AI Premium',
-                    style: GoogleFonts.inter(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'AI Assistant',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSizes.screenPadding,
+                8,
+                AppSizes.screenPadding,
+                0,
+              ),
+              child: Text(
+                'Start a guided member plan or keep a general fitness conversation inside your GymUnity account.',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(AppSizes.screenPadding),
                 children: [
-                  Text(
-                    'Use GymUnity AI for verified premium prompts and stored conversations only.',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      height: 1.5,
-                      color: AppColors.textSecondary,
-                    ),
+                  _EntryCard(
+                    icon: Icons.route_outlined,
+                    title: 'Start AI plan',
+                    description:
+                        'Answer focused follow-up questions, review the generated plan, then activate daily tasks and reminders.',
+                    accent: AppColors.orange,
+                    buttonLabel: 'Open planner',
+                    onTap: () => openSession(type: ChatSessionType.planner),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
+                  _EntryCard(
+                    icon: Icons.chat_bubble_outline,
+                    title: 'General AI conversation',
+                    description:
+                        'Use AI for practical fitness guidance, nutrition tips, and recovery questions without entering the planning flow.',
+                    accent: AppColors.electricBlue,
+                    buttonLabel: 'Open chat',
+                    onTap: () => openSession(type: ChatSessionType.general),
+                  ),
+                  const SizedBox(height: 24),
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
                     children: [
                       _QuickChip(
-                        icon: Icons.auto_awesome,
-                        label: 'Build a workout plan',
-                        onTap: () => openConversation(
+                        icon: Icons.fitness_center_outlined,
+                        label: 'Strength plan',
+                        onTap: () => openSession(
+                          type: ChatSessionType.planner,
                           seedPrompt:
-                              'Build a workout plan for me based on my current fitness level.',
+                              'I want a structured strength-focused plan. Ask me the key questions you need first.',
                         ),
                       ),
                       _QuickChip(
-                        icon: Icons.restaurant,
-                        label: 'Nutrition tips',
-                        onTap: () => openConversation(
+                        icon: Icons.directions_run_outlined,
+                        label: 'Fat loss plan',
+                        onTap: () => openSession(
+                          type: ChatSessionType.planner,
                           seedPrompt:
-                              'Give me practical nutrition tips for my fitness goals.',
+                              'I want a realistic fat loss plan. Ask me for the missing details before generating it.',
+                        ),
+                      ),
+                      _QuickChip(
+                        icon: Icons.restaurant_outlined,
+                        label: 'Nutrition tips',
+                        onTap: () => openSession(
+                          type: ChatSessionType.general,
+                          seedPrompt:
+                              'Give me practical nutrition tips that support my current fitness goal.',
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 28),
                   Text(
-                    'Recent chats',
+                    'Recent sessions',
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -189,7 +215,7 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                   sessionsAsync.when(
                     loading: () => const Center(
                       child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 30),
+                        padding: EdgeInsets.symmetric(vertical: 28),
                         child: CircularProgressIndicator(
                           color: AppColors.orange,
                         ),
@@ -197,21 +223,22 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                     ),
                     error: (error, stackTrace) => _StateCard(
                       icon: Icons.cloud_off_outlined,
-                      title: 'Unable to load conversations',
+                      title: 'Unable to load AI sessions',
                       description:
-                          'GymUnity could not fetch AI sessions from the backend.',
+                          'GymUnity could not fetch your stored conversations from Supabase.',
                       actionLabel: 'Retry',
                       onTap: () => ref.refresh(chatSessionsProvider),
                     ),
                     data: (sessions) {
                       if (sessions.isEmpty) {
                         return _StateCard(
-                          icon: Icons.chat_bubble_outline,
-                          title: 'No conversations yet',
+                          icon: Icons.auto_awesome_outlined,
+                          title: 'No AI sessions yet',
                           description:
-                              'Start your first AI conversation and GymUnity will keep it here.',
-                          actionLabel: 'Start chat',
-                          onTap: startFreshChat,
+                              'Start a planner session or a general conversation and GymUnity will keep it here.',
+                          actionLabel: 'Start planner',
+                          onTap: () =>
+                              openSession(type: ChatSessionType.planner),
                         );
                       }
 
@@ -232,8 +259,10 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                               children: [
                                 _SessionTile(
                                   session: session,
-                                  onTap: () =>
-                                      openConversation(sessionId: session.id),
+                                  onTap: () => openSession(
+                                    type: session.type,
+                                    sessionId: session.id,
+                                  ),
                                 ),
                                 if (index < sessions.length - 1)
                                   Divider(
@@ -254,19 +283,88 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(AppSizes.screenPadding),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FloatingActionButton(
-                  onPressed: chatState.isSending ? null : startFreshChat,
-                  backgroundColor: const Color(0xFF2196F3),
-                  child: const Icon(Icons.add, color: AppColors.white),
-                ),
-              ),
-            ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: chatState.isSending
+            ? null
+            : () => openSession(type: ChatSessionType.planner),
+        backgroundColor: AppColors.orange,
+        foregroundColor: AppColors.white,
+        icon: const Icon(Icons.auto_awesome),
+        label: const Text('Plan'),
+      ),
+    );
+  }
+}
+
+class _EntryCard extends StatelessWidget {
+  const _EntryCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.accent,
+    required this.buttonLabel,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final Color accent;
+  final String buttonLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A1F14),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+            ),
+            child: Icon(icon, color: accent),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              height: 1.55,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onTap,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accent,
+              foregroundColor: AppColors.white,
+            ),
+            child: Text(buttonLabel),
+          ),
+        ],
       ),
     );
   }
@@ -303,7 +401,7 @@ class _QuickChip extends StatelessWidget {
               label,
               style: GoogleFonts.inter(
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -322,32 +420,50 @@ class _SessionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = session.isPlanner
+        ? AppColors.orange
+        : AppColors.electricBlue;
+    final subtitle = session.isPlanner
+        ? 'Planner • ${session.plannerStatus.replaceAll('_', ' ')}'
+        : 'Conversation';
+
     return ListTile(
       onTap: onTap,
       leading: Container(
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: AppColors.orange.withValues(alpha: 0.15),
+          color: accent.withValues(alpha: 0.15),
           shape: BoxShape.circle,
         ),
-        child: const Icon(
-          Icons.chat_bubble_outline,
-          color: AppColors.orange,
+        child: Icon(
+          session.isPlanner ? Icons.route_outlined : Icons.chat_bubble_outline,
+          color: accent,
           size: 20,
         ),
       ),
       title: Text(
-        session.title.isEmpty ? 'New chat' : session.title,
+        session.title.isEmpty ? 'New session' : session.title,
         style: GoogleFonts.inter(
           fontSize: 15,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
       ),
-      subtitle: Text(
-        _formatSessionTime(session.updatedAt),
-        style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _formatSessionTime(session.updatedAt),
+            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+          ),
+        ],
       ),
       trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

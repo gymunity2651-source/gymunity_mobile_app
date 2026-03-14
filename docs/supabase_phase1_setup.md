@@ -8,7 +8,7 @@ The local `.env` file contains:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
-- `OPENAI_MODEL`
+- `GROQ_MODEL` for local edge-function setup only
 
 `.env` is ignored by Git so the local project can run without committing credentials.
 
@@ -62,7 +62,7 @@ For the current app flow, configure the signup confirmation email template to se
 
 These are not part of phase 1:
 
-- AI edge-function secrets
+- AI edge-function secrets`n- Groq edge-function secrets (`GROQ_API_KEY`, optional `GROQ_MODEL`)
 - password reset deep links
 - OAuth providers
 - mobile redirect URLs / intent filters
@@ -79,3 +79,4 @@ After SQL + Auth settings are done:
 6. Upload an avatar.
 7. As a seller, create a product and upload a product image.
 8. Verify product reads work from the store tab.
+

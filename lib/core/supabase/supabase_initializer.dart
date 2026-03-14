@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_config.dart';
+import 'auth_token_project_ref.dart';
 
 class SupabaseInitializer {
   SupabaseInitializer._();
@@ -19,6 +20,7 @@ class SupabaseInitializer {
       anonKey: config.supabaseAnonKey,
       authOptions: const FlutterAuthClientOptions(detectSessionInUri: false),
     );
+    await _clearMismatchedPersistedSession(config);
     _initialized = true;
   }
 
@@ -26,6 +28,18 @@ class SupabaseInitializer {
     final configError = AppConfig.current.validationErrorMessage;
     if (configError != null) {
       throw StateError(configError);
+    }
+  }
+
+  static Future<void> _clearMismatchedPersistedSession(AppConfig config) async {
+    final session = Supabase.instance.client.auth.currentSession;
+    final accessToken = session?.accessToken.trim() ?? '';
+    if (accessToken.isEmpty) {
+      return;
+    }
+
+    if (!AuthTokenProjectRef.matchesProject(accessToken, config.supabaseUrl)) {
+      await Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
     }
   }
 }

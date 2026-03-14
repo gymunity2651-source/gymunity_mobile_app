@@ -345,10 +345,12 @@ class AuthFlowController extends StateNotifier<AuthFlowState> {
   }
 
   AuthSession? _sessionFromCurrentClient() {
-    final currentSession = _ref
-        .read(supabaseClientProvider)
-        .auth
-        .currentSession;
+    Session? currentSession;
+    try {
+      currentSession = _ref.read(supabaseClientProvider).auth.currentSession;
+    } on StateError {
+      return null;
+    }
     if (currentSession == null) {
       return null;
     }
@@ -356,7 +358,12 @@ class AuthFlowController extends StateNotifier<AuthFlowState> {
   }
 
   Future<AuthSession?> _hydrateSessionFromCallbackUri(Uri uri) async {
-    final client = _ref.read(supabaseClientProvider);
+    late final SupabaseClient client;
+    try {
+      client = _ref.read(supabaseClientProvider);
+    } on StateError {
+      return null;
+    }
     final normalizedUri = AuthCallbackUtils.normalize(uri);
 
     try {

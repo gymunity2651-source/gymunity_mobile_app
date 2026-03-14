@@ -27,7 +27,6 @@ void main() {
         supportEmail: '',
         supportEmailSubject: 'GymUnity support request',
         reviewerLoginHelpUrl: '',
-        openAiModel: 'gpt-4o-mini',
         enableCoachRole: true,
         enableSellerRole: true,
         enableAppleSignIn: true,
@@ -61,11 +60,15 @@ void main() {
     );
 
     expect(find.text('GymUnity'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets(
     'Splash navigates when bootstrap already resolved the destination',
     (WidgetTester tester) async {
+      late _ManualBootstrapController controller;
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: <Override>[
@@ -75,7 +78,7 @@ void main() {
               FakeAuthCallbackIngress(),
             ),
             appBootstrapControllerProvider.overrideWith(
-              (ref) => _ResolvedBootstrapController(ref),
+              (ref) => controller = _ManualBootstrapController(ref),
             ),
           ],
           child: MaterialApp(
@@ -91,27 +94,37 @@ void main() {
       );
 
       await tester.pump();
+      controller.resolveToWelcome();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Welcome route'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
     },
   );
 }
 
 class _FakeAppBootstrapController extends AppBootstrapController {
-  _FakeAppBootstrapController(super.ref);
-
-  @override
-  Future<void> load() async {
+  _FakeAppBootstrapController(super.ref) {
     state = const AppBootstrapState(status: AppBootstrapStatus.loading);
   }
-}
-
-class _ResolvedBootstrapController extends AppBootstrapController {
-  _ResolvedBootstrapController(super.ref);
 
   @override
-  Future<void> load() async {
+  Future<void> load() async {}
+}
+
+class _ManualBootstrapController extends AppBootstrapController {
+  _ManualBootstrapController(super.ref) {
+    state = const AppBootstrapState(status: AppBootstrapStatus.loading);
+  }
+
+  @override
+  Future<void> load() async {}
+
+  void resolveToWelcome() {
     state = const AppBootstrapState(
       status: AppBootstrapStatus.unauthenticated,
       routeName: AppRoutes.welcome,

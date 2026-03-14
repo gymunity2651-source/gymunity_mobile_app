@@ -4,6 +4,7 @@ import 'package:my_app/core/supabase/auth_callback_ingress.dart';
 import 'package:my_app/core/result/paged.dart';
 import 'package:my_app/features/ai_chat/domain/entities/chat_message_entity.dart';
 import 'package:my_app/features/ai_chat/domain/entities/chat_session_entity.dart';
+import 'package:my_app/features/ai_chat/domain/entities/planner_turn_result.dart';
 import 'package:my_app/features/ai_chat/domain/repositories/chat_repository.dart';
 import 'package:my_app/features/auth/domain/entities/auth_session.dart';
 import 'package:my_app/features/auth/domain/entities/auth_provider_type.dart';
@@ -17,6 +18,8 @@ import 'package:my_app/features/member/domain/entities/member_home_summary_entit
 import 'package:my_app/features/member/domain/entities/member_profile_entity.dart';
 import 'package:my_app/features/member/domain/entities/member_progress_entity.dart';
 import 'package:my_app/features/member/domain/repositories/member_repository.dart';
+import 'package:my_app/features/planner/domain/entities/planner_entities.dart';
+import 'package:my_app/features/planner/domain/repositories/planner_repository.dart';
 import 'package:my_app/features/seller/domain/entities/seller_profile_entity.dart';
 import 'package:my_app/features/seller/domain/repositories/seller_repository.dart';
 import 'package:my_app/features/store/domain/entities/cart_entity.dart';
@@ -515,8 +518,8 @@ class FakeStoreRepository implements StoreRepository {
     final filtered = category == null || category == 'All'
         ? products
         : products
-            .where((product) => product.category == category)
-            .toList(growable: false);
+              .where((product) => product.category == category)
+              .toList(growable: false);
     return Paged<ProductEntity>(items: filtered);
   }
 
@@ -531,28 +534,30 @@ class FakeStoreRepository implements StoreRepository {
 
   @override
   Future<CartEntity> getCart() async {
-    final items = _cartQuantities.entries.map((entry) {
-      final product = products.firstWhere(
-        (candidate) => candidate.id == entry.key,
-        orElse: () => ProductEntity(
-          id: entry.key,
-          sellerId: 'seller-1',
-          name: 'Unavailable product',
-          description: '',
-          category: 'Unavailable',
-          price: 0,
-          stockQty: 0,
-          isActive: false,
-        ),
-      );
-      return CartItemEntity(
-        id: 'cart-item-${entry.key}',
-        cartId: 'cart-1',
-        productId: entry.key,
-        product: product,
-        quantity: entry.value,
-      );
-    }).toList(growable: false);
+    final items = _cartQuantities.entries
+        .map((entry) {
+          final product = products.firstWhere(
+            (candidate) => candidate.id == entry.key,
+            orElse: () => ProductEntity(
+              id: entry.key,
+              sellerId: 'seller-1',
+              name: 'Unavailable product',
+              description: '',
+              category: 'Unavailable',
+              price: 0,
+              stockQty: 0,
+              isActive: false,
+            ),
+          );
+          return CartItemEntity(
+            id: 'cart-item-${entry.key}',
+            cartId: 'cart-1',
+            productId: entry.key,
+            product: product,
+            quantity: entry.value,
+          );
+        })
+        .toList(growable: false);
 
     return CartEntity(id: 'cart-1', memberId: 'member-1', items: items);
   }
@@ -694,14 +699,16 @@ class FakeStoreRepository implements StoreRepository {
     final order = OrderEntity(
       id: 'order-${orders.length + 1}',
       memberId: 'member-1',
-      sellerId: cart.items.isNotEmpty ? cart.items.first.product.sellerId : 'seller-1',
+      sellerId: cart.items.isNotEmpty
+          ? cart.items.first.product.sellerId
+          : 'seller-1',
       status: 'pending',
       totalAmount: cart.subtotal,
-      currency: cart.items.isNotEmpty ? cart.items.first.product.currency : 'USD',
+      currency: cart.items.isNotEmpty
+          ? cart.items.first.product.currency
+          : 'USD',
       itemCount: cart.itemCount,
-      shippingAddress: {
-        'shipping_address_id': addressId,
-      },
+      shippingAddress: {'shipping_address_id': addressId},
       items: cart.items
           .map(
             (item) => OrderItemEntity(
@@ -770,7 +777,9 @@ class FakeSellerRepository implements SellerRepository {
 
   @override
   Future<SellerDashboardSummaryEntity> getDashboardSummary() async {
-    final pendingOrders = orders.where((order) => order.status == 'pending').length;
+    final pendingOrders = orders
+        .where((order) => order.status == 'pending')
+        .length;
     final inProgressOrders = orders
         .where(
           (order) =>
@@ -779,8 +788,9 @@ class FakeSellerRepository implements SellerRepository {
               order.status == 'shipped',
         )
         .length;
-    final deliveredOrders =
-        orders.where((order) => order.status == 'delivered').length;
+    final deliveredOrders = orders
+        .where((order) => order.status == 'delivered')
+        .length;
 
     return SellerDashboardSummaryEntity(
       totalProducts: products.length,
@@ -827,8 +837,7 @@ class FakeSellerRepository implements SellerRepository {
 
     final existingIndex = products.indexWhere((item) => item.id == product.id);
     if (existingIndex >= 0) {
-      products = List<ProductEntity>.from(products)
-        ..[existingIndex] = product;
+      products = List<ProductEntity>.from(products)..[existingIndex] = product;
     } else {
       products = <ProductEntity>[product, ...products];
     }
@@ -910,14 +919,23 @@ class FakeChatRepository implements ChatRepository {
   Future<List<ChatSessionEntity>> listSessions() async => sessions;
 
   @override
-  Future<ChatSessionEntity> createSession({String? title}) async {
+  Future<ChatSessionEntity> createSession({
+    String? title,
+    ChatSessionType type = ChatSessionType.general,
+  }) async {
     if (createSessionError != null) throw createSessionError!;
     _counter++;
     final session = ChatSessionEntity(
       id: 'session-$_counter',
       userId: 'user-1',
-      title: title ?? 'New chat',
+      title:
+          title ??
+          (type == ChatSessionType.planner ? 'AI Planner' : 'New chat'),
       updatedAt: DateTime(2026, 3, 8),
+      type: type,
+      plannerStatus: type == ChatSessionType.planner
+          ? 'collecting_info'
+          : 'idle',
     );
     sessions.add(session);
     _messages.putIfAbsent(session.id, () => <ChatMessageEntity>[]);
@@ -928,17 +946,33 @@ class FakeChatRepository implements ChatRepository {
   @override
   Stream<List<ChatMessageEntity>> watchMessages(String sessionId) {
     final controller = _controllerFor(sessionId);
-    controller.add(_messages[sessionId] ?? <ChatMessageEntity>[]);
-    return controller.stream;
+    return Stream<List<ChatMessageEntity>>.multi((streamController) {
+      streamController.add(_messages[sessionId] ?? <ChatMessageEntity>[]);
+      final sub = controller.stream.listen(
+        streamController.add,
+        onError: streamController.addError,
+        onDone: streamController.close,
+      );
+      streamController.onCancel = () => sub.cancel();
+    });
   }
 
   @override
-  Future<ChatMessageEntity> sendMessage({
+  Future<PlannerTurnResult> sendMessage({
     required String sessionId,
     required String message,
   }) async {
     if (sendMessageError != null) throw sendMessageError!;
     final list = _messages.putIfAbsent(sessionId, () => <ChatMessageEntity>[]);
+    final session = sessions.firstWhere(
+      (value) => value.id == sessionId,
+      orElse: () => ChatSessionEntity(
+        id: sessionId,
+        userId: 'user-1',
+        title: 'New chat',
+        updatedAt: DateTime(2026, 3, 8),
+      ),
+    );
     list.add(
       ChatMessageEntity(
         id: 'user-${list.length}',
@@ -948,16 +982,63 @@ class FakeChatRepository implements ChatRepository {
         createdAt: DateTime(2026, 3, 8, 12, 0),
       ),
     );
+    final isPlanner = session.isPlanner;
+    final draftId = isPlanner ? 'draft-$_counter-${list.length}' : null;
     final response = ChatMessageEntity(
       id: 'assistant-${list.length}',
       sessionId: sessionId,
       sender: 'assistant',
-      content: 'Handled: $message',
+      content: isPlanner
+          ? 'Handled planner request: $message'
+          : 'Handled: $message',
       createdAt: DateTime(2026, 3, 8, 12, 1),
+      metadata: isPlanner
+          ? <String, dynamic>{
+              'planner_status': 'needs_more_info',
+              'draft_id': draftId,
+              'missing_fields': const <String>[
+                'days_per_week',
+                'session_minutes',
+              ],
+            }
+          : const <String, dynamic>{},
     );
     list.add(response);
     _controllerFor(sessionId).add(List<ChatMessageEntity>.from(list));
-    return response;
+    return PlannerTurnResult(
+      assistantMessage: response.content,
+      status: isPlanner ? 'needs_more_info' : 'general_response',
+      draftId: draftId,
+      missingFields: isPlanner
+          ? const <String>['days_per_week', 'session_minutes']
+          : const <String>[],
+    );
+  }
+
+  @override
+  Future<PlannerTurnResult> regeneratePlan({
+    required String sessionId,
+    required String draftId,
+  }) async {
+    if (sendMessageError != null) throw sendMessageError!;
+    final list = _messages.putIfAbsent(sessionId, () => <ChatMessageEntity>[]);
+    final response = ChatMessageEntity(
+      id: 'assistant-regenerated-${list.length}',
+      sessionId: sessionId,
+      sender: 'assistant',
+      content: 'The planner refreshed your draft.',
+      createdAt: DateTime(2026, 3, 8, 12, 2),
+      metadata: <String, dynamic>{
+        'planner_status': 'plan_updated',
+        'draft_id': draftId,
+      },
+    );
+    list.add(response);
+    _controllerFor(sessionId).add(List<ChatMessageEntity>.from(list));
+    return const PlannerTurnResult(
+      assistantMessage: 'The planner refreshed your draft.',
+      status: 'plan_updated',
+    );
   }
 
   List<ChatMessageEntity> messagesFor(String sessionId) {
@@ -969,5 +1050,84 @@ class FakeChatRepository implements ChatRepository {
       sessionId,
       () => StreamController<List<ChatMessageEntity>>.broadcast(),
     );
+  }
+}
+
+class FakePlannerRepository implements PlannerRepository {
+  PlannerDraftEntity? latestDraft;
+  final Map<String, PlannerDraftEntity> drafts = <String, PlannerDraftEntity>{};
+  final Map<String, PlanDetailEntity> plans = <String, PlanDetailEntity>{};
+  List<PlanTaskEntity> todayAgenda = const <PlanTaskEntity>[];
+
+  @override
+  Future<PlanActivationResultEntity> activateDraft({
+    required String draftId,
+    required DateTime startDate,
+    String? reminderTime,
+  }) async {
+    final planId = drafts[draftId]?.id ?? 'plan-1';
+    return PlanActivationResultEntity(planId: planId, created: true);
+  }
+
+  @override
+  Future<PlannerDraftEntity?> getDraft(String draftId) async => drafts[draftId];
+
+  @override
+  Future<PlannerDraftEntity?> getLatestDraft(String sessionId) async {
+    return latestDraft;
+  }
+
+  @override
+  Future<PlanDetailEntity?> getPlanDetail({String? planId}) async {
+    if (planId == null) {
+      return plans.values.isEmpty ? null : plans.values.first;
+    }
+    return plans[planId];
+  }
+
+  @override
+  Future<List<PlanTaskEntity>> listPlanAgenda({
+    String? planId,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async {
+    return todayAgenda;
+  }
+
+  @override
+  Future<List<PlanTaskEntity>> listTodayAgenda() async => todayAgenda;
+
+  @override
+  Future<int> syncReminders({required String timeZone, int limit = 50}) async {
+    return todayAgenda.length;
+  }
+
+  @override
+  Future<int> updateReminderTime({
+    required String planId,
+    required String reminderTime,
+    required String timeZone,
+  }) async {
+    return 1;
+  }
+
+  @override
+  Future<PlanTaskEntity> updateTaskStatus({
+    required String taskId,
+    required TaskCompletionStatus status,
+    int? completionPercent,
+    String? note,
+    int? durationMinutes,
+  }) async {
+    final index = todayAgenda.indexWhere((task) => task.taskId == taskId);
+    if (index < 0) {
+      throw StateError('Task not found');
+    }
+    final updated = todayAgenda[index].copyWith(
+      completionStatus: status,
+      completionPercent: completionPercent,
+    );
+    todayAgenda = List<PlanTaskEntity>.from(todayAgenda)..[index] = updated;
+    return updated;
   }
 }

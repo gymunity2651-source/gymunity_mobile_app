@@ -6,6 +6,7 @@ import '../core/theme/app_theme.dart';
 import '../core/constants/app_strings.dart';
 import '../core/config/app_config.dart';
 import '../features/monetization/presentation/providers/monetization_providers.dart';
+import '../features/planner/presentation/providers/planner_providers.dart';
 import 'routes.dart';
 
 class GymUnityApp extends ConsumerStatefulWidget {
@@ -23,6 +24,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(monetizationBootstrapProvider).start();
+      ref.read(plannerReminderBootstrapProvider).start();
     });
   }
 
@@ -30,6 +32,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     ref.read(monetizationBootstrapProvider).dispose();
+    ref.read(plannerReminderBootstrapProvider).dispose();
     super.dispose();
   }
 
@@ -37,6 +40,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       ref.read(monetizationBootstrapProvider).refreshEntitlements();
+      ref.read(plannerReminderBootstrapProvider).sync();
     }
   }
 
@@ -45,6 +49,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
     final hasValidConfig = AppConfig.current.validationErrorMessage == null;
     if (hasValidConfig) {
       ref.watch(authAwareMonetizationProvider);
+      ref.watch(authAwarePlannerRemindersProvider);
     }
 
     SystemChrome.setSystemUIOverlayStyle(

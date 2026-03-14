@@ -22,6 +22,9 @@ dependencies:
   in_app_purchase: ^3.2.3
   in_app_purchase_android: ^0.4.0+8
   in_app_purchase_storekit: ^0.4.8+1
+  flutter_local_notifications: ^19.4.2
+  timezone: ^0.10.1
+  flutter_timezone: ^4.1.1
   freezed_annotation: ^2.4.1
   json_annotation: ^4.9.0
 

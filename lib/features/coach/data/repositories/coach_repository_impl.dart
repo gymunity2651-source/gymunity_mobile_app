@@ -649,6 +649,10 @@ class CoachRepositoryImpl implements CoachRepository {
       assignedAt: _parseDate(row['assigned_at']),
       updatedAt: _parseDate(row['updated_at']),
       completedAt: _parseDate(row['completed_at']),
+      conversationSessionId: row['conversation_session_id'] as String?,
+      generatedFromDraftId: row['generated_from_draft_id'] as String?,
+      planVersion: row['plan_version'] as int? ?? 1,
+      defaultReminderTime: row['default_reminder_time'] as String?,
     );
   }
 

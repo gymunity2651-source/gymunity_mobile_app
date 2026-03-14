@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/app/routes.dart';
 import 'package:my_app/core/di/providers.dart';
+import 'package:my_app/features/ai_chat/domain/entities/chat_session_entity.dart';
 import 'package:my_app/features/ai_chat/presentation/screens/ai_conversation_screen.dart';
 import 'package:my_app/features/ai_chat/presentation/screens/ai_chat_home_screen.dart';
 import 'package:my_app/features/auth/presentation/providers/auth_providers.dart';
@@ -13,6 +14,7 @@ import 'package:my_app/features/seller/presentation/screens/seller_product_edito
 import 'package:my_app/features/store/presentation/screens/cart_screen.dart';
 import 'package:my_app/features/store/domain/entities/product_entity.dart';
 import 'package:my_app/features/store/presentation/screens/store_home_screen.dart';
+import 'package:my_app/features/planner/domain/entities/planner_entities.dart';
 
 import 'test_doubles.dart';
 
@@ -48,11 +50,20 @@ void main() {
             ],
             child: MaterialApp(
               onGenerateRoute: AppRoutes.onGenerateRoute,
-              initialRoute: '/?code=test-auth-code',
+              home: Builder(
+                builder: (context) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    Navigator.pushNamed(context, '/?code=test-auth-code');
+                  });
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
           ),
         );
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 30));
+        await tester.pumpAndSettle();
 
         expect(find.byType(AuthCallbackScreen), findsOneWidget);
         expect(find.text('Unknown Route'), findsNothing);
@@ -140,7 +151,7 @@ void main() {
         chatRepository: chatRepository,
       );
 
-      await tester.tap(find.text('Build a workout plan'));
+      await tester.tap(find.text('Strength plan'));
       await tester.pumpAndSettle();
 
       expect(find.byType(AiConversationScreen), findsOneWidget);
@@ -150,6 +161,77 @@ void main() {
         isNotEmpty,
       );
     });
+
+    testWidgets('planner missing-field helpers prefill the composer', (
+      tester,
+    ) async {
+      final chatRepository = FakeChatRepository();
+      chatRepository.sessions.add(
+        ChatSessionEntity(
+          id: 'planner-session',
+          userId: 'user-1',
+          title: 'AI Planner',
+          updatedAt: DateTime(2026, 3, 8),
+          type: ChatSessionType.planner,
+          plannerStatus: 'collecting_info',
+        ),
+      );
+
+      final plannerRepository = FakePlannerRepository()
+        ..latestDraft = PlannerDraftEntity(
+          id: 'draft-1',
+          userId: 'user-1',
+          sessionId: 'planner-session',
+          status: 'collecting_info',
+          assistantMessage: 'Need a few details before building the plan.',
+          missingFields: const <String>[
+            'days_per_week',
+            'session_minutes',
+            'equipment',
+          ],
+          createdAt: DateTime(2026, 3, 8),
+          updatedAt: DateTime(2026, 3, 8),
+        );
+
+      await _pumpScreen(
+        tester,
+        const AiConversationScreen(sessionId: 'planner-session'),
+        chatRepository: chatRepository,
+        plannerRepository: plannerRepository,
+      );
+
+      expect(find.text('Answer details'), findsOneWidget);
+
+      await tester.tap(find.text('days per week').first);
+      await tester.pump();
+
+      var textField = tester.widget<TextField>(find.byType(TextField));
+      expect(textField.controller?.text, contains('Days per week: '));
+
+      await tester.tap(find.text('Answer details'));
+      await tester.pump();
+
+      textField = tester.widget<TextField>(find.byType(TextField));
+      expect(textField.controller?.text, contains('Session minutes: '));
+      expect(textField.controller?.text, contains('Equipment available: '));
+    });
+
+    testWidgets('conversation send shows the streamed AI reply', (tester) async {
+      final chatRepository = FakeChatRepository();
+
+      await _pumpScreen(
+        tester,
+        const AiConversationScreen(),
+        chatRepository: chatRepository,
+      );
+
+      await tester.enterText(find.byType(TextField), 'Test recovery question');
+      await tester.tap(find.byIcon(Icons.send));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Handled: Test recovery question'), findsOneWidget);
+    });
   });
 }
 
@@ -158,8 +240,10 @@ Future<void> _pumpNamedRoute(
   String routeName, {
   FakeStoreRepository? storeRepository,
   FakeCoachRepository? coachRepository,
+  FakeMemberRepository? memberRepository,
   FakeSellerRepository? sellerRepository,
   FakeChatRepository? chatRepository,
+  FakePlannerRepository? plannerRepository,
 }) async {
   tester.view.physicalSize = const Size(1200, 2400);
   tester.view.devicePixelRatio = 1.0;
@@ -182,11 +266,17 @@ Future<void> _pumpNamedRoute(
         coachRepositoryProvider.overrideWithValue(
           coachRepository ?? FakeCoachRepository(),
         ),
+        memberRepositoryProvider.overrideWithValue(
+          memberRepository ?? FakeMemberRepository(),
+        ),
         sellerRepositoryProvider.overrideWithValue(
           sellerRepository ?? FakeSellerRepository(),
         ),
         chatRepositoryProvider.overrideWithValue(
           chatRepository ?? FakeChatRepository(),
+        ),
+        plannerRepositoryProvider.overrideWithValue(
+          plannerRepository ?? FakePlannerRepository(),
         ),
       ],
       child: MaterialApp(
@@ -209,8 +299,10 @@ Future<void> _pumpScreen(
   Widget screen, {
   FakeStoreRepository? storeRepository,
   FakeCoachRepository? coachRepository,
+  FakeMemberRepository? memberRepository,
   FakeSellerRepository? sellerRepository,
   FakeChatRepository? chatRepository,
+  FakePlannerRepository? plannerRepository,
 }) async {
   tester.view.physicalSize = const Size(1200, 2400);
   tester.view.devicePixelRatio = 1.0;
@@ -233,11 +325,17 @@ Future<void> _pumpScreen(
         coachRepositoryProvider.overrideWithValue(
           coachRepository ?? FakeCoachRepository(),
         ),
+        memberRepositoryProvider.overrideWithValue(
+          memberRepository ?? FakeMemberRepository(),
+        ),
         sellerRepositoryProvider.overrideWithValue(
           sellerRepository ?? FakeSellerRepository(),
         ),
         chatRepositoryProvider.overrideWithValue(
           chatRepository ?? FakeChatRepository(),
+        ),
+        plannerRepositoryProvider.overrideWithValue(
+          plannerRepository ?? FakePlannerRepository(),
         ),
       ],
       child: MaterialApp(

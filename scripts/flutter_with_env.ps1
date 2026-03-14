@@ -15,6 +15,25 @@ $envPath = if ([System.IO.Path]::IsPathRooted($EnvFile)) {
   Join-Path $projectRoot $EnvFile
 }
 
+$androidStudioJbr = "C:\Program Files\Android\Android Studio\jbr"
+$javaExe = if ($env:JAVA_HOME) {
+  Join-Path $env:JAVA_HOME "bin\java.exe"
+} else {
+  $null
+}
+
+if (-not $javaExe -or -not (Test-Path $javaExe)) {
+  $fallbackJavaExe = Join-Path $androidStudioJbr "bin\java.exe"
+  if (Test-Path $fallbackJavaExe) {
+    $env:JAVA_HOME = $androidStudioJbr
+    $javaBin = Join-Path $androidStudioJbr "bin"
+    $pathEntries = $env:Path -split ";"
+    if (-not ($pathEntries -contains $javaBin)) {
+      $env:Path = "$javaBin;$env:Path"
+    }
+  }
+}
+
 if (-not (Test-Path $envPath)) {
   throw "Env file not found at $envPath"
 }
@@ -36,7 +55,6 @@ $allowedKeys = @(
   "SUPPORT_EMAIL",
   "SUPPORT_EMAIL_SUBJECT",
   "REVIEWER_LOGIN_HELP_URL",
-  "OPENAI_MODEL",
   "ENABLE_COACH_ROLE",
   "ENABLE_SELLER_ROLE",
   "ENABLE_APPLE_SIGN_IN",
@@ -110,3 +128,4 @@ if ($ExtraArgs) {
 
 & flutter @flutterArgs
 exit $LASTEXITCODE
+

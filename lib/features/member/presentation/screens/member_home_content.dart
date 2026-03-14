@@ -7,7 +7,12 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/widgets/app_feedback.dart';
+import '../../../planner/domain/entities/planner_entities.dart';
+import '../../../planner/presentation/providers/planner_providers.dart';
+import '../../../planner/presentation/route_args.dart';
 import '../../../user/domain/entities/profile_entity.dart';
+import '../providers/member_providers.dart';
 
 class MemberHomeContent extends ConsumerWidget {
   const MemberHomeContent({super.key});
@@ -19,7 +24,12 @@ class MemberHomeContent extends ConsumerWidget {
 
     return SafeArea(
       child: RefreshIndicator.adaptive(
-        onRefresh: () => ref.refresh(currentUserProfileProvider.future),
+        onRefresh: () async {
+          ref.invalidate(currentUserProfileProvider);
+          ref.invalidate(memberHomeSummaryProvider);
+          ref.invalidate(todayAgendaProvider);
+          await ref.read(plannerReminderBootstrapProvider).sync();
+        },
         child: profileAsync.when(
           loading: () => const _HomeStateScaffold(
             child: Center(
@@ -62,7 +72,7 @@ class MemberHomeContent extends ConsumerWidget {
   }
 }
 
-class _MemberHomeLoaded extends StatelessWidget {
+class _MemberHomeLoaded extends ConsumerWidget {
   const _MemberHomeLoaded({
     required this.profile,
     required this.aiPremiumEnabled,
@@ -72,7 +82,7 @@ class _MemberHomeLoaded extends StatelessWidget {
   final bool aiPremiumEnabled;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final fullName = profile.fullName?.trim().isNotEmpty == true
         ? profile.fullName!.trim()
         : 'GymUnity Member';
@@ -95,7 +105,7 @@ class _MemberHomeLoaded extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'This member dashboard only shows live account-backed entry points that are ready for review.',
+          'Your member dashboard now surfaces the active AI plan flow, today’s tasks, and the live GymUnity entry points already backed by the app.',
           style: GoogleFonts.inter(
             fontSize: 14,
             height: 1.5,
@@ -143,7 +153,7 @@ class _MemberHomeLoaded extends StatelessWidget {
                         : AppColors.orange,
                   ),
                   const _Pill(
-                    label: 'Submission-safe navigation',
+                    label: 'Planner-aware dashboard',
                     accent: AppColors.electricBlue,
                   ),
                 ],
@@ -152,16 +162,31 @@ class _MemberHomeLoaded extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
+        _SectionTitle(title: 'Today'),
+        const SizedBox(height: 12),
+        const _TodayTaskCard(),
+        const SizedBox(height: 20),
         _SectionTitle(title: 'Quick Actions'),
         const SizedBox(height: 12),
         _QuickActionCard(
           icon: Icons.auto_awesome_outlined,
           title: aiPremiumEnabled ? 'Open AI Premium' : 'Open AI Assistant',
-          description:
-              aiPremiumEnabled
-              ? 'Review the store-billed AI Premium path or open your verified AI conversations.'
-              : 'Send a real prompt, view real sessions, and handle backend failures explicitly.',
+          description: aiPremiumEnabled
+              ? 'Start a guided AI plan or continue a verified AI conversation.'
+              : 'Start a guided AI plan or continue a general AI conversation.',
           onTap: () => Navigator.pushNamed(context, AppRoutes.aiChatHome),
+        ),
+        const SizedBox(height: 12),
+        _QuickActionCard(
+          icon: Icons.event_note_outlined,
+          title: 'Open active plan',
+          description:
+              'Review your activated AI plan, upcoming days, and reminder settings.',
+          onTap: () => Navigator.pushNamed(
+            context,
+            AppRoutes.workoutPlan,
+            arguments: const WorkoutPlanArgs(),
+          ),
         ),
         const SizedBox(height: 12),
         _QuickActionCard(
@@ -192,6 +217,213 @@ class _MemberHomeLoaded extends StatelessWidget {
   }
 }
 
+class _TodayTaskCard extends ConsumerWidget {
+  const _TodayTaskCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(memberHomeSummaryProvider);
+    final todayAsync = ref.watch(todayAgendaProvider);
+    final actionState = ref.watch(plannerActionControllerProvider);
+    assert(() {
+      debugPrint(
+        '[planner-ui] TodayTaskCard summary=$summaryAsync today=$todayAsync',
+      );
+      return true;
+    }());
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: summaryAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.orange),
+        ),
+        error: (error, stackTrace) => _InlineState(
+          title: 'Unable to load today’s agenda',
+          description: 'GymUnity could not read your member summary right now.',
+        ),
+        data: (homeSummary) => todayAsync.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.orange),
+          ),
+          error: (error, stackTrace) => _InlineState(
+            title: 'Unable to load today’s tasks',
+            description:
+                'Pull to refresh or reopen the member dashboard to retry.',
+          ),
+          data: (tasks) {
+            final activePlan = homeSummary.activePlan;
+            final pendingCount = tasks
+                .where(
+                  (task) =>
+                      task.completionStatus == TaskCompletionStatus.pending,
+                )
+                .length;
+            final completedCount = tasks
+                .where(
+                  (task) =>
+                      task.completionStatus == TaskCompletionStatus.completed ||
+                      task.completionStatus == TaskCompletionStatus.partial,
+                )
+                .length;
+            final missedCount = tasks
+                .where(
+                  (task) =>
+                      task.completionStatus == TaskCompletionStatus.missed,
+                )
+                .length;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Today’s AI tasks',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            tasks.isEmpty
+                                ? 'No AI tasks are scheduled today yet.'
+                                : 'Stay on the current plan with clear actions and one-tap status updates.',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              height: 1.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (activePlan != null)
+                      OutlinedButton(
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.workoutPlan,
+                          arguments: WorkoutPlanArgs(planId: activePlan.id),
+                        ),
+                        child: const Text('View plan'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _MetricPill(label: 'Pending', value: pendingCount),
+                    _MetricPill(label: 'Done', value: completedCount),
+                    _MetricPill(label: 'Missed', value: missedCount),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (tasks.isEmpty)
+                  _EmptyTasksState(activePlan: activePlan != null)
+                else
+                  ...tasks
+                      .take(3)
+                      .map(
+                        (task) => _TaskActionRow(
+                          task: task,
+                          isUpdating: actionState.isUpdatingTask,
+                          onOpen: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.workoutDetails,
+                            arguments: WorkoutDayArgs(
+                              planId: task.planId,
+                              dayId: task.dayId,
+                            ),
+                          ),
+                          onComplete: () => _updateTask(
+                            context,
+                            ref,
+                            task,
+                            TaskCompletionStatus.completed,
+                            100,
+                          ),
+                          onPartial: () => _updateTask(
+                            context,
+                            ref,
+                            task,
+                            TaskCompletionStatus.partial,
+                            50,
+                          ),
+                          onSkip: () => _updateTask(
+                            context,
+                            ref,
+                            task,
+                            TaskCompletionStatus.skipped,
+                            0,
+                          ),
+                        ),
+                      ),
+                if (tasks.length > 3) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.workoutPlan,
+                        arguments: activePlan == null
+                            ? const WorkoutPlanArgs()
+                            : WorkoutPlanArgs(planId: activePlan.id),
+                      ),
+                      child: Text('View all ${tasks.length} tasks'),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateTask(
+    BuildContext context,
+    WidgetRef ref,
+    PlanTaskEntity task,
+    TaskCompletionStatus status,
+    int completionPercent,
+  ) async {
+    final updated = await ref
+        .read(plannerActionControllerProvider.notifier)
+        .updateTaskStatus(
+          taskId: task.taskId,
+          status: status,
+          completionPercent: completionPercent,
+        );
+    if (!context.mounted) {
+      return;
+    }
+    if (updated == null) {
+      showAppFeedback(
+        context,
+        ref.read(plannerActionControllerProvider).errorMessage ??
+            'GymUnity could not update this task right now.',
+      );
+      return;
+    }
+    showAppFeedback(context, 'Task marked ${status.label.toLowerCase()}.');
+  }
+}
+
 class _HomeStateScaffold extends StatelessWidget {
   const _HomeStateScaffold({required this.child});
 
@@ -203,6 +435,188 @@ class _HomeStateScaffold extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSizes.screenPadding),
       children: [const SizedBox(height: 20), child],
+    );
+  }
+}
+
+class _InlineState extends StatelessWidget {
+  const _InlineState({required this.title, required this.description});
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          description,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            height: 1.5,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyTasksState extends StatelessWidget {
+  const _EmptyTasksState({required this.activePlan});
+
+  final bool activePlan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14100C),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      ),
+      child: Text(
+        activePlan
+            ? 'Your plan is active. Today may be a rest or recovery day.'
+            : 'Start a planning chat to generate an AI plan and get daily tasks here.',
+        style: GoogleFonts.inter(
+          fontSize: 13,
+          height: 1.5,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+class _TaskActionRow extends StatelessWidget {
+  const _TaskActionRow({
+    required this.task,
+    required this.isUpdating,
+    required this.onOpen,
+    required this.onComplete,
+    required this.onPartial,
+    required this.onSkip,
+  });
+
+  final PlanTaskEntity task;
+  final bool isUpdating;
+  final VoidCallback onOpen;
+  final VoidCallback onComplete;
+  final VoidCallback onPartial;
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14100C),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onOpen,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        task.title,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        task.reminderTime ?? task.scheduledTime ?? 'Any time',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              _TaskStatusPill(status: task.completionStatus),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: isUpdating ? null : onSkip,
+                  child: const Text('Skip'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: isUpdating ? null : onPartial,
+                  child: const Text('Partial'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: isUpdating ? null : onComplete,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.orange,
+                    foregroundColor: AppColors.white,
+                  ),
+                  child: const Text('Done'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  const _MetricPill({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.orange.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+      ),
+      child: Text(
+        '$label $value',
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
+      ),
     );
   }
 }
@@ -372,6 +786,38 @@ class _Pill extends StatelessWidget {
           fontSize: 12,
           fontWeight: FontWeight.w700,
           color: accent,
+        ),
+      ),
+    );
+  }
+}
+
+class _TaskStatusPill extends StatelessWidget {
+  const _TaskStatusPill({required this.status});
+
+  final TaskCompletionStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      TaskCompletionStatus.completed => AppColors.limeGreen,
+      TaskCompletionStatus.partial => AppColors.electricBlue,
+      TaskCompletionStatus.skipped => AppColors.orange,
+      TaskCompletionStatus.missed => AppColors.error,
+      TaskCompletionStatus.pending => AppColors.textMuted,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+      ),
+      child: Text(
+        status.label,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
         ),
       ),
     );

@@ -2,7 +2,7 @@
 
 GymUnity does not read `.env` directly at runtime.
 
-The app reads configuration only from compile-time `--dart-define` values through `String.fromEnvironment(...)` in `AppConfig`.
+The app reads configuration only from compile-time `--dart-define` values through `String.fromEnvironment(...)` in `AppConfig`. AI provider secrets are not read in Flutter and must stay in Supabase Edge Function secrets.
 
 ## Local source of truth
 
@@ -10,7 +10,6 @@ Use `.env` at the project root for local development values:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
-- `OPENAI_MODEL` (optional)
 - any other `AppConfig` keys supported by the helper scripts
 
 `.env` is a developer input file only. It is not a runtime API.
@@ -61,3 +60,6 @@ If required values are missing:
 
 - the helper script fails early in the terminal with a clear error
 - the app shows the configuration-required splash state instead of crashing if someone still launches it without valid defines
+
+
+
