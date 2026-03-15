@@ -913,6 +913,12 @@ class FakeChatRepository implements ChatRepository {
 
   Object? createSessionError;
   Object? sendMessageError;
+  Duration createSessionDelay = Duration.zero;
+  Duration sendMessageDelay = Duration.zero;
+  Duration regeneratePlanDelay = Duration.zero;
+  int createSessionCalls = 0;
+  int sendMessageCalls = 0;
+  int regeneratePlanCalls = 0;
   int _counter = 0;
 
   @override
@@ -923,7 +929,11 @@ class FakeChatRepository implements ChatRepository {
     String? title,
     ChatSessionType type = ChatSessionType.general,
   }) async {
+    createSessionCalls++;
     if (createSessionError != null) throw createSessionError!;
+    if (createSessionDelay > Duration.zero) {
+      await Future<void>.delayed(createSessionDelay);
+    }
     _counter++;
     final session = ChatSessionEntity(
       id: 'session-$_counter',
@@ -947,9 +957,11 @@ class FakeChatRepository implements ChatRepository {
   Stream<List<ChatMessageEntity>> watchMessages(String sessionId) {
     final controller = _controllerFor(sessionId);
     return Stream<List<ChatMessageEntity>>.multi((streamController) {
-      streamController.add(_messages[sessionId] ?? <ChatMessageEntity>[]);
+      streamController.add(
+        sortChatMessages(_messages[sessionId] ?? const <ChatMessageEntity>[]),
+      );
       final sub = controller.stream.listen(
-        streamController.add,
+        (messages) => streamController.add(sortChatMessages(messages)),
         onError: streamController.addError,
         onDone: streamController.close,
       );
@@ -962,7 +974,11 @@ class FakeChatRepository implements ChatRepository {
     required String sessionId,
     required String message,
   }) async {
+    sendMessageCalls++;
     if (sendMessageError != null) throw sendMessageError!;
+    if (sendMessageDelay > Duration.zero) {
+      await Future<void>.delayed(sendMessageDelay);
+    }
     final list = _messages.putIfAbsent(sessionId, () => <ChatMessageEntity>[]);
     final session = sessions.firstWhere(
       (value) => value.id == sessionId,
@@ -1020,7 +1036,11 @@ class FakeChatRepository implements ChatRepository {
     required String sessionId,
     required String draftId,
   }) async {
+    regeneratePlanCalls++;
     if (sendMessageError != null) throw sendMessageError!;
+    if (regeneratePlanDelay > Duration.zero) {
+      await Future<void>.delayed(regeneratePlanDelay);
+    }
     final list = _messages.putIfAbsent(sessionId, () => <ChatMessageEntity>[]);
     final response = ChatMessageEntity(
       id: 'assistant-regenerated-${list.length}',
@@ -1042,7 +1062,14 @@ class FakeChatRepository implements ChatRepository {
   }
 
   List<ChatMessageEntity> messagesFor(String sessionId) {
-    return List<ChatMessageEntity>.from(_messages[sessionId] ?? const []);
+    return sortChatMessages(
+      _messages[sessionId] ?? const <ChatMessageEntity>[],
+    );
+  }
+
+  void replaceMessages(String sessionId, List<ChatMessageEntity> messages) {
+    _messages[sessionId] = List<ChatMessageEntity>.from(messages);
+    _controllerFor(sessionId).add(sortChatMessages(messages));
   }
 
   StreamController<List<ChatMessageEntity>> _controllerFor(String sessionId) {

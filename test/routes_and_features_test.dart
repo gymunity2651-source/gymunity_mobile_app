@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/app/routes.dart';
 import 'package:my_app/core/di/providers.dart';
+import 'package:my_app/features/ai_chat/domain/entities/chat_message_entity.dart';
 import 'package:my_app/features/ai_chat/domain/entities/chat_session_entity.dart';
 import 'package:my_app/features/ai_chat/presentation/screens/ai_conversation_screen.dart';
 import 'package:my_app/features/ai_chat/presentation/screens/ai_chat_home_screen.dart';
@@ -216,7 +217,9 @@ void main() {
       expect(textField.controller?.text, contains('Equipment available: '));
     });
 
-    testWidgets('conversation send shows the streamed AI reply', (tester) async {
+    testWidgets('conversation send shows the streamed AI reply', (
+      tester,
+    ) async {
       final chatRepository = FakeChatRepository();
 
       await _pumpScreen(
@@ -230,7 +233,85 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Handled: Test recovery question'), findsOneWidget);
+      expect(
+        find.textContaining('Handled: Test recovery question'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('conversation keeps messages ordered from top to bottom', (
+      tester,
+    ) async {
+      final chatRepository = FakeChatRepository();
+      chatRepository.sessions.add(
+        ChatSessionEntity(
+          id: 'general-session',
+          userId: 'user-1',
+          title: 'General AI',
+          updatedAt: DateTime(2026, 3, 8),
+        ),
+      );
+      chatRepository.replaceMessages('general-session', <ChatMessageEntity>[
+        ChatMessageEntity(
+          id: 'second-message',
+          sessionId: 'general-session',
+          sender: 'user',
+          content: 'Second message',
+          createdAt: DateTime(2026, 3, 8, 12, 5),
+        ),
+        ChatMessageEntity(
+          id: 'first-message',
+          sessionId: 'general-session',
+          sender: 'user',
+          content: 'First message',
+          createdAt: DateTime(2026, 3, 8, 12, 0),
+        ),
+      ]);
+
+      await _pumpScreen(
+        tester,
+        const AiConversationScreen(sessionId: 'general-session'),
+        chatRepository: chatRepository,
+      );
+
+      expect(
+        tester.getTopLeft(find.text('First message')).dy,
+        lessThan(tester.getTopLeft(find.text('Second message')).dy),
+      );
+    });
+
+    testWidgets('conversation locks send while the first request is starting', (
+      tester,
+    ) async {
+      final chatRepository = FakeChatRepository()
+        ..createSessionDelay = const Duration(milliseconds: 200)
+        ..sendMessageDelay = const Duration(milliseconds: 200);
+
+      await _pumpScreen(
+        tester,
+        const AiConversationScreen(),
+        chatRepository: chatRepository,
+      );
+
+      await tester.enterText(find.byType(TextField), 'Need a quick workout');
+      await tester.tap(find.byIcon(Icons.send));
+      await tester.pump();
+
+      final sendButton = tester.widget<IconButton>(find.byType(IconButton));
+      expect(sendButton.onPressed, isNull);
+      expect(chatRepository.createSessionCalls, 1);
+      expect(find.text('AI IS THINKING'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+
+      expect(chatRepository.createSessionCalls, 1);
+      expect(chatRepository.sendMessageCalls, 1);
+      expect(
+        find.textContaining('Handled: Need a quick workout'),
+        findsOneWidget,
+      );
     });
   });
 }

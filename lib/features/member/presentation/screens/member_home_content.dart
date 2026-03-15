@@ -235,9 +235,23 @@ class _TodayTaskCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.cardDark,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.cardDark,
+            AppColors.surfaceRaised.withValues(alpha: 0.96),
+          ],
+        ),
         borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.borderLight.withValues(alpha: 0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: summaryAsync.when(
         loading: () => const Center(
@@ -287,6 +301,8 @@ class _TodayTaskCard extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const _TodayCardLabel(label: 'LIVE AGENDA'),
+                          const SizedBox(height: 10),
                           Text(
                             'Today’s AI tasks',
                             style: GoogleFonts.spaceGrotesk(
@@ -309,17 +325,23 @@ class _TodayTaskCard extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    if (activePlan != null)
-                      OutlinedButton(
-                        onPressed: () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.workoutPlan,
-                          arguments: WorkoutPlanArgs(planId: activePlan.id),
-                        ),
-                        child: const Text('View plan'),
-                      ),
                   ],
                 ),
+                if (activePlan != null) ...[
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.workoutPlan,
+                        arguments: WorkoutPlanArgs(planId: activePlan.id),
+                      ),
+                      icon: const Icon(Icons.visibility_outlined, size: 18),
+                      label: const Text('Open active plan'),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 Wrap(
                   spacing: 10,
@@ -604,17 +626,61 @@ class _MetricPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      constraints: const BoxConstraints(minWidth: 86),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.orange.withValues(alpha: 0.08),
+        color: AppColors.surface.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(
+          color: AppColors.borderLight.withValues(alpha: 0.65),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$value',
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayCardLabel extends StatelessWidget {
+  const _TodayCardLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.orange.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(AppSizes.radiusFull),
       ),
       child: Text(
-        '$label $value',
+        label,
         style: GoogleFonts.inter(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+          color: AppColors.orangeLight,
         ),
       ),
     );

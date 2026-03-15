@@ -32,6 +32,7 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
   final _scrollController = ScrollController();
   final _composerFocusNode = FocusNode();
   bool _consumedPendingPrompt = false;
+  bool _isSubmittingMessage = false;
   String? _lastScrollSignature;
 
   @override
@@ -104,6 +105,8 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
 
   Widget _buildUnlockedConversation(BuildContext context) {
     final controllerState = ref.watch(chatControllerProvider);
+    final isSendingMessage = _isSubmittingMessage || controllerState.isSending;
+    final isComposerBusy = isSendingMessage || controllerState.isRegenerating;
     final activeSessionId =
         ref.watch(activeChatSessionIdProvider) ?? widget.sessionId;
     final session = ref.watch(chatSessionProvider(activeSessionId));
@@ -120,14 +123,16 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
     final scrollSignature = [
       activeSessionId ?? 'new',
       messages.length,
-      controllerState.isSending,
+      isSendingMessage,
       controllerState.isRegenerating,
       draft?.id ?? 'no-draft',
       draft?.updatedAt.toIso8601String() ?? 'no-draft-update',
     ].join('|');
     if (_lastScrollSignature != scrollSignature) {
       _lastScrollSignature = scrollSignature;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleScrollToBottom());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _scheduleScrollToBottom(),
+      );
     }
 
     return Scaffold(
@@ -206,8 +211,7 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
                       ),
                     ),
                   ...messages.map(_buildMessage),
-                  if (controllerState.isSending ||
-                      controllerState.isRegenerating)
+                  if (isComposerBusy)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Row(
@@ -281,7 +285,7 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
                     radius: 24,
                     backgroundColor: AppColors.orange,
                     child: IconButton(
-                      onPressed: controllerState.isSending
+                      onPressed: isComposerBusy
                           ? null
                           : () => _handleSend(session: session),
                       icon: const Icon(Icons.send, color: AppColors.white),
@@ -332,7 +336,9 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
                     .map(
                       (field) => _FieldChip(
                         label: field.replaceAll('_', ' '),
-                        onTap: isUser ? null : () => _primeSingleFieldReply(field),
+                        onTap: isUser
+                            ? null
+                            : () => _primeSingleFieldReply(field),
                       ),
                     )
                     .toList(growable: false),
@@ -346,13 +352,22 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
 
   Future<void> _handleSend({ChatSessionEntity? session}) async {
     final rawMessage = _messageController.text.trim();
-    if (rawMessage.isEmpty) {
+    final controllerState = ref.read(chatControllerProvider);
+    if (rawMessage.isEmpty ||
+        _isSubmittingMessage ||
+        controllerState.isSending ||
+        controllerState.isRegenerating) {
       return;
     }
 
     final controller = ref.read(chatControllerProvider.notifier);
     String? sessionId =
         ref.read(activeChatSessionIdProvider) ?? widget.sessionId;
+    setState(() {
+      _isSubmittingMessage = true;
+    });
+    _messageController.clear();
+    _scheduleScrollToBottom();
 
     try {
       sessionId = await controller.createSessionIfNeeded(
@@ -360,7 +375,6 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
         type: session?.type ?? ChatSessionType.general,
       );
       ref.read(activeChatSessionIdProvider.notifier).state = sessionId;
-      _messageController.clear();
       final result = await controller.sendMessage(
         sessionId: sessionId,
         message: rawMessage,
@@ -392,6 +406,12 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
         context,
         'GymUnity could not start this AI conversation right now.',
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmittingMessage = false;
+        });
+      }
     }
   }
 

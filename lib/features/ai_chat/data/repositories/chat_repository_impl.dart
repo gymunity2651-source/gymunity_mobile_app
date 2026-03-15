@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/app_config.dart';
@@ -13,6 +15,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
   final SupabaseClient _client;
   static const Duration _tokenRefreshMargin = Duration(minutes: 1);
+  static const Duration _aiReplyRetryDelay = Duration(milliseconds: 700);
 
   @override
   Future<List<ChatSessionEntity>> listSessions() async {
@@ -118,8 +121,8 @@ class ChatRepositoryImpl implements ChatRepository {
         .stream(primaryKey: <String>['id'])
         .eq('session_id', sessionId)
         .order('created_at')
-        .map(
-          (rows) => rows
+        .map((rows) {
+          final messages = rows
               .map((dynamic row) {
                 final map = _rowMap(row);
                 return ChatMessageEntity(
@@ -133,8 +136,9 @@ class ChatRepositoryImpl implements ChatRepository {
                   metadata: _rowMap(map['metadata']),
                 );
               })
-              .toList(growable: false),
-        );
+              .toList(growable: false);
+          return sortChatMessages(messages);
+        });
   }
 
   @override
@@ -159,18 +163,16 @@ class ChatRepositoryImpl implements ChatRepository {
           .select('id')
           .single();
 
-      return await _invokeAiChat(
-        body: <String, dynamic>{
-          'session_id': sessionId,
-          'message_id': userMessageRow['id'],
-          'action': 'reply',
-        },
-      );
-    } on FunctionException catch (e, st) {
-      throw _mapFunctionException(
-        e,
-        st,
-        fallbackMessage: 'Unable to reach the AI assistant.',
+      final userMessageId = userMessageRow['id']?.toString().trim() ?? '';
+      if (userMessageId.isEmpty) {
+        throw const NetworkFailure(
+          message: 'Unable to queue this AI message right now.',
+        );
+      }
+
+      return await _invokeAiReplyWithRecovery(
+        sessionId: sessionId,
+        userMessageId: userMessageId,
       );
     } on PostgrestException catch (e, st) {
       throw NetworkFailure(
@@ -272,6 +274,101 @@ class ChatRepositoryImpl implements ChatRepository {
         fallbackMessage: 'Unable to reach the AI assistant.',
       );
     }
+  }
+
+  Future<PlannerTurnResult> _invokeAiReplyWithRecovery({
+    required String sessionId,
+    required String userMessageId,
+  }) async {
+    final body = <String, dynamic>{
+      'session_id': sessionId,
+      'message_id': userMessageId,
+      'action': 'reply',
+    };
+
+    try {
+      return await _invokeAiChat(body: body);
+    } catch (error) {
+      if (!_shouldRetryAiReply(error)) {
+        rethrow;
+      }
+      await Future<void>.delayed(_aiReplyRetryDelay);
+      try {
+        return await _invokeAiChat(body: body);
+      } catch (retryError) {
+        final recovered = await _recoverAssistantReply(
+          sessionId: sessionId,
+          userMessageId: userMessageId,
+        );
+        if (recovered != null) {
+          return recovered;
+        }
+        rethrow;
+      }
+    }
+  }
+
+  bool _shouldRetryAiReply(Object error) {
+    if (error is AuthFailure) {
+      return false;
+    }
+    if (error is! NetworkFailure) {
+      return false;
+    }
+    final statusCode = int.tryParse(error.code ?? '');
+    if (statusCode == 401 ||
+        statusCode == 403 ||
+        statusCode == 404 ||
+        statusCode == 429) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<PlannerTurnResult?> _recoverAssistantReply({
+    required String sessionId,
+    required String userMessageId,
+  }) async {
+    try {
+      final rows = await _client
+          .from('chat_messages')
+          .select('id,content,metadata')
+          .eq('session_id', sessionId)
+          .eq('sender', 'assistant')
+          .order('created_at', ascending: false)
+          .limit(20);
+
+      for (final row in rows as List<dynamic>) {
+        final map = _rowMap(row);
+        final metadata = _rowMap(map['metadata']);
+        if (metadata['reply_to_message_id']?.toString() != userMessageId) {
+          continue;
+        }
+        final turnResult = _rowMap(metadata['turn_result']);
+        return _mapTurnResult(
+          turnResult.isEmpty
+              ? <String, dynamic>{
+                  'assistant_message': map['content'] as String? ?? '',
+                  'status':
+                      metadata['planner_status'] as String? ??
+                      'general_response',
+                  'missing_fields': metadata['missing_fields'],
+                  'extracted_profile': metadata['extracted_profile'],
+                  'plan': metadata['plan'],
+                  'draft_id': metadata['draft_id'],
+                  'assistant_message_id': map['id'] as String?,
+                }
+              : <String, dynamic>{
+                  ...turnResult,
+                  'assistant_message_id':
+                      turnResult['assistant_message_id'] ?? map['id'],
+                },
+        );
+      }
+    } catch (_) {
+      // Recovery is best-effort; fall back to surfacing the original failure.
+    }
+    return null;
   }
 
   Future<String> _ensureSessionReady({bool forceRefresh = false}) async {
