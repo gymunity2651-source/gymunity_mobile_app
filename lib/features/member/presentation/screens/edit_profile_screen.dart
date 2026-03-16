@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
 import '../../../user/domain/entities/profile_entity.dart';
+import '../../../user/presentation/widgets/profile_avatar.dart';
 import '../providers/member_providers.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
@@ -29,6 +30,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _experienceController = TextEditingController();
   bool _seeded = false;
   bool _isSaving = false;
+  bool _isUploadingAvatar = false;
 
   @override
   void dispose() {
@@ -79,12 +81,34 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             return ListView(
               padding: const EdgeInsets.all(AppSizes.screenPadding),
               children: [
-                OutlinedButton.icon(
-                  onPressed: _isSaving ? null : _pickAvatar,
-                  icon: const Icon(Icons.image_outlined),
-                  label: const Text('Upload Avatar'),
+                Center(
+                  child: Column(
+                    children: [
+                      ProfileAvatar(
+                        size: 104,
+                        avatarPath: profile?.avatarPath,
+                        fullName: profile?.fullName,
+                      ),
+                      const SizedBox(height: 14),
+                      OutlinedButton.icon(
+                        onPressed: _isSaving || _isUploadingAvatar
+                            ? null
+                            : _pickAvatar,
+                        icon: Icon(
+                          _isUploadingAvatar
+                              ? Icons.hourglass_top_rounded
+                              : Icons.image_outlined,
+                        ),
+                        label: Text(
+                          _isUploadingAvatar
+                              ? 'Uploading Avatar...'
+                              : 'Change Avatar',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 24),
                 _InputField(
                   controller: _fullNameController,
                   label: 'Full Name',
@@ -122,7 +146,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _isSaving ? null : _saveProfile,
+                  onPressed: _isSaving || _isUploadingAvatar
+                      ? null
+                      : _saveProfile,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.orange,
                     foregroundColor: AppColors.white,
@@ -156,9 +182,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> _pickAvatar() async {
     try {
+      setState(() => _isUploadingAvatar = true);
       final picker = ImagePicker();
       final file = await picker.pickImage(source: ImageSource.gallery);
       if (file == null) {
+        if (mounted) {
+          setState(() => _isUploadingAvatar = false);
+        }
         return;
       }
       final bytes = await file.readAsBytes();
@@ -182,6 +212,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingAvatar = false);
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_reveal.dart';
+import '../../../../core/widgets/app_shell_background.dart';
 import '../../../member/presentation/widgets/member_profile_shortcut_button.dart';
 import '../../../member/presentation/providers/member_providers.dart';
 import '../../../monetization/presentation/providers/monetization_providers.dart';
@@ -25,34 +26,40 @@ class AiChatHomeScreen extends ConsumerWidget {
 
     return gateAsync.when(
       loading: () => const Scaffold(
-        backgroundColor: Color(0xFF1A120B),
-        body: Center(child: CircularProgressIndicator(color: AppColors.orange)),
+        backgroundColor: AppColors.background,
+        body: AppShellBackground(
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.orange),
+          ),
+        ),
       ),
       error: (error, stackTrace) => Scaffold(
-        backgroundColor: const Color(0xFF1A120B),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSizes.screenPadding),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'GymUnity could not verify AI Premium access right now.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: AppColors.textSecondary,
+        backgroundColor: AppColors.background,
+        body: AppShellBackground(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSizes.screenPadding),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'GymUnity could not verify AI Premium access right now.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: () => ref
-                      .read(currentSubscriptionSummaryProvider.notifier)
-                      .refreshFromBackend(),
-                  child: const Text('Retry'),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  OutlinedButton(
+                    onPressed: () => ref
+                        .read(currentSubscriptionSummaryProvider.notifier)
+                        .refreshFromBackend(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -121,194 +128,217 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A120B),
+      backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppReveal(
-              delay: revealDelay(0),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSizes.screenPadding,
-                  AppSizes.lg,
-                  AppSizes.screenPadding,
-                  0,
+        child: AppShellBackground(
+          topGlowColor: AppColors.glowOrange,
+          bottomGlowColor: AppColors.glowBlue,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppReveal(
+                delay: revealDelay(0),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSizes.screenPadding,
+                    AppSizes.lg,
+                    AppSizes.screenPadding,
+                    0,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'AI Assistant',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const MemberProfileShortcutButton(),
+                    ],
+                  ),
                 ),
-                child: Row(
+              ),
+              AppReveal(
+                delay: revealDelay(1),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSizes.screenPadding,
+                    8,
+                    AppSizes.screenPadding,
+                    0,
+                  ),
+                  child: Text(
+                    'Start a guided member plan or keep a general fitness conversation inside your GymUnity account.',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(AppSizes.screenPadding),
                   children: [
-                    Expanded(
+                    AppReveal(
+                      delay: revealDelay(2),
+                      child: _AiHero(
+                        sessionCount: sessionsAsync.valueOrNull?.length ?? 0,
+                        quickActionCount: quickActions.length,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    AppReveal(
+                      delay: revealDelay(3),
+                      child: _EntryCard(
+                        icon: Icons.route_outlined,
+                        title: 'Start AI plan',
+                        description:
+                            'Answer focused follow-up questions, review the generated plan, then activate daily tasks and reminders.',
+                        accent: AppColors.orange,
+                        buttonLabel: 'Open planner',
+                        onTap: () => openSession(type: ChatSessionType.planner),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    AppReveal(
+                      delay: revealDelay(4),
+                      child: _EntryCard(
+                        icon: Icons.chat_bubble_outline,
+                        title: 'General AI conversation',
+                        description:
+                            'Use AI for practical fitness guidance, nutrition tips, and recovery questions without entering the planning flow.',
+                        accent: AppColors.electricBlue,
+                        buttonLabel: 'Open chat',
+                        onTap: () => openSession(type: ChatSessionType.general),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    AppReveal(
+                      delay: revealDelay(5),
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: quickActions
+                            .map(
+                              (action) => _QuickChip(
+                                icon: action.icon,
+                                label: action.label,
+                                onTap: () => openSession(
+                                  type: action.type,
+                                  seedPrompt: action.prompt,
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    AppReveal(
+                      delay: revealDelay(6),
                       child: Text(
-                        'AI Assistant',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 28,
+                        'Recent sessions',
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    const MemberProfileShortcutButton(),
+                    const SizedBox(height: 14),
+                    AppReveal(
+                      delay: revealDelay(7),
+                      child: sessionsAsync.when(
+                        loading: () => const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 28),
+                            child: CircularProgressIndicator(
+                              color: AppColors.orange,
+                            ),
+                          ),
+                        ),
+                        error: (error, stackTrace) => _StateCard(
+                          icon: Icons.cloud_off_outlined,
+                          title: 'Unable to load AI sessions',
+                          description:
+                              'GymUnity could not fetch your stored conversations from Supabase.',
+                          actionLabel: 'Retry',
+                          onTap: () => ref.refresh(chatSessionsProvider),
+                        ),
+                        data: (sessions) {
+                          if (sessions.isEmpty) {
+                            return _StateCard(
+                              icon: Icons.auto_awesome_outlined,
+                              title: 'No AI sessions yet',
+                              description:
+                                  'Start a planner session or a general conversation and GymUnity will keep it here.',
+                              actionLabel: 'Start planner',
+                              onTap: () =>
+                                  openSession(type: ChatSessionType.planner),
+                            );
+                          }
+
+                          return Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppColors.cardDark.withValues(alpha: 0.97),
+                                  AppColors.surfacePanel.withValues(
+                                    alpha: 0.95,
+                                  ),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppSizes.radiusLg,
+                              ),
+                              border: Border.all(
+                                color: AppColors.borderSoft.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              children: List.generate(sessions.length, (index) {
+                                final session = sessions[index];
+                                return Column(
+                                  children: [
+                                    _SessionTile(
+                                      session: session,
+                                      onTap: () => openSession(
+                                        type: session.type,
+                                        sessionId: session.id,
+                                      ),
+                                    ),
+                                    if (index < sessions.length - 1)
+                                      Divider(
+                                        color: AppColors.border.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                        height: 1,
+                                        indent: 16,
+                                        endIndent: 16,
+                                      ),
+                                  ],
+                                );
+                              }),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-            AppReveal(
-              delay: revealDelay(1),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSizes.screenPadding,
-                  8,
-                  AppSizes.screenPadding,
-                  0,
-                ),
-                child: Text(
-                  'Start a guided member plan or keep a general fitness conversation inside your GymUnity account.',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(AppSizes.screenPadding),
-                children: [
-                  AppReveal(
-                    delay: revealDelay(2),
-                    child: _EntryCard(
-                      icon: Icons.route_outlined,
-                      title: 'Start AI plan',
-                      description:
-                          'Answer focused follow-up questions, review the generated plan, then activate daily tasks and reminders.',
-                      accent: AppColors.orange,
-                      buttonLabel: 'Open planner',
-                      onTap: () => openSession(type: ChatSessionType.planner),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  AppReveal(
-                    delay: revealDelay(3),
-                    child: _EntryCard(
-                      icon: Icons.chat_bubble_outline,
-                      title: 'General AI conversation',
-                      description:
-                          'Use AI for practical fitness guidance, nutrition tips, and recovery questions without entering the planning flow.',
-                      accent: AppColors.electricBlue,
-                      buttonLabel: 'Open chat',
-                      onTap: () => openSession(type: ChatSessionType.general),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  AppReveal(
-                    delay: revealDelay(4),
-                    child: Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: quickActions
-                          .map(
-                            (action) => _QuickChip(
-                              icon: action.icon,
-                              label: action.label,
-                              onTap: () => openSession(
-                                type: action.type,
-                                seedPrompt: action.prompt,
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  AppReveal(
-                    delay: revealDelay(5),
-                    child: Text(
-                      'Recent sessions',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  AppReveal(
-                    delay: revealDelay(6),
-                    child: sessionsAsync.when(
-                      loading: () => const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 28),
-                          child: CircularProgressIndicator(
-                            color: AppColors.orange,
-                          ),
-                        ),
-                      ),
-                      error: (error, stackTrace) => _StateCard(
-                        icon: Icons.cloud_off_outlined,
-                        title: 'Unable to load AI sessions',
-                        description:
-                            'GymUnity could not fetch your stored conversations from Supabase.',
-                        actionLabel: 'Retry',
-                        onTap: () => ref.refresh(chatSessionsProvider),
-                      ),
-                      data: (sessions) {
-                        if (sessions.isEmpty) {
-                          return _StateCard(
-                            icon: Icons.auto_awesome_outlined,
-                            title: 'No AI sessions yet',
-                            description:
-                                'Start a planner session or a general conversation and GymUnity will keep it here.',
-                            actionLabel: 'Start planner',
-                            onTap: () =>
-                                openSession(type: ChatSessionType.planner),
-                          );
-                        }
-
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2A1F14),
-                            borderRadius: BorderRadius.circular(
-                              AppSizes.radiusLg,
-                            ),
-                            border: Border.all(
-                              color: AppColors.border.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          child: Column(
-                            children: List.generate(sessions.length, (index) {
-                              final session = sessions[index];
-                              return Column(
-                                children: [
-                                  _SessionTile(
-                                    session: session,
-                                    onTap: () => openSession(
-                                      type: session.type,
-                                      sessionId: session.id,
-                                    ),
-                                  ),
-                                  if (index < sessions.length - 1)
-                                    Divider(
-                                      color: AppColors.border.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                      height: 1,
-                                      indent: 16,
-                                      endIndent: 16,
-                                    ),
-                                ],
-                              );
-                            }),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -387,6 +417,153 @@ class _QuickAction {
   final ChatSessionType type;
 }
 
+class _AiHero extends StatelessWidget {
+  const _AiHero({required this.sessionCount, required this.quickActionCount});
+
+  final int sessionCount;
+  final int quickActionCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.xl),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.cardDark.withValues(alpha: 0.97),
+            AppColors.surfacePanel.withValues(alpha: 0.95),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
+        border: Border.all(color: AppColors.borderSoft.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: AppSizes.sm,
+            runSpacing: AppSizes.sm,
+            children: const [
+              _AiPill(label: 'Guided plans', color: AppColors.orangeLight),
+              _AiPill(label: 'Fast prompts', color: AppColors.aqua),
+              _AiPill(label: 'Saved sessions', color: AppColors.limeGreen),
+            ],
+          ),
+          const SizedBox(height: AppSizes.lg),
+          Text(
+            'Built to feel focused, fast, and useful.',
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+              height: 1.06,
+            ),
+          ),
+          const SizedBox(height: AppSizes.sm),
+          Text(
+            'Start with a structured plan, jump into a quick prompt, or reopen a saved conversation without hunting through clutter.',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              height: 1.55,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSizes.lg),
+          Row(
+            children: [
+              Expanded(
+                child: _AiMetric(
+                  label: 'Saved sessions',
+                  value: '$sessionCount',
+                ),
+              ),
+              const SizedBox(width: AppSizes.md),
+              Expanded(
+                child: _AiMetric(
+                  label: 'Quick prompts',
+                  value: '$quickActionCount',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiPill extends StatelessWidget {
+  const _AiPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _AiMetric extends StatelessWidget {
+  const _AiMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(
+          color: AppColors.borderLight.withValues(alpha: 0.55),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: AppSizes.xs),
+          Text(
+            value,
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EntryCard extends StatelessWidget {
   const _EntryCard({
     required this.icon,
@@ -409,9 +586,23 @@ class _EntryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A1F14),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.cardDark.withValues(alpha: 0.97),
+            AppColors.surfacePanel.withValues(alpha: 0.95),
+          ],
+        ),
         borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+        border: Border.all(color: AppColors.borderSoft.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.1),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -471,14 +662,17 @@ class _QuickChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: Container(
+      borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+      child: Ink(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFF2A1F14),
+          color: AppColors.surfacePanel.withValues(alpha: 0.86),
           borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-          border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+          border: Border.all(
+            color: AppColors.borderSoft.withValues(alpha: 0.48),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -492,6 +686,12 @@ class _QuickChip extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
               ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_outward_rounded,
+              size: 16,
+              color: AppColors.textMuted,
             ),
           ],
         ),
@@ -594,9 +794,16 @@ class _StateCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A1F14),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.cardDark.withValues(alpha: 0.97),
+            AppColors.surfacePanel.withValues(alpha: 0.95),
+          ],
+        ),
         borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+        border: Border.all(color: AppColors.borderSoft.withValues(alpha: 0.5)),
       ),
       child: Column(
         children: [

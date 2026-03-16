@@ -8,6 +8,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../../core/widgets/app_shell_background.dart';
 import '../../../news/domain/entities/news_article.dart';
 import '../../../news/presentation/providers/news_feed_provider.dart';
 import '../../../news/presentation/widgets/news_card.dart';
@@ -27,50 +28,52 @@ class MemberHomeContent extends ConsumerWidget {
     final aiPremiumEnabled = AppConfig.current.enableAiPremium;
 
     return SafeArea(
-      child: RefreshIndicator.adaptive(
-        onRefresh: () async {
-          ref.invalidate(currentUserProfileProvider);
-          ref.invalidate(memberHomeSummaryProvider);
-          ref.invalidate(todayAgendaProvider);
-          ref.invalidate(newsPreviewProvider);
-          await ref.read(plannerReminderBootstrapProvider).sync();
-        },
-        child: profileAsync.when(
-          loading: () => const _HomeStateScaffold(
-            child: Center(
-              child: CircularProgressIndicator(color: AppColors.orange),
-            ),
-          ),
-          error: (error, stackTrace) => _HomeStateScaffold(
-            child: _StatusCard(
-              icon: Icons.cloud_off_outlined,
-              title: 'Unable to load your account',
-              description:
-                  'GymUnity could not refresh your account details right now.',
-              actionLabel: 'Retry',
-              onTap: () => ref.refresh(currentUserProfileProvider),
-            ),
-          ),
-          data: (profile) {
-            if (profile == null) {
-              return _HomeStateScaffold(
-                child: _StatusCard(
-                  icon: Icons.person_search_outlined,
-                  title: 'Finish setting up your account',
-                  description:
-                      'Your GymUnity member profile is signed in, but the in-app profile is not complete yet.',
-                  actionLabel: 'Choose role',
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.roleSelection),
-                ),
-              );
-            }
-
-            return _MemberHomeLoaded(
-              profile: profile,
-              aiPremiumEnabled: aiPremiumEnabled,
-            );
+      child: AppShellBackground(
+        child: RefreshIndicator.adaptive(
+          onRefresh: () async {
+            ref.invalidate(currentUserProfileProvider);
+            ref.invalidate(memberHomeSummaryProvider);
+            ref.invalidate(todayAgendaProvider);
+            ref.invalidate(newsPreviewProvider);
+            await ref.read(plannerReminderBootstrapProvider).sync();
           },
+          child: profileAsync.when(
+            loading: () => const _HomeStateScaffold(
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.orange),
+              ),
+            ),
+            error: (error, stackTrace) => _HomeStateScaffold(
+              child: _StatusCard(
+                icon: Icons.cloud_off_outlined,
+                title: 'Unable to load your account',
+                description:
+                    'GymUnity could not refresh your account details right now.',
+                actionLabel: 'Retry',
+                onTap: () => ref.refresh(currentUserProfileProvider),
+              ),
+            ),
+            data: (profile) {
+              if (profile == null) {
+                return _HomeStateScaffold(
+                  child: _StatusCard(
+                    icon: Icons.person_search_outlined,
+                    title: 'Finish setting up your account',
+                    description:
+                        'Your GymUnity member profile is signed in, but the in-app profile is not complete yet.',
+                    actionLabel: 'Choose role',
+                    onTap: () =>
+                        Navigator.pushNamed(context, AppRoutes.roleSelection),
+                  ),
+                );
+              }
+
+              return _MemberHomeLoaded(
+                profile: profile,
+                aiPremiumEnabled: aiPremiumEnabled,
+              );
+            },
+          ),
         ),
       ),
     );
@@ -100,20 +103,33 @@ class _MemberHomeLoaded extends ConsumerWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSizes.screenPadding),
       children: [
-        const Align(
-          alignment: Alignment.topRight,
-          child: MemberProfileShortcutButton(),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Member dashboard',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ),
+            const MemberProfileShortcutButton(),
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Text(
-          'Welcome back, $firstName',
-          style: GoogleFonts.spaceGrotesk(
-            fontSize: 28,
+          'Your member space',
+          style: GoogleFonts.inter(
+            fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            letterSpacing: 0.2,
+            color: AppColors.orangeLight,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Text(
           'Your member dashboard now surfaces the active AI plan flow, today’s tasks, and the live GymUnity entry points already backed by the app.',
           style: GoogleFonts.inter(
@@ -123,64 +139,32 @@ class _MemberHomeLoaded extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.cardDark,
-            borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-            border: Border.all(color: AppColors.borderLight),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                fullName,
-                style: GoogleFonts.inter(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                email,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _Pill(
-                    label: profile.onboardingCompleted
-                        ? 'Member profile ready'
-                        : 'Onboarding pending',
-                    accent: profile.onboardingCompleted
-                        ? AppColors.limeGreen
-                        : AppColors.orange,
-                  ),
-                  const _Pill(
-                    label: 'Planner-aware dashboard',
-                    accent: AppColors.electricBlue,
-                  ),
-                ],
-              ),
-            ],
-          ),
+        _HomeHero(
+          firstName: firstName,
+          fullName: fullName,
+          email: email,
+          onboardingCompleted: profile.onboardingCompleted,
+          aiPremiumEnabled: aiPremiumEnabled,
         ),
-        const SizedBox(height: 20),
-        _SectionTitle(title: 'Today'),
+        const SizedBox(height: 24),
+        const _SectionTitle(
+          title: 'Today',
+          subtitle: 'Your live agenda and the next actions worth doing now.',
+        ),
         const SizedBox(height: 12),
         const _TodayTaskCard(),
         const SizedBox(height: 20),
-        _SectionTitle(title: 'Recommended Reads'),
+        const _SectionTitle(
+          title: 'Recommended Reads',
+          subtitle: 'Relevant articles with clearer summaries and less noise.',
+        ),
         const SizedBox(height: 12),
         const _RecommendedReadsSection(),
         const SizedBox(height: 20),
-        _SectionTitle(title: 'Quick Actions'),
+        const _SectionTitle(
+          title: 'Quick Actions',
+          subtitle: 'Jump straight into the flows members reach for most.',
+        ),
         const SizedBox(height: 12),
         _QuickActionCard(
           icon: Icons.auto_awesome_outlined,
@@ -231,6 +215,202 @@ class _MemberHomeLoaded extends ConsumerWidget {
   }
 }
 
+class _HomeHero extends StatelessWidget {
+  const _HomeHero({
+    required this.firstName,
+    required this.fullName,
+    required this.email,
+    required this.onboardingCompleted,
+    required this.aiPremiumEnabled,
+  });
+
+  final String firstName;
+  final String fullName;
+  final String email;
+  final bool onboardingCompleted;
+  final bool aiPremiumEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.xl),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
+        border: Border.all(color: AppColors.borderSoft.withValues(alpha: 0.55)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.cardDark.withValues(alpha: 0.97),
+            AppColors.surfacePanel.withValues(alpha: 0.96),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.14),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: AppSizes.sm,
+            runSpacing: AppSizes.sm,
+            children: [
+              _Pill(
+                label: onboardingCompleted ? 'Profile ready' : 'Setup pending',
+                accent: onboardingCompleted
+                    ? AppColors.limeGreen
+                    : AppColors.orange,
+              ),
+              _Pill(
+                label: aiPremiumEnabled ? 'Premium AI' : 'AI assistant',
+                accent: AppColors.electricBlue,
+              ),
+              const _Pill(
+                label: 'Trusted reads',
+                accent: AppColors.orangeLight,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSizes.lg),
+          Text(
+            'Welcome back, $firstName',
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 30,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+              height: 1.02,
+            ),
+          ),
+          const SizedBox(height: AppSizes.sm),
+          Text(
+            'Your plan, trusted reads, and most useful next actions are arranged here to keep the app calm and quick to scan.',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              height: 1.55,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSizes.lg),
+          Row(
+            children: [
+              Expanded(
+                child: _HeroStat(
+                  label: 'Account',
+                  value: onboardingCompleted ? 'Ready' : 'Pending',
+                ),
+              ),
+              const SizedBox(width: AppSizes.md),
+              Expanded(
+                child: _HeroStat(
+                  label: 'AI access',
+                  value: aiPremiumEnabled ? 'Premium' : 'Standard',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSizes.lg),
+          Container(
+            padding: const EdgeInsets.all(AppSizes.lg),
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+              border: Border.all(
+                color: AppColors.borderLight.withValues(alpha: 0.55),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.orange.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                  ),
+                  child: const Icon(
+                    Icons.verified_user_outlined,
+                    color: AppColors.orangeLight,
+                  ),
+                ),
+                const SizedBox(width: AppSizes.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fullName,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSizes.xs),
+                      Text(
+                        email,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroStat extends StatelessWidget {
+  const _HeroStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.borderLight.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: AppSizes.xs),
+          Text(
+            value,
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TodayTaskCard extends ConsumerWidget {
   const _TodayTaskCard();
 
@@ -239,12 +419,6 @@ class _TodayTaskCard extends ConsumerWidget {
     final summaryAsync = ref.watch(memberHomeSummaryProvider);
     final todayAsync = ref.watch(todayAgendaProvider);
     final actionState = ref.watch(plannerActionControllerProvider);
-    assert(() {
-      debugPrint(
-        '[planner-ui] TodayTaskCard summary=$summaryAsync today=$todayAsync',
-      );
-      return true;
-    }());
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -471,11 +645,23 @@ class _HomeStateScaffold extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSizes.screenPadding),
       children: [
-        const Align(
-          alignment: Alignment.topRight,
-          child: MemberProfileShortcutButton(),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Member dashboard',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ),
+            const MemberProfileShortcutButton(),
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         child,
       ],
     );
@@ -728,9 +914,16 @@ class _StatusCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.cardDark,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.cardDark.withValues(alpha: 0.97),
+            AppColors.surfacePanel.withValues(alpha: 0.95),
+          ],
+        ),
         borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.borderSoft.withValues(alpha: 0.55)),
       ),
       child: Column(
         children: [
@@ -771,19 +964,36 @@ class _StatusCard extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
+  const _SectionTitle({required this.title, this.subtitle});
 
   final String title;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: GoogleFonts.inter(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textMuted,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: AppSizes.xs),
+          Text(
+            subtitle!,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              height: 1.45,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -803,50 +1013,85 @@ class _QuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppColors.cardDark,
-          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: AppColors.orange.withValues(alpha: 0.16),
-              child: Icon(icon, color: AppColors.orange),
+    return Material(
+      color: AppColors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        child: Ink(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.cardDark.withValues(alpha: 0.97),
+                AppColors.surfacePanel.withValues(alpha: 0.94),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    description,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      height: 1.45,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
+            borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+            border: Border.all(
+              color: AppColors.borderSoft.withValues(alpha: 0.52),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
               ),
-            ),
-            const Icon(Icons.chevron_right, color: AppColors.textMuted),
-          ],
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppColors.orange.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                ),
+                child: Icon(icon, color: AppColors.orangeLight),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      description,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        height: 1.45,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.surface.withValues(alpha: 0.84),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                ),
+                child: const Icon(
+                  Icons.arrow_outward_rounded,
+                  size: 18,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -863,9 +1108,16 @@ class _RecommendedReadsSection extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(AppSizes.lg),
       decoration: BoxDecoration(
-        color: AppColors.cardDark,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.cardDark.withValues(alpha: 0.97),
+            AppColors.surfacePanel.withValues(alpha: 0.95),
+          ],
+        ),
         borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: AppColors.borderSoft.withValues(alpha: 0.52)),
       ),
       child: previewAsync.when(
         loading: () => const SizedBox(
@@ -1019,6 +1271,7 @@ class _Pill extends StatelessWidget {
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+        border: Border.all(color: accent.withValues(alpha: 0.2)),
       ),
       child: Text(
         label,

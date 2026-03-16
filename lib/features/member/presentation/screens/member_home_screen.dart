@@ -25,39 +25,45 @@ class _MemberHomeScreenState extends State<MemberHomeScreen> {
       backgroundColor: AppColors.background,
       body: IndexedStack(
         index: _currentIndex,
-        children: tabs
-            .map((tab) => tab.page)
-            .toList(growable: false),
+        children: tabs.map((tab) => tab.page).toList(growable: false),
       ),
-      bottomNavigationBar: NavigationBarTheme(
-        data: NavigationBarThemeData(
-          backgroundColor: AppColors.cardDark,
-          surfaceTintColor: Colors.transparent,
-          indicatorColor: AppColors.orange.withValues(alpha: 0.18),
-          labelTextStyle: WidgetStateProperty.resolveWith((states) {
-            final selected = states.contains(WidgetState.selected);
-            return TextStyle(
-              color: selected ? AppColors.orange : AppColors.textMuted,
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            );
-          }),
-          iconTheme: WidgetStateProperty.resolveWith((states) {
-            final selected = states.contains(WidgetState.selected);
-            return IconThemeData(
-              color: selected ? AppColors.orange : AppColors.textMuted,
-              size: 24,
-            );
-          }),
-        ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (index) {
-            setState(() => _currentIndex = index);
-          },
-          destinations: tabs
-              .map((tab) => tab.destination)
-              .toList(growable: false),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: AppColors.borderSoft.withValues(alpha: 0.46),
+            ),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.cardDark.withValues(alpha: 0.96),
+                AppColors.surfacePanel.withValues(alpha: 0.96),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.26),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) {
+                setState(() => _currentIndex = index);
+              },
+              destinations: tabs
+                  .map((tab) => tab.destination)
+                  .toList(growable: false),
+            ),
+          ),
         ),
       ),
     );
@@ -108,10 +114,7 @@ class _MemberHomeScreenState extends State<MemberHomeScreen> {
 }
 
 class _MemberHomeTab {
-  const _MemberHomeTab({
-    required this.page,
-    required this.destination,
-  });
+  const _MemberHomeTab({required this.page, required this.destination});
 
   final Widget page;
   final NavigationDestination destination;

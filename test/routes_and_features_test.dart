@@ -10,12 +10,14 @@ import 'package:my_app/features/ai_chat/presentation/screens/ai_chat_home_screen
 import 'package:my_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:my_app/features/auth/presentation/screens/auth_callback_screen.dart';
 import 'package:my_app/features/coach/presentation/screens/coach_dashboard_screen.dart';
+import 'package:my_app/features/member/presentation/screens/edit_profile_screen.dart';
 import 'package:my_app/features/seller/presentation/screens/seller_dashboard_screen.dart';
 import 'package:my_app/features/seller/presentation/screens/seller_product_editor_screen.dart';
 import 'package:my_app/features/store/presentation/screens/cart_screen.dart';
 import 'package:my_app/features/store/domain/entities/product_entity.dart';
 import 'package:my_app/features/store/presentation/screens/store_home_screen.dart';
 import 'package:my_app/features/planner/domain/entities/planner_entities.dart';
+import 'package:my_app/features/user/domain/entities/profile_entity.dart';
 
 import 'test_doubles.dart';
 
@@ -30,6 +32,29 @@ void main() {
       expect(find.text('Help & Support'), findsOneWidget);
       expect(find.textContaining('Need help with login'), findsOneWidget);
     });
+
+    testWidgets(
+      'edit profile route resolves to functional edit profile screen',
+      (tester) async {
+        final userRepository = FakeUserRepository()
+          ..profile = const ProfileEntity(
+            userId: 'member-1',
+            email: 'member@gymunity.com',
+            fullName: 'GymUnity Member',
+          );
+
+        await _pumpNamedRoute(
+          tester,
+          AppRoutes.editProfile,
+          userRepository: userRepository,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(EditProfileScreen), findsOneWidget);
+        expect(find.text('Save Changes'), findsOneWidget);
+        expect(find.text('Change Avatar'), findsOneWidget);
+      },
+    );
 
     testWidgets(
       'OAuth callback route resolves to callback screen instead of unknown',
@@ -319,6 +344,7 @@ void main() {
 Future<void> _pumpNamedRoute(
   WidgetTester tester,
   String routeName, {
+  FakeUserRepository? userRepository,
   FakeStoreRepository? storeRepository,
   FakeCoachRepository? coachRepository,
   FakeMemberRepository? memberRepository,
@@ -338,7 +364,9 @@ Future<void> _pumpNamedRoute(
     ProviderScope(
       overrides: <Override>[
         authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
-        userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+        userRepositoryProvider.overrideWithValue(
+          userRepository ?? FakeUserRepository(),
+        ),
         authCallbackIngressProvider.overrideWithValue(
           FakeAuthCallbackIngress(),
         ),
@@ -382,6 +410,7 @@ Future<void> _pumpNamedRoute(
 Future<void> _pumpScreen(
   WidgetTester tester,
   Widget screen, {
+  FakeUserRepository? userRepository,
   FakeStoreRepository? storeRepository,
   FakeCoachRepository? coachRepository,
   FakeMemberRepository? memberRepository,
@@ -401,7 +430,9 @@ Future<void> _pumpScreen(
     ProviderScope(
       overrides: <Override>[
         authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
-        userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+        userRepositoryProvider.overrideWithValue(
+          userRepository ?? FakeUserRepository(),
+        ),
         authCallbackIngressProvider.overrideWithValue(
           FakeAuthCallbackIngress(),
         ),

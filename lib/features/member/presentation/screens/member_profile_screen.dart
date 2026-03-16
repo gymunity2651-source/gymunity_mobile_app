@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../user/presentation/widgets/profile_avatar.dart';
 
 class MemberProfileScreen extends ConsumerWidget {
   const MemberProfileScreen({super.key});
@@ -57,17 +58,10 @@ class MemberProfileScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(AppSizes.screenPadding),
               children: [
                 const SizedBox(height: 12),
-                CircleAvatar(
-                  radius: 48,
-                  backgroundColor: AppColors.orange,
-                  child: Text(
-                    fullName.characters.first.toUpperCase(),
-                    style: GoogleFonts.inter(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.white,
-                    ),
-                  ),
+                ProfileAvatar(
+                  size: 96,
+                  avatarPath: profile?.avatarPath,
+                  fullName: fullName,
                 ),
                 const SizedBox(height: 14),
                 Text(
@@ -89,6 +83,12 @@ class MemberProfileScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
+                _MenuItem(
+                  icon: Icons.edit_outlined,
+                  label: 'Edit Profile',
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.editProfile),
+                ),
                 _MenuItem(
                   icon: Icons.receipt_long_outlined,
                   label: 'My Orders',

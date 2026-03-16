@@ -131,8 +131,7 @@ class UserRemoteDataSource {
     required List<int> bytes,
     required String extension,
   }) async {
-    final filePath =
-        'avatars/$userId/avatar_${DateTime.now().millisecondsSinceEpoch}.$extension';
+    final filePath = 'avatars/$userId/avatar.$extension';
     await _client.storage
         .from('avatars')
         .uploadBinary(

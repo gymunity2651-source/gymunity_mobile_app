@@ -69,6 +69,12 @@ class _CompactLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final supportingLabel = article.relevanceReason?.trim().isNotEmpty == true
+        ? article.relevanceReason!
+        : ((article.category ?? '').isNotEmpty
+              ? _labelize(article.category!)
+              : article.sourceName);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -106,7 +112,7 @@ class _CompactLayout extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      article.relevanceReason ?? 'Trusted read',
+                      supportingLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
@@ -271,24 +277,10 @@ class _NewsCardImage extends StatelessWidget {
     return Container(
       color: AppColors.surfaceRaised,
       alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.health_and_safety_outlined,
-            color: AppColors.electricBlue,
-            size: AppSizes.iconLg,
-          ),
-          const SizedBox(height: AppSizes.sm),
-          Text(
-            'Trusted read',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
+      child: const Icon(
+        Icons.health_and_safety_outlined,
+        color: AppColors.electricBlue,
+        size: AppSizes.iconLg,
       ),
     );
   }

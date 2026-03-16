@@ -18,6 +18,7 @@ import '../features/coaches/presentation/screens/coaches_screen.dart';
 import '../features/coaches/presentation/screens/coach_details_screen.dart';
 import '../features/coaches/presentation/screens/subscription_packages_screen.dart';
 import '../features/member/presentation/screens/member_home_screen.dart';
+import '../features/member/presentation/screens/edit_profile_screen.dart';
 import '../features/member/presentation/screens/member_profile_screen.dart';
 import '../features/monetization/presentation/screens/ai_premium_paywall_screen.dart';
 import '../features/monetization/presentation/screens/subscription_management_screen.dart';
@@ -156,12 +157,7 @@ class AppRoutes {
       case memberProfile:
         return _buildRoute(const MemberProfileScreen());
       case editProfile:
-        return _featureRoute(
-          title: 'Edit Profile',
-          description:
-              'Profile editing will connect to your Supabase profile data and avatar storage once that setup is finalized.',
-          icon: Icons.person_outline,
-        );
+        return _buildRoute(const EditProfileScreen());
       case progress:
         return _featureRoute(
           title: 'Progress Tracking',

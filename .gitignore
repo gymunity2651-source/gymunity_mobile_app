@@ -30,6 +30,8 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
+node_modules/
+.deno/
 .env
 assets/config/local_env.json
 /build/
