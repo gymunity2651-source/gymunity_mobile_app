@@ -8,11 +8,15 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../news/domain/entities/news_article.dart';
+import '../../../news/presentation/providers/news_feed_provider.dart';
+import '../../../news/presentation/widgets/news_card.dart';
 import '../../../planner/domain/entities/planner_entities.dart';
 import '../../../planner/presentation/providers/planner_providers.dart';
 import '../../../planner/presentation/route_args.dart';
 import '../../../user/domain/entities/profile_entity.dart';
 import '../providers/member_providers.dart';
+import '../widgets/member_profile_shortcut_button.dart';
 
 class MemberHomeContent extends ConsumerWidget {
   const MemberHomeContent({super.key});
@@ -28,6 +32,7 @@ class MemberHomeContent extends ConsumerWidget {
           ref.invalidate(currentUserProfileProvider);
           ref.invalidate(memberHomeSummaryProvider);
           ref.invalidate(todayAgendaProvider);
+          ref.invalidate(newsPreviewProvider);
           await ref.read(plannerReminderBootstrapProvider).sync();
         },
         child: profileAsync.when(
@@ -95,6 +100,11 @@ class _MemberHomeLoaded extends ConsumerWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSizes.screenPadding),
       children: [
+        const Align(
+          alignment: Alignment.topRight,
+          child: MemberProfileShortcutButton(),
+        ),
+        const SizedBox(height: 12),
         Text(
           'Welcome back, $firstName',
           style: GoogleFonts.spaceGrotesk(
@@ -165,6 +175,10 @@ class _MemberHomeLoaded extends ConsumerWidget {
         _SectionTitle(title: 'Today'),
         const SizedBox(height: 12),
         const _TodayTaskCard(),
+        const SizedBox(height: 20),
+        _SectionTitle(title: 'Recommended Reads'),
+        const SizedBox(height: 12),
+        const _RecommendedReadsSection(),
         const SizedBox(height: 20),
         _SectionTitle(title: 'Quick Actions'),
         const SizedBox(height: 12),
@@ -456,7 +470,14 @@ class _HomeStateScaffold extends StatelessWidget {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSizes.screenPadding),
-      children: [const SizedBox(height: 20), child],
+      children: [
+        const Align(
+          alignment: Alignment.topRight,
+          child: MemberProfileShortcutButton(),
+        ),
+        const SizedBox(height: 12),
+        child,
+      ],
     );
   }
 }
@@ -828,6 +849,159 @@ class _QuickActionCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _RecommendedReadsSection extends ConsumerWidget {
+  const _RecommendedReadsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final previewAsync = ref.watch(newsPreviewProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.lg),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: previewAsync.when(
+        loading: () => const SizedBox(
+          height: 140,
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.orange),
+          ),
+        ),
+        error: (error, stackTrace) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Trusted health reads are temporarily unavailable.',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppSizes.sm),
+            Text(
+              '$error',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                height: 1.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppSizes.lg),
+            OutlinedButton(
+              onPressed: () => ref.invalidate(newsPreviewProvider),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+        data: (articles) {
+          if (articles.isEmpty) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your news feed is still warming up.',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: AppSizes.sm),
+                Text(
+                  'GymUnity will rank trusted reads around your goal, activity, and topics you engage with.',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    height: 1.55,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSizes.lg),
+                FilledButton.icon(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.newsFeed),
+                  icon: const Icon(Icons.menu_book_outlined),
+                  label: const Text('Open Feed'),
+                ),
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'For your current goal',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: AppSizes.xs),
+                        Text(
+                          'Calm, trustworthy reads that fit where you are right now.',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.newsFeed),
+                    child: const Text('See all'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSizes.md),
+              for (final article in articles.take(2)) ...[
+                NewsCard(
+                  article: article,
+                  compact: true,
+                  showDismiss: false,
+                  onTap: () => _openArticle(context, ref, article),
+                ),
+                const SizedBox(height: AppSizes.md),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _openArticle(
+    BuildContext context,
+    WidgetRef ref,
+    NewsArticleEntity article,
+  ) async {
+    await ref
+        .read(newsFeedControllerProvider.notifier)
+        .trackOpen(article.id, origin: 'member_home');
+    if (!context.mounted) {
+      return;
+    }
+    await Navigator.pushNamed(
+      context,
+      AppRoutes.newsArticleDetails,
+      arguments: article,
     );
   }
 }

@@ -10,15 +10,70 @@ type DeleteAccountPayload = {
   current_password?: string;
 };
 
-Deno.serve(async (req) => {
+type DeleteAccountProvider = "email" | string;
+
+type AuthenticatedUser = {
+  id: string;
+  app_metadata?: { provider?: string | null } | null;
+  identities?: Array<{ provider?: string | null }> | null;
+};
+
+type StorageListEntry = {
+  name?: string | null;
+  id?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+type StorageBucketApi = {
+  list: (
+    path?: string,
+    options?: { limit?: number; offset?: number },
+  ) => Promise<{ data: StorageListEntry[] | null; error: { message: string } | null }>;
+  remove: (
+    paths: string[],
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+};
+
+type DeleteAccountClient = {
+  auth: {
+    getUser: (
+      token: string,
+    ) => Promise<{
+      data: { user: AuthenticatedUser | null };
+      error: { message: string } | null;
+    }>;
+    admin: {
+      deleteUser: (
+        userId: string,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>;
+    };
+  };
+  rpc: (
+    fn: string,
+    params?: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  storage: {
+    from: (bucket: string) => StorageBucketApi;
+  };
+};
+
+type DeleteAccountDeps = {
+  client?: DeleteAccountClient;
+  getEnv?: (name: string) => string | undefined;
+};
+
+export async function handleDeleteAccountRequest(
+  req: Request,
+  deps: DeleteAccountDeps = {},
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseServiceRoleKey =
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const getEnv = deps.getEnv ?? ((name: string) => Deno.env.get(name));
+    const supabaseUrl = getEnv("SUPABASE_URL") ?? "";
+    const supabaseServiceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
       return jsonResponse(
@@ -36,9 +91,10 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Missing auth token" }, 401);
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-      auth: { persistSession: false },
-    });
+    const supabase = deps.client ?? createDeleteAccountClient(
+      supabaseUrl,
+      supabaseServiceRoleKey,
+    );
 
     const { data: authData, error: authError } = await supabase.auth.getUser(
       token,
@@ -48,11 +104,7 @@ Deno.serve(async (req) => {
     }
 
     const payload = (await req.json().catch(() => ({}))) as DeleteAccountPayload;
-    const provider =
-      authData.user.app_metadata?.provider ??
-      authData.user.identities?.[0]?.provider ??
-      "email";
-
+    const provider = resolveProvider(authData.user);
     if (provider === "email" && !payload.current_password?.trim()) {
       return jsonResponse(
         { error: "Current password confirmation is required." },
@@ -60,19 +112,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const deletedEmail =
-      `deleted+${authData.user.id.replaceAll("-", "")}` +
-      "@deleted.gymunity.invalid";
-
-    const { error: deleteError } = await supabase.rpc("soft_delete_account", {
-      target_user_id: authData.user.id,
-      deleted_email: deletedEmail,
-    });
-    if (deleteError) {
-      return jsonResponse({ error: deleteError.message }, 500);
+    const { error: prepareError } = await supabase.rpc(
+      "prepare_account_for_hard_delete",
+      {
+        target_user_id: authData.user.id,
+      },
+    );
+    if (prepareError) {
+      return jsonResponse({ error: prepareError.message }, 500);
     }
 
-    await removeAvatarFiles(supabase, authData.user.id);
+    await removeUserStorageFiles(supabase, authData.user.id);
+
+    const { error: deleteUserError } = await supabase.auth.admin.deleteUser(
+      authData.user.id,
+    );
+    if (deleteUserError) {
+      return jsonResponse({ error: deleteUserError.message }, 500);
+    }
 
     return jsonResponse({
       success: true,
@@ -85,33 +142,89 @@ Deno.serve(async (req) => {
       500,
     );
   }
-});
+}
 
-async function removeAvatarFiles(
-  supabase: ReturnType<typeof createClient>,
+export function createDeleteAccountClient(
+  supabaseUrl: string,
+  supabaseServiceRoleKey: string,
+): DeleteAccountClient {
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: { persistSession: false },
+  }) as unknown as DeleteAccountClient;
+}
+
+export function resolveProvider(user: AuthenticatedUser): DeleteAccountProvider {
+  return user.app_metadata?.provider ??
+    user.identities?.[0]?.provider ??
+    "email";
+}
+
+export async function removeUserStorageFiles(
+  supabase: DeleteAccountClient,
   userId: string,
 ) {
-  const avatarPrefix = `avatars/${userId}`;
-  const { data: files, error } = await supabase.storage.from("avatars").list(
-    avatarPrefix,
-    {
-      limit: 100,
-      offset: 0,
-    },
-  );
+  await removeBucketPrefix(supabase, "avatars", `avatars/${userId}`);
+  await removeBucketPrefix(supabase, "product-images", userId);
+}
 
-  if (error || !files || files.length === 0) {
+async function removeBucketPrefix(
+  supabase: DeleteAccountClient,
+  bucket: string,
+  prefix: string,
+) {
+  const bucketApi = supabase.storage.from(bucket);
+  const removablePaths = await collectRemovablePaths(bucketApi, prefix);
+  if (removablePaths.length === 0) {
     return;
   }
 
-  const removablePaths = files
-    .filter((file) => !!file.name)
-    .map((file) => `${avatarPrefix}/${file.name}`);
-  if (removablePaths.length == 0) {
-    return;
+  for (let i = 0; i < removablePaths.length; i += 100) {
+    const batch = removablePaths.slice(i, i + 100);
+    const { error } = await bucketApi.remove(batch);
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+}
+
+async function collectRemovablePaths(
+  bucketApi: StorageBucketApi,
+  prefix: string,
+): Promise<string[]> {
+  const { data, error } = await bucketApi.list(prefix, {
+    limit: 100,
+    offset: 0,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data || data.length === 0) {
+    return [];
   }
 
-  await supabase.storage.from("avatars").remove(removablePaths);
+  const removablePaths: string[] = [];
+  for (const entry of data) {
+    const name = entry.name?.trim();
+    if (!name) {
+      continue;
+    }
+
+    const childPath = `${prefix}/${name}`;
+    if (isFolderEntry(entry)) {
+      const nested = await collectRemovablePaths(bucketApi, childPath);
+      removablePaths.push(...nested);
+      continue;
+    }
+
+    removablePaths.push(childPath);
+  }
+
+  return removablePaths;
+}
+
+function isFolderEntry(entry: StorageListEntry): boolean {
+  return entry.id == null && entry.metadata == null;
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -119,4 +232,8 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+if (import.meta.main) {
+  Deno.serve((req) => handleDeleteAccountRequest(req));
 }

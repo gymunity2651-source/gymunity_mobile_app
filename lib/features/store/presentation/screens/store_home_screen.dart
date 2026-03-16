@@ -6,6 +6,7 @@ import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../member/presentation/widgets/member_profile_shortcut_button.dart';
 import '../../domain/entities/product_entity.dart';
 import '../providers/store_providers.dart';
 import '../store_ui_utils.dart';
@@ -127,6 +128,8 @@ class _StoreHomeScreenState extends ConsumerState<StoreHomeScreen> {
                         ),
                     ],
                   ),
+                  const SizedBox(width: 4),
+                  const MemberProfileShortcutButton(),
                 ],
               ),
               const SizedBox(height: 16),

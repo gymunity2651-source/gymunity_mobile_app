@@ -393,6 +393,7 @@ List<Override> _overrides({
   FakeCoachRepository? coachRepository,
   FakeMemberRepository? memberRepository,
   FakeStoreRepository? storeRepository,
+  FakeNewsRepository? newsRepository,
   FakeChatRepository? chatRepository,
   FakePlannerRepository? plannerRepository,
   FakeAuthCallbackIngress? authCallbackIngress,
@@ -417,6 +418,9 @@ List<Override> _overrides({
     ),
     storeRepositoryProvider.overrideWithValue(
       storeRepository ?? FakeStoreRepository(),
+    ),
+    newsRepositoryProvider.overrideWithValue(
+      newsRepository ?? FakeNewsRepository(),
     ),
     chatRepositoryProvider.overrideWithValue(
       chatRepository ?? FakeChatRepository(),

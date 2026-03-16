@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_reveal.dart';
+import '../../../member/presentation/widgets/member_profile_shortcut_button.dart';
 import '../../../member/presentation/providers/member_providers.dart';
 import '../../../monetization/presentation/providers/monetization_providers.dart';
 import '../../../monetization/presentation/screens/ai_premium_paywall_screen.dart';
@@ -134,13 +135,21 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                   AppSizes.screenPadding,
                   0,
                 ),
-                child: Text(
-                  'AI Assistant',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'AI Assistant',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const MemberProfileShortcutButton(),
+                  ],
                 ),
               ),
             ),

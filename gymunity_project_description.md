@@ -1,780 +1,369 @@
-# GymUnity Comprehensive Project Description
+# GymUnity Repository Description
 
-## 1. What This Project Is
+## 1. Purpose of This Document
 
-GymUnity is a Flutter mobile application backed by Supabase. It is designed as a multi-role fitness platform that combines:
+This file is a repository-grounded description of the GymUnity project as it exists in the current workspace.
+
+It is intended to answer these questions in one place:
+
+- What GymUnity is as a product
+- How the Flutter app is organized
+- How authentication, roles, onboarding, and routing work
+- What each feature area does today
+- What the Supabase backend contains
+- Which database tables, RPCs, storage buckets, and Edge Functions exist
+- How configuration, local development, testing, and operations are structured
+- Which parts are implemented, partially implemented, or still placeholders
+
+This document is based on the actual code in:
+
+- `lib/`
+- `supabase/migrations/`
+- `supabase/functions/`
+- `supabase/sql/`
+- `scripts/`
+- `test/`
+- `docs/`
+
+Repository state reflected here includes the hard-delete account flow introduced in `20260316000011_hard_delete_account.sql`.
+
+## 2. Product Definition
+
+GymUnity is a multi-role Flutter application backed by Supabase.
+
+It combines several product surfaces into one mobile app:
 
 - A member fitness experience
 - A coach discovery and coaching workflow
-- A seller and fitness marketplace workflow
-- AI-assisted fitness chat
-- Store-billing based AI Premium subscriptions
+- A seller storefront and order management workflow
+- AI-assisted chat and AI plan generation
+- In-app purchase based premium access for AI functionality
+- Notifications, settings, legal links, support links, and account deletion
 
-The app is not a single-purpose workout tracker. It is a role-aware product where the same application can serve three different kinds of users:
+The app is not a single-role product.
 
-- Members who want fitness guidance, progress tracking, coaching subscriptions, and product shopping
-- Coaches who want to present their services, manage subscriptions, assign plans, and eventually manage clients more deeply
-- Sellers who want to publish products, manage inventory, and handle marketplace orders
-
-The codebase already contains real data flows for many of these areas, plus a number of routed placeholder screens for surfaces that are planned but not fully finalized in the UI yet.
-
-This document describes the project as it exists in the current repository, based on the actual Flutter code, Supabase migrations, edge functions, routing, providers, and project docs.
-
-## 2. Product Vision and Core Idea
-
-GymUnity brings several fitness-related experiences into one app:
-
-- Fitness identity and onboarding
-- Role-specific dashboards
-- Coaching discovery and subscription management
-- E-commerce for gym-related products
-- AI chat as a premium digital offering
-- Real-time notifications and account management
-
-Instead of splitting these into multiple apps, GymUnity centralizes them under one authentication system and one shared profile foundation. A user can sign in, choose a role, finish onboarding for that role, and then land in the correct part of the app automatically.
-
-## 3. Main Technology Stack
-
-### Frontend
-
-- Flutter
-- Riverpod for dependency injection and state management
-- Supabase Flutter SDK
-- In-app purchase packages for Apple App Store and Google Play billing
-
-### Backend
-
-- Supabase Postgres
-- Supabase Auth
-- Supabase Storage
-- Supabase Edge Functions
-- PostgreSQL row-level security and RPC functions
-
-### AI
-
-- OpenAI chat completions called from the `ai-chat` Supabase Edge Function
-
-## 4. High-Level Architecture
-
-The repository follows a feature-oriented structure. The main pattern is:
-
-- `lib/app`: app shell, routes, top-level app widget
-- `lib/core`: shared config, DI, routing helpers, theme, constants, widgets, Supabase bootstrap
-- `lib/features/*`: each business area grouped by feature
-- `supabase/migrations`: incremental database schema changes
-- `supabase/sql`: a full bootstrap SQL bundle for fresh Supabase setup
-- `supabase/functions`: edge functions for AI chat, billing verification, and account deletion
-- `docs`: operational and architecture documentation
-- `scripts`: local helper scripts for running and building with env-derived config
-
-Each feature commonly contains:
-
-- Domain entities
-- Repository interfaces
-- Repository implementations
-- Presentation providers
-- Screens and controllers
-
-The project is close to a clean-architecture style, but implemented pragmatically rather than rigidly.
-
-## 5. Application Startup Lifecycle
-
-The app startup flow is important because GymUnity decides configuration validity, backend readiness, authentication state, deletion state, onboarding state, and role-specific routing before the user reaches the main UI.
-
-### `main.dart`
-
-Startup begins in `lib/main.dart`:
-
-1. Flutter bindings are initialized.
-2. `LocalRuntimeConfigLoader.primeIfNeeded()` attempts to load local runtime config from `assets/config/local_env.json` if compile-time defines are missing.
-3. If runtime config validates successfully, Supabase is initialized.
-4. The app is launched inside a global Riverpod `ProviderScope`.
-
-### Runtime configuration behavior
-
-GymUnity does not read `.env` directly inside Flutter runtime code. Instead:
-
-- `AppConfig` reads compile-time values via `String.fromEnvironment`
-- Local helper scripts convert `.env` into the correct `--dart-define` set
-- If compile-time config is absent, the app can fall back to `assets/config/local_env.json`
-- If config is still invalid, the app does not crash immediately; it stays in a configuration-required startup state
-
-### `GymUnityApp`
-
-The root app widget:
-
-- Builds a `MaterialApp`
-- Uses a dark theme
-- Starts at the splash route `/`
-- Starts monetization bootstrap after the first frame
-- Refreshes premium entitlements when the app resumes
-- Watches auth-aware monetization behavior when config is valid
-
-## 6. Splash Screen and Bootstrap Logic
-
-The splash screen is not just a branding screen. It is the app’s startup control surface.
-
-Current behavior:
-
-- The splash remains visible for at least `900ms`
-- It listens for bootstrap state changes outside the widget build method
-- It navigates only after startup state has resolved and the minimum display time has elapsed
-- It can display configuration errors, backend errors, deleted-account messaging, retry actions, or support actions
-
-### Bootstrap state machine
-
-`AppBootstrapController` can resolve the app into these states:
-
-- `loading`
-- `authenticated`
-- `unauthenticated`
-- `configError`
-- `backendError`
-- `deletedAccount`
-
-### Bootstrap decision flow
-
-At launch the app:
-
-1. Validates config through `AppConfig`
-2. Initializes Supabase
-3. Starts auth deep-link bootstrap
-4. Reads the current Supabase-authenticated user
-5. If no user exists, routes to the welcome screen
-6. If the account is marked deleted/deactivated, logs out and shows a deleted-account state
-7. Otherwise resolves the correct post-auth route based on role and onboarding completion
-
-## 7. Authentication System
-
-GymUnity supports several auth-related flows:
-
-- Email/password login
-- Registration
-- OTP verification
-- Forgot password
-- Password reset
-- OAuth sign-in
-- Auth callback handling
-- Session completion and profile bootstrapping
-- Logout
-- Account deletion
-
-### Auth bootstrapping after sign-in
-
-After a successful authenticated session, the app ensures that:
-
-- A row exists in `public.users`
-- A row exists in `public.profiles`
-- Deleted/deactivated accounts are blocked
-
-This means Supabase auth alone is not the whole identity model. The app relies on database-backed user and profile records to drive role resolution and onboarding.
-
-### OAuth and deep-link callback handling
-
-GymUnity has a dedicated callback pipeline for browser-based OAuth and recovery links.
-
-Key pieces:
-
-- `PlatformAuthCallbackIngress`
-- `AuthDeepLinkBootstrap`
-- `AuthFlowController`
-- `AuthCallbackScreen`
-
-The callback system:
-
-- Listens through Android platform channels when available
-- Falls back to `app_links`
-- Consumes initial callback URIs if the app launches from a deep link
-- Watches live callback URIs while the app is already running
-- Detects success, error, and password-recovery callbacks
-- Polls and times out if callback completion takes too long
-
-Development and production redirect handling is environment-aware. The accepted redirect scheme list includes the main configured scheme and also accepts `gymunity` and `gymunity-dev` in development.
-
-## 8. Role Model
-
-GymUnity is built around three first-class roles:
+The same authenticated account can be routed into one of three product roles:
 
 - Member
 - Coach
 - Seller
 
-This role system is persisted in the database through:
-
-- `public.roles`
-- `public.profiles.role_id`
-- A helper SQL function `public.current_role()`
-
-Role selection determines:
-
-- Which onboarding flow the user sees
-- Which dashboard the user reaches after onboarding
-- Which tables and actions are available through row-level security
-
-## 9. Route Resolution Logic
-
-Route resolution is centralized in `AuthRouteResolver`.
-
-The app resolves navigation like this:
-
-- No authenticated user: `welcome`
-- Authenticated user with no profile role: `role-selection`
-- Authenticated user with a role but incomplete onboarding: role-specific onboarding route
-- Authenticated user with a role and completed onboarding: role-specific dashboard
-
-### Dashboard mapping
-
-- Member -> `member-home`
-- Coach -> `coach-dashboard`
-- Seller -> `seller-dashboard`
-
-### Onboarding mapping
-
-- Member -> `member-onboarding`
-- Coach -> `coach-onboarding`
-- Seller -> `seller-onboarding`
-
-## 10. Onboarding Flows
-
-GymUnity treats onboarding as a real data-writing flow, not only UI.
-
-### Member onboarding
-
-Member onboarding writes to:
-
-- `member_profiles`
-- `profiles.onboarding_completed`
-- Initial weight history if current weight is provided
-
-Captured member information includes:
-
-- Goal
-- Age
-- Gender
-- Height in centimeters
-- Current weight in kilograms
-- Training frequency
-- Experience level
-
-### Seller onboarding
-
-Seller onboarding writes to:
-
-- `seller_profiles`
-- `profiles.onboarding_completed`
-
-Captured seller information includes:
-
-- Store name
-- Store description
-- Primary category
-- Shipping scope
-- Optional support email
-
-### Coach onboarding
-
-Coach onboarding is the most composite onboarding flow. It writes:
-
-- `coach_profiles`
-- An initial coaching package
-- An initial availability slot
-- `profiles.onboarding_completed`
-
-This means a coach can be bootstrapped into the system with public-facing service data from the beginning.
-
-## 11. Member Experience
-
-The member role is the most consumer-facing part of the app.
-
-### Member home
-
-The member home is backed by a summary model assembled from multiple sources:
-
-- Latest weight entry
-- Latest body measurement entry
-- Active or most recent workout plan
-- Latest logged workout session
-- Latest coach subscription
-
-### Member profile and progress
-
-The backend supports:
-
-- Member profile persistence
-- Preferences
-- Weight tracking history
-- Body measurement tracking history
-- Workout plan listing
-- Workout session logging
-- Subscription listing
-- Order listing
-
-### Preferences
-
-Member/user preferences are stored in `user_preferences` and currently include:
-
-- Push notifications enabled
-- AI tips enabled
-- Order updates enabled
-- Measurement unit: metric or imperial
-- Language: English or Arabic
-
-### Progress tracking
-
-Progress-related data currently exists in the backend and repository layer through:
-
-- `member_weight_entries`
-- `member_body_measurements`
-- `workout_sessions`
-
-The dedicated progress UI route still points to a placeholder screen, but the data model and repository support already exist.
-
-### Workout plans and sessions
-
-Members can:
-
-- Retrieve coach-authored or AI-authored workout plans
-- Log completed workout sessions
-- Link a workout session to a workout plan
-- Resolve coach ownership from the plan if needed
-
-Workout plans store structured JSON content, which gives GymUnity flexibility to evolve the exercise model without changing the app contract too aggressively.
-
-## 12. Coach Experience
-
-GymUnity separates coach discovery from coach management.
-
-### Public coach discovery
-
-Members can browse coaches through repository calls that use Supabase RPCs such as:
-
-- `list_coach_directory`
-- `get_coach_public_profile`
-- `list_coach_public_reviews`
-
-Public coach details include:
-
-- Name
-- Bio
-- Specialties
-- Delivery mode
-- Experience
-- Pricing
-- Verification state
-- Rating average and count
-- Packages
-- Availability
-- Reviews
-
-### Coach-managed content
-
-Coaches can manage:
-
-- Their profile
-- Coaching packages
-- Availability slots
-- Dashboard metrics
-- Client list
-- Workout plans
-- Subscription state
-
-### Coach dashboard
-
-The coach dashboard is backed by a repository and summary RPC. It is intended to surface operational coaching metrics rather than static content.
-
-### Coaching packages
-
-Coach packages support:
-
-- Title
-- Description
-- Billing cycle
-- Price
-- Active/inactive state
-
-The codebase already includes repository methods for listing, saving, and deactivating packages, even though some dedicated UI routes are still placeholders.
-
-### Availability
-
-Availability is modeled as reusable weekly slots:
-
-- Weekday
-- Start time
-- End time
-- Timezone
-- Active state
-
-### Coach subscriptions
-
-Members can request a coach subscription through an RPC-backed workflow. Coaches can update subscription status through another RPC.
-
-This flow is distinct from AI Premium billing. Coach subscriptions are business-domain subscriptions stored in app tables, not App Store / Google Play entitlements.
-
-### Workout plan assignment
-
-A coach can create a workout plan for a member. When this happens:
-
-- A row is inserted into `workout_plans`
-- The member receives a notification in `notifications`
-
-This is one of the clearest examples of cross-feature coordination in GymUnity.
-
-### Reviews
-
-Members can submit coach reviews tied to subscriptions, and public review listings are exposed through RPC-backed repository calls.
-
-## 13. Store and Marketplace Experience
-
-GymUnity includes a marketplace for fitness-related products.
-
-### Store browsing
-
-Members can:
-
-- Browse product categories
-- Search products
-- Open product details
+Those roles are reflected in both Flutter routing logic and the Supabase data model.
+
+## 3. Product Model in Plain Terms
+
+At the business level, the app is built around these user stories:
+
+### Member
+
+A member can:
+
+- Register or sign in
+- Choose the member role
+- Complete member onboarding
+- Maintain a member profile
+- Track body measurements and weight
+- Log workout sessions
+- Browse coaches
+- Request coach subscriptions
+- Receive and review workout plans
+- Use AI chat
+- Generate AI workout plans
+- Buy AI premium through store billing
+- Browse store products
 - Favorite products
-- Add items to cart
-- Review and update cart contents
+- Add products to a cart
 - Save shipping addresses
-- Place orders
-- Track their orders
+- Place store orders
+- View order history
+- Read notifications
+- Manage app settings
+- Delete the account
 
-The built-in category model currently includes:
+### Coach
 
-- All
-- Supplements
-- Equipment
-- Apparel
-- Accessories
+A coach can:
 
-Search works across:
+- Register or sign in
+- Choose the coach role
+- Complete coach onboarding
+- Maintain coach-specific profile data
+- Publish coaching packages
+- Manage availability slots
+- View a coach dashboard summary
+- View subscription requests and active subscriptions
+- Review client lists
+- Create workout plans for members
+- Receive notifications related to coaching
 
-- Product name
-- Category
-- Description
+### Seller
 
-### Product model
+A seller can:
 
-Products support:
-
-- Seller ownership
-- Title
-- Description
-- Category
-- Price
-- Currency
-- Stock quantity
-- Low stock threshold
-- Image paths and resolved image URLs
-- Active state
-- Soft-deletion marker
-
-### Favorites
-
-Favorites are stored separately from the product table. The app supports:
-
-- Loading favorite product IDs
-- Resolving favorite products in user-defined order
-- Toggling favorites on and off
-
-### Cart system
-
-The cart is server-backed, not only local UI state.
-
-GymUnity uses:
-
-- `store_carts`
-- `store_cart_items`
-
-The repository ensures that a cart row exists for the current member on demand. Cart contents are enriched with live product data so the UI can reflect:
-
-- Current stock
-- Unavailable products
-- Over-limit quantities
-
-There is also a cleanup flow that removes unavailable items or clamps quantities to available stock.
-
-### Shipping addresses
-
-The app supports multiple shipping addresses with a default flag. Address fields include:
-
-- Recipient name
-- Phone
-- Address lines
-- City
-- State/region
-- Postal code
-- Country code
-- Delivery notes
-- Default state
-
-### Checkout and order placement
-
-Checkout is performed through the `create_store_order` SQL function. The Flutter repository calls it with:
-
-- A shipping address ID
-- A client-provided idempotency key
-
-The function returns a list of order summaries instead of a single order. This fits GymUnity’s marketplace design, where a single cart can produce one or more seller-specific orders.
-
-### Order detail model
-
-Order data is enriched from:
-
-- `orders`
-- `order_items`
-- `order_status_history`
-
-That gives each order:
-
-- Summary information
-- Line items
-- Shipping snapshot
-- Status history timeline
-
-## 14. Seller Experience
-
-The seller role is the supply-side counterpart to the store.
-
-### Seller dashboard
-
-The seller dashboard aggregates:
-
-- Total products
-- Active products
-- Low-stock products
-- Pending orders
-- In-progress orders
-- Delivered orders
-- Gross revenue
-
-### Seller product management
-
-Sellers can:
-
-- List their own products
-- Create products
-- Edit products
-- Activate/deactivate products
+- Register or sign in
+- Choose the seller role
+- Complete seller onboarding
+- Maintain seller/store profile data
+- Create and update products
 - Upload product images
-- Delete or archive products
+- Archive or delete products depending on historical order linkage
+- View seller dashboard metrics
+- View seller order lists
+- Update order statuses
+
+## 4. Main Technology Stack
+
+### Frontend stack
+
+- Flutter
+- Riverpod
+- Supabase Flutter SDK
+- `google_fonts`
+- `url_launcher`
+- `image_picker`
+- `image`
+- `fl_chart`
+- `flutter_local_notifications`
+- `timezone`
+- `flutter_timezone`
+- `in_app_purchase`
+- `in_app_purchase_android`
+- `in_app_purchase_storekit`
+
+### Backend stack
+
+- Supabase Postgres
+- Supabase Auth
+- Supabase Storage
+- Supabase Edge Functions
+- PostgreSQL RLS
+- SQL RPC functions exposed through Supabase
+
+### AI provider layer
+
+The AI chat Edge Function currently supports a provider abstraction and, in the present implementation, uses Groq if `GROQ_API_KEY` is available.
+
+The default Groq model fallback inside the Edge Function is:
+
+- `openai/gpt-oss-120b`
 
-### Product image uploads
+### Language and tooling
+
+- Dart / Flutter SDK `^3.11.1`
+- TypeScript in Supabase Edge Functions
+- PowerShell helper scripts for local runtime config and launch flows
+
+## 5. Repository Layout
+
+The repository is feature-oriented.
+
+### Top-level directories
 
-Seller image uploads are handled through Supabase Storage. Before upload:
+- `lib/`: Flutter application code
+- `supabase/migrations/`: incremental database migrations
+- `supabase/sql/`: cumulative SQL bundle for manual dashboard setup
+- `supabase/functions/`: Edge Functions
+- `scripts/`: local development helper scripts
+- `docs/`: operational and implementation notes
+- `test/`: Flutter test suite
+- `assets/`: images and local config assets
+
+### `lib/` structure
 
-- Image bytes are optimized/compressed
-- File extension is normalized
-- A storage path is generated under seller and product ownership
+- `lib/app/`
+  - app shell
+  - routing
+- `lib/core/`
+  - configuration
+  - dependency injection
+  - theme
+  - constants
+  - shared services
+  - Supabase bootstrap utilities
+  - reusable widgets
+  - small utilities
+- `lib/features/`
+  - `ai_chat/`
+  - `auth/`
+  - `coach/`
+  - `coaches/`
+  - `member/`
+  - `monetization/`
+  - `onboarding/`
+  - `planner/`
+  - `seller/`
+  - `settings/`
+  - `store/`
+  - `user/`
+
+### Feature split pattern
+
+Most features follow a pragmatic layered structure:
+
+- `domain/`
+  - entities
+  - repository interfaces
+- `data/`
+  - repository implementations
+  - remote data sources
+- `presentation/`
+  - providers
+  - controllers
+  - screens
+  - models/widgets where needed
 
-The uploaded image path is then used to resolve public image URLs.
+The project is clean-architecture influenced, but not rigidly doctrinal.
 
-### Delete versus archive behavior
+## 6. Application Boot Process
 
-A seller product is not always deleted outright. If the product is already linked to order history, the app archives it instead of hard-deleting it. This preserves marketplace history while preventing further sale.
+### `main.dart`
 
-### Seller order management
+Startup begins in `lib/main.dart`.
 
-Sellers can:
+The startup order is:
 
-- Load detailed seller-side orders
-- View individual order details
-- Update order status through RPC
+1. `WidgetsFlutterBinding.ensureInitialized()`
+2. `LocalRuntimeConfigLoader.primeIfNeeded()`
+3. `SupabaseInitializer.initialize()` if config is valid
+4. `runApp(const ProviderScope(child: GymUnityApp()))`
 
-This is backed by:
+### Why runtime config matters before app launch
 
-- `list_seller_orders_detailed`
-- `update_store_order_status`
+GymUnity does not directly read `.env` from Flutter runtime.
 
-## 15. AI Chat Experience
+Instead:
 
-GymUnity includes an AI chat feature that stores conversations in the app database.
+- local scripts translate `.env` into `--dart-define`
+- `AppConfig` reads compile-time values through `String.fromEnvironment`
+- `assets/config/local_env.json` can act as a fallback source through `LocalRuntimeConfigLoader`
 
-### Chat model
+If config is invalid:
 
-The AI chat feature uses:
+- the app still boots
+- but the splash/bootstrap flow resolves to a configuration error state
 
-- `chat_sessions`
-- `chat_messages`
+### `GymUnityApp`
 
-### Session behavior
+The root widget in `lib/app/app.dart`:
 
-Users can:
+- extends `ConsumerStatefulWidget`
+- observes app lifecycle
+- starts monetization bootstrap on first frame
+- starts planner reminder bootstrap on first frame
+- refreshes premium entitlements on app resume
+- syncs planner reminders on app resume
+- wires the app theme and route generator
 
-- Create chat sessions
-- List their sessions
-- Open a conversation
-- Watch messages in real time
-- Send a message and receive an assistant response
+### MaterialApp setup
 
-### Message flow
+The app shell uses:
 
-When a user sends a message:
+- `title: AppStrings.appName`
+- `debugShowCheckedModeBanner: false`
+- `theme: AppTheme.darkTheme`
+- `initialRoute: AppRoutes.splash`
+- `onGenerateRoute: AppRoutes.onGenerateRoute`
 
-1. The app inserts the user message into `chat_messages`
-2. The app invokes the `ai-chat` edge function
-3. The function loads recent chat history from Supabase
-4. The function calls OpenAI with a system instruction and message history
-5. The assistant reply is returned to the client
-6. The client stores the assistant reply in `chat_messages`
-7. The chat session’s `updated_at` field is refreshed
+## 7. Runtime Configuration Model
 
-The realtime message stream is powered by Supabase query streaming on `chat_messages`.
+The central runtime model is `AppConfig`.
 
-## 16. AI Premium and Monetization
+### AppConfig fields
 
-GymUnity’s AI feature can operate in one of two modes:
+The app currently models:
 
-- Free/unlocked mode when AI Premium is disabled in config
-- Gated mode when AI Premium is enabled and tied to verified billing entitlements
+- environment
+- Supabase URL
+- Supabase anon key
+- auth redirect scheme
+- auth redirect host
+- privacy policy URL
+- terms URL
+- support URL
+- support email
+- support email subject
+- reviewer login help URL
+- feature flags for coach role
+- feature flags for seller role
+- feature flags for Apple sign-in
+- feature flags for store purchases
+- feature flags for coach subscriptions
+- feature flag for AI premium
+- Apple AI premium monthly product id
+- Apple AI premium annual product id
+- Google AI premium subscription id
+- Google AI premium monthly base plan id
+- Google AI premium annual base plan id
 
-### Feature gating
+### Environment model
 
-The gate decision is computed by `aiPremiumGateProvider`, which returns:
+`AppEnvironment` currently supports:
 
-- Free access
-- Premium unlocked
-- Premium locked
+- `dev`
+- `staging`
+- `prod`
 
-### Billing catalog
+### Config validation behavior
 
-The app queries store products for AI Premium plans and maps them into an internal catalog. The premium offering currently models:
+The app validates:
 
-- Monthly plan
-- Annual plan
+- non-empty Supabase URL
+- valid absolute URLs for support/legal links when provided
+- support contact presence in production
+- product ids if AI premium is enabled
 
-### Purchase handling
+### Auth redirect behavior
 
-The billing layer supports:
+The configured redirect URI is:
 
-- Product catalog loading
-- Purchase initiation
-- Restore purchases
-- Existing Android purchase queries
-- Purchase completion
+- `AUTH_REDIRECT_SCHEME://AUTH_REDIRECT_HOST`
 
-### Subscription state
+Development also accepts fallback schemes:
 
-The entitlement layer supports:
+- `gymunity`
+- `gymunity-dev`
 
-- Ensuring a billing customer token exists
-- Reading current subscription entitlement
-- Refreshing entitlement from the backend
-- Syncing completed purchases with backend verification functions
+## 8. Dependency Injection and Global Providers
 
-### Purchase stream bootstrap
+Global DI lives in `lib/core/di/providers.dart`.
 
-Monetization bootstrap does the following:
+### Core providers
 
-- Subscribes to purchase updates
-- Refreshes entitlements when the app starts
-- Reconciles previous Android purchases
-- Refreshes entitlements when auth state changes
-- Refreshes entitlements when the app resumes
+- `supabaseClientProvider`
+- `authCallbackIngressProvider`
+- `authRemoteDataSourceProvider`
+- `authRepositoryProvider`
+- `userRemoteDataSourceProvider`
+- `userRepositoryProvider`
+- `storeRepositoryProvider`
+- `coachRepositoryProvider`
+- `memberRepositoryProvider`
+- `plannerRepositoryProvider`
+- `sellerRepositoryProvider`
+- `inAppPurchaseProvider`
+- `billingRepositoryProvider`
+- `entitlementRepositoryProvider`
+- `chatRepositoryProvider`
 
-### Physical marketplace vs digital premium
+### State providers
 
-The marketplace/store domain and AI Premium are separate concerns:
+- `authSessionProvider`
+- `currentUserProfileProvider`
+- `appRoleProvider`
+- `authRouteResolverProvider`
 
-- Store products are ordinary marketplace items inside GymUnity
-- AI Premium is a digital subscription verified through platform billing
+The design choice here is straightforward:
 
-## 17. Notifications and Settings
+- repositories are global providers
+- controllers sit in feature presentation layers
+- `authSessionProvider` is a shared stream of the current auth session
+- `currentUserProfileProvider` is the app-wide profile read point
 
-GymUnity has both backend-backed notifications and local settings state.
+## 9. Routing System
 
-### Notification system
+Routing is centralized in `lib/app/routes.dart`.
 
-Notifications are stored in `public.notifications` and streamed live to the client.
-
-Each notification has:
-
-- ID
-- Title
-- Body
-- Type
-- Read/unread state
-- Creation time
-- Optional structured `data`
-
-The app currently categorizes notifications as:
-
-- Coaching
-- Orders
-- AI
-- System
-
-Users can:
-
-- View notifications
-- Filter them by category
-- Mark one as read
-- Mark all as read
-
-### Settings state
-
-The settings provider currently stores:
-
-- Push notifications enabled
-- AI tips enabled
-- Order updates enabled
-- Measurement unit
-- Language
-
-This is currently implemented as app-side state in the settings presentation layer, while broader persisted preference support exists in the member/user data layer.
-
-### Support and legal
-
-GymUnity includes dedicated routes/screens for:
-
-- Help and support
-- Privacy policy
-- Terms
-
-These are driven by runtime config such as:
-
-- `SUPPORT_URL`
-- `SUPPORT_EMAIL`
-- `PRIVACY_POLICY_URL`
-- `TERMS_OF_SERVICE_URL`
-
-## 18. Account Deletion Flow
-
-GymUnity supports account deletion through a dedicated edge function and backend soft-delete logic.
-
-### Delete request flow
-
-The `delete-account` edge function:
-
-- Authenticates the requester using the bearer token
-- Requires current password confirmation for email-based accounts
-- Calls the `soft_delete_account` SQL function
-- Removes avatar files from storage
-
-### Backend soft-delete behavior
-
-The `soft_delete_account` function:
-
-- Rewrites the account email to a deleted placeholder address
-- Marks the user inactive
-- Clears or sanitizes profile fields
-- Clears coach profile details
-- Deactivates seller products
-- Cancels active subscriptions where appropriate
-- Archives active workout plans where appropriate
-- Deletes notifications
-- Deletes device tokens
-- Deletes chat sessions
-
-This is a business-level soft deletion with selective cleanup rather than a simple hard delete of the auth user.
-
-## 19. Routing Inventory
-
-The app currently defines routes for the following areas.
-
-### Auth routes
+### Auth and bootstrap routes
 
 - `/`
 - `/welcome`
@@ -835,7 +424,7 @@ The app currently defines routes for the following areas.
 - `/seller-orders`
 - `/seller-profile`
 
-### Coach management routes
+### Coach-owner routes
 
 - `/coach-dashboard`
 - `/clients`
@@ -852,109 +441,747 @@ The app currently defines routes for the following areas.
 - `/privacy-policy`
 - `/terms`
 
-## 20. Current Placeholder and In-Progress Screens
+### Placeholder routing behavior
 
-Some routes intentionally point to `FeaturePlaceholderScreen` instead of final UI implementations.
+Several routes currently resolve to `FeaturePlaceholderScreen` rather than full feature screens.
 
-Current placeholder surfaces include:
+These include:
 
-- Edit Profile
-- Progress Tracking screen
-- Workout Plans screen
-- Workout Details screen
-- AI Generated Plan screen
-- My Subscriptions screen
-- Seller Profile screen
-- Coach Clients screen
-- Coach Packages screen
-- Coach Add Package screen
-- Coach Profile screen
+- edit profile
+- progress
+- my subscriptions
+- seller profile
+- coach clients
+- coach packages
+- add package
+- coach profile
+- unknown routes
 
-This is important because GymUnity already contains backend and repository support for several of these areas even when the dedicated screen is still placeholder-based.
+The placeholders are explicit, route-safe, and intentionally descriptive rather than broken.
 
-## 21. State Management and Dependency Injection
+## 10. App Bootstrap State Machine
 
-Riverpod is the backbone of app state and dependency wiring.
+The splash/bootstrap logic lives mainly in:
 
-Patterns used across the app include:
+- `AppBootstrapController`
+- `SplashScreen`
+- `AuthRouteResolver`
 
-- `Provider`
-- `FutureProvider`
-- `StreamProvider`
-- `StateProvider`
-- `StateNotifierProvider`
-- `AsyncNotifierProvider`
+### Bootstrap states
 
-The DI layer exposes providers for:
+- `loading`
+- `authenticated`
+- `unauthenticated`
+- `configError`
+- `backendError`
+- `deletedAccount`
 
-- Supabase client
-- Auth callback ingress
-- Auth repository
-- User repository
-- Member repository
-- Coach repository
-- Seller repository
-- Store repository
-- Billing repository
-- Entitlement repository
-- Chat repository
-- Current auth session
-- Current user profile
-- App role
-- Auth route resolver
+### Actual bootstrap flow
 
-This makes feature screens depend on repository-backed providers rather than manually constructing backend clients in the UI.
+At launch:
 
-## 22. Supabase Database Design
+1. validate config
+2. initialize Supabase
+3. start auth deep-link bootstrap
+4. read current authenticated user from Supabase
+5. if no user exists, route to welcome
+6. if user exists, read account status from `public.users`
+7. if status is legacy deleted/inactive, sign out and show deleted-account state
+8. otherwise resolve role/onboarding route with `AuthRouteResolver`
 
-GymUnity uses Supabase as the central system of record.
+This means the app treats authentication as:
 
-### Identity and role tables
+- Supabase auth session
+- plus database-backed account state
+- plus role
+- plus onboarding completion
 
-- `roles`
-- `users`
-- `profiles`
+## 11. Authentication System
 
-### Member domain tables
+The auth feature supports:
+
+- email/password login
+- registration
+- signup OTP verification
+- forgot password
+- password reset
+- OAuth sign-in
+- auth callback completion
+- logout
+- account deletion
+
+### Main auth classes
+
+- `AuthRemoteDataSource`
+- `AuthRepositoryImpl`
+- `AuthController`
+- `GoogleOAuthController`
+- `AppBootstrapController`
+- `AuthCallbackScreen`
+- `OtpScreen`
+- `LoginScreen`
+- `RegisterScreen`
+- `ForgotPasswordScreen`
+- `ResetPasswordScreen`
+
+### Login flow
+
+Email/password login:
+
+1. `AuthController.login`
+2. `AuthRepositoryImpl.login`
+3. `AuthRemoteDataSource.signInWithPassword`
+4. bootstrap profile through `UserRepository.ensureUserAndProfile`
+
+### Registration flow
+
+Registration:
+
+1. `AuthController.register`
+2. `AuthRepositoryImpl.register`
+3. `AuthRemoteDataSource.signUp`
+4. if session exists immediately, bootstrap profile
+5. if session is absent, route to OTP verification
+
+### OTP flow
+
+OTP is used for:
+
+- signup confirmation
+- recovery/reset-related flows
+
+The app models OTP mode through `OtpFlowMode`.
+
+### OAuth flow
+
+OAuth handling includes:
+
+- browser launch through Supabase auth
+- deep-link callback normalization
+- polling and timeout handling
+- callback ingestion through Android-specific paths and `app_links`
+
+### Post-auth bootstrap
+
+After a successful auth session the app ensures:
+
+- `public.users` row exists
+- `public.profiles` row exists
+
+That behavior lives in `UserRepositoryImpl.ensureUserAndProfile`.
+
+### Legacy deletion protection
+
+For older soft-deleted accounts, the app still treats database state as authoritative and will block bootstrap if the account is marked inactive or deleted in `public.users`.
+
+## 12. Role System
+
+Roles are first-class in both UI and backend.
+
+### Role persistence
+
+Roles are stored via:
+
+- `public.roles`
+- `public.profiles.role_id`
+
+### Role helper SQL
+
+`public.current_role()` returns the role code for `auth.uid()`.
+
+### Supported role codes
+
+- `member`
+- `coach`
+- `seller`
+
+### Role impact
+
+Role affects:
+
+- route resolution
+- onboarding path
+- RLS permissions
+- accessible tables
+- feature visibility
+
+## 13. Route Resolution Rules
+
+`AuthRouteResolver` is the central route policy object.
+
+### Resolution logic
+
+- no authenticated user -> welcome
+- authenticated but no role -> role-selection
+- role exists but onboarding incomplete -> role-specific onboarding
+- role exists and onboarding complete -> role-specific dashboard
+
+### Dashboard mapping
+
+- member -> member home
+- coach -> coach dashboard
+- seller -> seller dashboard
+
+### Onboarding mapping
+
+- member -> member onboarding
+- coach -> coach onboarding
+- seller -> seller onboarding
+
+## 14. Onboarding Flows
+
+Onboarding is persisted, not cosmetic.
+
+### Member onboarding
+
+Writes include:
 
 - `member_profiles`
-- `user_preferences`
-- `member_weight_entries`
-- `member_body_measurements`
-- `workout_plans`
-- `workout_sessions`
+- `profiles.onboarding_completed`
+- optional weight tracking seeds
 
-### Coach domain tables
+Captured member fields include:
+
+- goal
+- age
+- gender
+- height
+- current weight
+- training frequency
+- experience level
+
+### Coach onboarding
+
+Writes include:
 
 - `coach_profiles`
-- `coach_packages`
-- `coach_availability_slots`
-- `subscriptions`
-- `coach_reviews`
+- `profiles.onboarding_completed`
 
-### Store domain tables
+Captured coach fields include:
 
-- `products`
-- `store_carts`
-- `store_cart_items`
-- `product_favorites`
-- `shipping_addresses`
-- `orders`
-- `order_items`
-- `order_status_history`
-- `store_checkout_requests`
+- bio
+- specialties
+- years of experience
+- hourly rate
+- delivery mode
+- service summary
 
-### AI and messaging tables
+### Seller onboarding
+
+Writes include:
+
+- `seller_profiles`
+- `profiles.onboarding_completed`
+
+Captured seller fields include:
+
+- store name
+- store description
+- primary category
+- shipping scope
+- support email
+
+## 15. User and Profile Foundation
+
+The `user` feature is the shared identity bridge between Supabase Auth and business data.
+
+### Core responsibilities
+
+- read current auth user
+- read account status
+- fetch profile
+- ensure user/profile rows exist
+- save role
+- complete onboarding
+- update profile details
+- upload avatar
+
+### Account status model
+
+`AccountStatus` currently models:
+
+- missing
+- active
+- inactive
+- deleted
+
+The app still uses this to block legacy soft-deleted accounts even though new account deletion is now a hard delete.
+
+## 16. Member Experience
+
+The member role is the largest implemented experience in the app.
+
+### Member home
+
+The member dashboard is a consolidated home surface that points into:
+
+- AI tasks for today
+- active plan access
+- store browsing
+- coach browsing
+- account settings
+
+### Member profile
+
+The profile screen exposes:
+
+- member summary data
+- logout
+- navigation into settings
+- access to other member-specific areas
+
+### Preferences
+
+Member preferences persist in `public.user_preferences`.
+
+Preferences include:
+
+- push notifications enabled
+- AI tips enabled
+- order updates enabled
+- measurement unit
+- language
+
+### Weight tracking
+
+Weight entries live in `public.member_weight_entries`.
+
+Each entry stores:
+
+- member id
+- weight
+- recorded timestamp
+- note
+
+### Body measurements
+
+Body measurements live in `public.member_body_measurements`.
+
+Supported tracked values include:
+
+- waist
+- chest
+- hips
+- arm
+- thigh
+- body fat percentage
+- note
+
+### Workout sessions
+
+Completed/real workout activity logs live in `public.workout_sessions`.
+
+They can be linked to:
+
+- a member
+- an optional workout plan
+- an optional coach
+
+### Workout plans
+
+The member consumes workout plans from:
+
+- coach-created plans
+- AI-generated plans
+
+Plans are persisted in:
+
+- `public.workout_plans`
+- `public.workout_plan_days`
+- `public.workout_plan_tasks`
+- `public.workout_task_logs`
+
+### Member orders and subscriptions
+
+Members can:
+
+- view store order history
+- view coaching subscription history
+
+Historical views are backed by RPCs so the app sees normalized, display-safe records rather than raw table joins.
+
+## 17. Planner Experience
+
+The planner subsystem is a dedicated feature layer around structured plans and task completion.
+
+### Main planner flows
+
+- show active workout plan
+- show plan day details
+- show AI-generated plan review screen
+- update task completion logs
+- show member agenda
+- sync member task notifications
+- update reminder time
+
+### Planner RPCs
+
+- `activate_ai_workout_plan`
+- `upsert_workout_task_log`
+- `list_member_plan_agenda`
+- `sync_member_task_notifications`
+- `update_ai_plan_reminder_time`
+
+### Planner reminder bootstrap
+
+The app starts planner reminder bootstrap on startup and refreshes/syncs it on lifecycle resume.
+
+## 18. Coach Discovery Experience
+
+The `coaches` feature represents the public marketplace/discovery side of coaches.
+
+### Main capabilities
+
+- browse coach directory
+- open public coach details
+- view public coach packages
+- view public coach reviews
+- request subscription to a package
+
+### Main data sources
+
+- `list_coach_directory`
+- `get_coach_public_profile`
+- `list_coach_public_packages`
+- `list_coach_public_reviews`
+- `request_coach_subscription`
+
+### Public coach data shown
+
+- name
+- avatar
+- bio
+- specialties
+- rate
+- rating average
+- rating count
+- verification state
+- packages
+- availability
+- reviews
+
+## 19. Coach Owner Experience
+
+The `coach` feature is the logged-in coach’s operating surface.
+
+### Coach-specific assets
+
+- coach dashboard summary
+- packages
+- availability slots
+- client list
+- subscriptions
+- workout plan assignment
+- review-backed rating aggregate
+
+### Coach dashboard summary
+
+The coach dashboard summary is RPC-backed and exposes:
+
+- active clients
+- pending requests
+- active packages
+- active plans
+- rating average
+- rating count
+
+### Coach packages
+
+Packages live in `public.coach_packages`.
+
+Fields include:
+
+- title
+- description
+- billing cycle
+- price
+- active state
+
+Package delete behavior:
+
+- delete if there is no historical linkage
+- otherwise archive/deactivate
+
+### Availability
+
+Coach availability slots live in `public.coach_availability_slots`.
+
+### Clients
+
+Coach clients are derived, not manually maintained.
+
+The list is currently computed from subscriptions, plans, and sessions through `list_coach_clients`.
+
+After the hard-delete update, client rows with missing `member_id` are filtered out from coach operational lists.
+
+### Coach subscriptions
+
+Coach subscriptions live in `public.subscriptions`.
+
+Coaches can:
+
+- see incoming requests
+- activate subscriptions
+- cancel subscriptions
+- complete subscriptions
+
+### Coach review aggregate
+
+Coach ratings are maintained through:
+
+- `refresh_coach_rating_aggregate`
+- `handle_coach_review_aggregate`
+- trigger on `coach_reviews`
+
+## 20. Store and Marketplace Experience
+
+The store is a real data-backed product catalog, not only demo UI.
+
+### Buyer-facing capabilities
+
+- browse catalog
+- filter by category
+- open product details
+- manage favorites
+- manage cart
+- manage shipping addresses
+- place checkout requests
+- view orders
+
+### Core store entities
+
+- products
+- favorites
+- carts
+- cart items
+- shipping addresses
+- orders
+- order items
+- order status history
+
+### Product model
+
+Products contain:
+
+- seller id
+- title
+- description
+- category
+- price
+- currency
+- stock quantity
+- image paths
+- low stock threshold
+- is_active
+- deleted_at
+
+### Favorites
+
+Favorites are stored in `public.product_favorites`.
+
+### Cart
+
+Cart state is stored through:
+
+- `public.store_carts`
+- `public.store_cart_items`
+
+### Shipping addresses
+
+Shipping addresses live in `public.shipping_addresses`.
+
+They include:
+
+- recipient name
+- phone
+- address lines
+- city
+- state/region
+- postal code
+- country code
+- default flag
+
+### Checkout
+
+Checkout uses server-side RPC-backed order creation.
+
+The relevant assets are:
+
+- `public.create_store_order(...)`
+- `public.store_checkout_requests`
+- persisted `orders`
+- persisted `order_items`
+- status history
+
+### Historical order resilience
+
+After the hard-delete account update:
+
+- orders can outlive member or seller identity deletion
+- `seller_id` and `member_id` may be `null` in historical rows
+- buyer/seller views use fallback labels such as `Deleted seller` and `Deleted member`
+
+## 21. Seller Experience
+
+The seller feature is the management side of the store.
+
+### Seller dashboard
+
+The seller dashboard summary exposes:
+
+- total products
+- active products
+- low stock products
+- pending payment orders
+- in-progress orders
+- delivered orders
+- gross revenue
+
+### Product management
+
+Seller product management supports:
+
+- create product
+- edit product
+- upload product images
+- delete or archive product
+
+### Product image handling
+
+Product images are:
+
+- compressed client-side
+- uploaded to the `product-images` storage bucket
+- stored by path in `products.image_paths`
+
+### Delete versus archive logic
+
+Products are:
+
+- fully deleted if no order items reference them
+- archived if historical order linkage exists
+
+### Seller order management
+
+Sellers can:
+
+- list orders
+- inspect order details
+- update status transitions
+
+Status transitions are enforced server-side through RPCs, not trusted to client-side state.
+
+## 22. AI Chat Experience
+
+The AI chat feature is a major subsystem.
+
+### High-level responsibilities
+
+- store chat sessions
+- store chat messages
+- support general coaching conversation
+- support structured planner conversation
+- support regeneration/refinement flows
+- persist planner drafts
+- persist long-term AI memory
+- persist session state summaries and open loops
+
+### Core chat tables
 
 - `chat_sessions`
 - `chat_messages`
+- `ai_plan_drafts`
+- `ai_user_memories`
+- `ai_session_state`
 
-### Notification tables
+### Chat session types
 
-- `device_tokens`
-- `notifications`
+`chat_sessions.session_type` currently supports:
 
-### Billing and entitlement tables
+- `general`
+- `planner`
+
+### Planner-specific chat state
+
+Planner-related session status can be:
+
+- `idle`
+- `collecting_info`
+- `plan_ready`
+- `plan_updated`
+- `unsafe_request`
+- `error`
+
+### AI Edge Function behavior
+
+The `ai-chat` Edge Function:
+
+- authenticates the user
+- loads planner/member/profile context
+- classifies conversation mode
+- selects provider
+- generates structured JSON
+- stores assistant messages
+- stores memory updates
+- stores draft state
+- can activate or refine plan flows
+
+### AI context sources
+
+The planner/AI system pulls context from:
+
+- profile basics
+- member profile
+- user preferences
+- recent sessions
+- current active plan
+- prior profile state
+- memory rows
+- session state
+- adherence and activity signals
+
+### AI conversation modes
+
+The engine models these modes:
+
+- `general_coaching`
+- `planner_collect`
+- `planner_generate`
+- `planner_refine`
+- `progress_checkin`
+
+### AI plan result shape
+
+The normalized plan shape includes:
+
+- title
+- summary
+- duration in weeks
+- level
+- start date suggestion
+- safety notes
+- rest guidance
+- nutrition guidance
+- hydration guidance
+- sleep guidance
+- step target
+- weekly structure
+- per-day tasks
+
+## 23. AI Premium and Monetization
+
+Monetization is focused on premium AI access.
+
+### Main monetization pieces
+
+- product catalog metadata
+- billing customer token generation
+- store transaction persistence
+- entitlement persistence
+- entitlement refresh
+- purchase verification via Edge Functions
+
+### Core tables
 
 - `billing_products`
 - `billing_customers`
@@ -962,264 +1189,673 @@ GymUnity uses Supabase as the central system of record.
 - `subscription_entitlements`
 - `billing_sync_events`
 
-## 23. Row-Level Security and Access Model
+### Flutter monetization components
 
-The schema enables row-level security broadly across application tables.
+- `BillingRepositoryImpl`
+- `EntitlementRepositoryImpl`
+- monetization bootstrap provider
+- auth-aware monetization provider
+- paywall screen
+- subscription management screen
 
-Key design themes:
+### Billing customer
 
-- Users can read and mutate their own records
-- Coaches manage coach-owned data
-- Sellers manage seller-owned data
-- Members manage member-owned data
-- Public discovery is allowed only where explicitly intended, such as coach directory style data
-- RPC functions and helper functions are used for multi-step server-side operations
+`ensure_billing_customer()` creates or refreshes an `app_account_token` tied to the authenticated user.
 
-The project relies heavily on the combination of:
+### Purchase verification functions
 
-- `auth.uid()`
-- `profiles.role_id`
-- `public.current_role()`
-- ownership predicates in RLS policies
+Edge Functions include:
 
-## 24. Storage Design
+- `billing-verify-apple`
+- `billing-verify-google`
+- `billing-refresh-entitlement`
+- `billing-apple-notifications`
+- `billing-google-rtdn`
 
-GymUnity uses Supabase Storage buckets with different visibility models.
+### Apple billing implementation
+
+The Apple verification function:
+
+- authenticates the user
+- validates receipt data with Apple
+- resolves plan code
+- determines lifecycle state
+- upserts billing state into Supabase
+
+### Entitlement states
+
+The entitlement model supports:
+
+- enabled
+- disabled
+- pending
+- verification_required
+
+### Lifecycle states
+
+The lifecycle layer includes states such as:
+
+- pending
+- active
+- renewing
+- cancellation requested active until expiry
+- expired
+- grace period
+- on hold or suspended
+- restored or restarted
+- revoked or refunded
+
+## 24. Notifications
+
+Notifications are implemented as persisted backend records plus local scheduling for planner reminders.
+
+### Core notification tables
+
+- `device_tokens`
+- `notifications`
+
+### Notification table behavior
+
+Notifications include:
+
+- user id
+- type
+- title
+- body
+- data payload
+- read state
+- external key
+- availability timestamp
+
+### Planner reminder linkage
+
+Planner notifications use:
+
+- task-level reminder syncing
+- `external_key`
+- server-side sync logic
+
+## 25. Settings, Legal, and Support
+
+The settings area includes:
+
+- app settings screen
+- notifications screen
+- support and legal screens
+- delete account screen
+
+### Legal/support configuration
+
+Settings surfaces read from runtime config:
+
+- support URL
+- support email
+- privacy policy URL
+- terms URL
+- reviewer login help URL
+
+### Support behavior
+
+The app can:
+
+- open support URL
+- compose support email
+- open legal URLs
+
+## 26. Account Deletion Flow
+
+This area changed materially from the older soft-delete implementation.
+
+### Current deletion contract
+
+The Flutter side still calls the same Edge Function:
+
+- `delete-account`
+
+The payload contract is still:
+
+- optional `current_password`
+
+### Current user-facing behavior
+
+The delete account screen now explains:
+
+- deletion is permanent
+- personal data is erased
+- shared historical records may be kept in anonymized form
+- the same email can be used again later for a brand new account
+
+### Current Edge Function behavior
+
+The `delete-account` Edge Function:
+
+1. authenticates the request using the bearer token
+2. resolves the auth provider
+3. requires `current_password` for email/password accounts
+4. calls `prepare_account_for_hard_delete(target_user_id uuid)`
+5. removes `avatars/<userId>/...`
+6. removes `product-images/<userId>/...`
+7. calls `auth.admin.deleteUser(userId)`
+
+### Current SQL hard-delete preparation behavior
+
+`prepare_account_for_hard_delete`:
+
+- deletes private member/coach/seller preference and profile data
+- deletes notifications and device tokens
+- deletes AI memory/session/draft records
+- deletes carts, favorites, addresses, checkout requests
+- deletes billing customer and user-linked billing rows
+- nulls out user references in shared historical records where retention matters
+- deletes member-owned workout plans
+- archives coach-owned plans and nulls `coach_id`
+- deletes coach packages
+- deletes seller products
+- deletes chat sessions
+
+### Historical retention model
+
+The new design retains shared history where useful:
+
+- store orders
+- order items
+- coaching subscriptions
+
+but removes or nulls identity links when the deleted user was one side of that relationship.
+
+### Legacy soft-delete compatibility
+
+The app still contains bootstrap handling for legacy soft-deleted accounts:
+
+- `public.users.is_active = false`
+- `public.users.deleted_at is not null`
+
+That code is intentionally kept for older data even though new deletions are hard deletes.
+
+## 27. Supabase Database Design
+
+The Supabase schema is layered over a shared identity core.
+
+### Identity foundation
+
+- `roles`
+- `users`
+- `profiles`
+
+### Role extensions
+
+- `coach_profiles`
+- `member_profiles`
+- `seller_profiles`
+
+### Member wellness data
+
+- `user_preferences`
+- `member_weight_entries`
+- `member_body_measurements`
+- `workout_sessions`
+
+### Coach business data
+
+- `coach_packages`
+- `coach_availability_slots`
+- `coach_reviews`
+
+### Store data
+
+- `products`
+- `orders`
+- `order_items`
+- `order_status_history`
+- `store_carts`
+- `store_cart_items`
+- `product_favorites`
+- `shipping_addresses`
+- `store_checkout_requests`
+
+### Messaging and AI data
+
+- `chat_sessions`
+- `chat_messages`
+- `ai_plan_drafts`
+- `workout_plans`
+- `workout_plan_days`
+- `workout_plan_tasks`
+- `workout_task_logs`
+- `ai_user_memories`
+- `ai_session_state`
+
+### Notifications
+
+- `device_tokens`
+- `notifications`
+
+### Monetization data
+
+- `billing_products`
+- `billing_customers`
+- `store_transactions`
+- `subscription_entitlements`
+- `billing_sync_events`
+
+## 28. Migration History
+
+Current migration inventory:
+
+1. `20260307000001_init_gymunity.sql`
+2. `20260307000002_storage.sql`
+3. `20260307000003_notifications.sql`
+4. `20260311000004_coach_directory_rpc.sql`
+5. `20260312000005_account_deletion.sql`
+6. `20260312000006_core_role_flows.sql`
+7. `20260312000007_store_orders_hardening.sql`
+8. `20260312000008_monetization_billing.sql`
+9. `20260313000009_ai_member_planner.sql`
+10. `20260315000010_ai_personalization_memory.sql`
+11. `20260316000011_hard_delete_account.sql`
+12. `20260316000012_personalized_news.sql`
+13. `20260316000013_news_sync_scheduler.sql`
+
+### What the migration progression tells us
+
+The project evolved in this order:
+
+- base identity/store/chat schema
+- storage
+- notifications
+- coach directory RPC
+- older account deletion logic
+- role and business flows
+- hardened store/orders
+- billing and entitlements
+- AI planner foundation
+- AI personalization memory
+- hard-delete account correction
+- personalized health/news recommendations
+- scheduled news sync automation
+
+## 29. RPC Inventory
+
+Important public SQL functions and RPC-backed business logic include:
+
+- `current_role`
+- `list_coach_directory`
+- `get_coach_public_profile`
+- `list_coach_public_packages`
+- `list_coach_public_reviews`
+- `list_member_subscriptions_detailed`
+- `list_member_orders_detailed`
+- `list_seller_orders_detailed`
+- `list_coach_clients`
+- `seller_dashboard_summary`
+- `coach_dashboard_summary`
+- `create_store_order`
+- `update_store_order_status`
+- `request_coach_subscription`
+- `update_coach_subscription_status`
+- `submit_coach_review`
+- `ensure_billing_customer`
+- `activate_ai_workout_plan`
+- `upsert_workout_task_log`
+- `list_member_plan_agenda`
+- `sync_member_task_notifications`
+- `update_ai_plan_reminder_time`
+- `prepare_account_for_hard_delete`
+
+## 30. Row-Level Security Model
+
+The schema uses RLS extensively.
+
+### Broad access pattern
+
+Most tables follow one of these shapes:
+
+- own-read / own-write
+- public-read with role-bound writes
+- derived data through security definer RPCs
+
+### Examples
+
+- users and profiles are generally owned by `auth.uid()`
+- coach public discovery uses public-ish authenticated reads
+- seller products are readable when active, or by their seller owner
+- order and subscription transitions are enforced through RPCs
+- monetization state is user-scoped
+- AI memory and planner rows are member-owned
+
+### Why RPCs matter here
+
+Several business flows are intentionally executed through `security definer` SQL functions rather than direct client table writes, especially where:
+
+- multi-table consistency matters
+- status transitions matter
+- server-side validation matters
+- side effects such as notifications matter
+
+## 31. Storage Design
+
+GymUnity currently uses at least two storage buckets:
 
 ### `avatars`
 
-- Private bucket
-- Owner-oriented access rules
-- Used for profile avatars
+- private bucket
+- owner-scoped read/write/delete
+- file paths follow the user namespace
 
 ### `product-images`
 
-- Public bucket
-- Used for seller product images
+- public-read bucket
+- seller-scoped write/delete
+- file paths are seller-rooted
 
-This storage split reflects the different nature of the files:
+### Storage ownership conventions
 
-- Avatars are user account assets
-- Product images are marketplace-facing public assets
+- avatar paths are under `avatars/<userId>/...`
+- product images are under `<sellerId>/<productId>/...`
 
-## 25. Edge Functions
+## 32. Edge Function Inventory
 
-The repository currently includes these edge functions:
+Current Edge Function directories:
 
 - `ai-chat`
+- `billing-apple-notifications`
+- `billing-google-rtdn`
+- `billing-refresh-entitlement`
 - `billing-verify-apple`
+- `billing-verify-google`
 - `delete-account`
+- `_shared`
 
-There are also shared helpers under:
+### `_shared`
 
-- `_shared/cors.ts`
-- `_shared/billing.ts`
+Shared helper layer for:
+
+- CORS
+- billing helpers
 
 ### `ai-chat`
 
-Purpose:
+Responsible for:
 
-- Validate the authenticated user
-- Validate session ownership
-- Load recent message history
-- Call OpenAI
-- Return assistant text
-
-Important behavior:
-
-- Uses service-role access server-side
-- Checks the session belongs to the caller
-- Loads recent conversation history from Supabase
-- Uses `OPENAI_MODEL` with default `gpt-4o-mini`
+- AI response generation
+- planner conversation state
+- profile extraction
+- memory updates
+- plan generation/refinement
 
 ### `billing-verify-apple`
 
-Purpose:
+Responsible for:
 
-- Accept Apple receipt verification data
-- Validate it with Apple
-- Resolve plan, lifecycle, and entitlement state
-- Upsert billing and entitlement state in GymUnity tables
+- Apple receipt verification
+- lifecycle state resolution
+- entitlement upsert
+
+### `billing-verify-google`
+
+Parallel role for Google Play verification.
+
+### Notification webhooks
+
+- Apple notifications function
+- Google RTDN function
+
+These are for store-side subscription state changes outside the app runtime.
+
+### `billing-refresh-entitlement`
+
+Used to re-sync entitlement status for an authenticated user from backend state.
 
 ### `delete-account`
 
-Purpose:
+Responsible for authenticated destructive account deletion and auth user removal.
 
-- Validate the authenticated user
-- Require current password confirmation for email-provider accounts
-- Trigger backend soft deletion
-- Remove avatar storage files
+### How backend work is actually triggered
 
-## 26. SQL Functions and RPC-Backed Business Logic
+The backend is not driven by a single server process.
 
-GymUnity uses SQL functions and RPCs for operations that are more complex than a direct table insert/update.
+It is triggered through several concrete channels:
 
-Examples visible in the codebase include:
+- direct Supabase client reads and writes from Flutter for simple table-backed features
+- RPC calls for higher-level workflows, filtered list screens, status transitions, and dashboard summaries
+- Edge Functions when secret keys, provider verification, or privileged destructive actions are required
+- storage API calls for avatar and product image upload/remove flows
+- Apple and Google webhook-style notifications for billing events that happen outside app runtime
 
-- `current_role`
-- `touch_updated_at`
-- `seller_dashboard_summary`
-- `create_store_order`
-- `ensure_billing_customer`
-- `soft_delete_account`
-- `list_coach_directory`
-- `get_coach_public_profile`
-- `coach_dashboard_summary`
-- `list_coach_clients`
-- `request_coach_subscription`
-- `update_coach_subscription_status`
-- `list_coach_public_reviews`
-- `submit_coach_review`
-- `list_member_orders_detailed`
-- `list_member_subscriptions_detailed`
-- `list_seller_orders_detailed`
-- `update_store_order_status`
+In practical terms, most user actions follow one of these paths:
 
-This means GymUnity is not only a table-driven CRUD app. Important business logic is intentionally centralized in the database layer.
+1. Flutter screen or provider calls a repository
+2. repository chooses either table access, RPC, storage, or Edge Function
+3. Supabase applies RLS and SQL-side business logic
+4. Flutter maps the result into domain models and updates Riverpod state
 
-## 27. Runtime Configuration and Feature Flags
+### What happens in the background
 
-`AppConfig` is a central runtime contract for the app.
+Several important behaviors happen without a visible button press on the current screen:
 
-It includes:
+- app startup loads runtime config before the widget tree is built
+- auth session restoration runs on launch and may immediately redirect to the correct dashboard
+- bootstrap checks re-evaluate role, profile completeness, onboarding completion, and legacy deletion state
+- planner reminder setup initializes local reminder behavior on app startup
+- billing flows may refresh entitlements after purchase, restore, or external platform notifications
+- AI flows may update memory, extract profile signals, or persist planner drafts as part of a chat request lifecycle
+- account deletion removes storage objects and auth identity after SQL cleanup has already prepared shared records
 
-- Environment selection: dev, staging, production
-- Supabase URL
-- Supabase anon key
-- Auth redirect scheme and host
-- Privacy policy URL
-- Terms URL
-- Support URL
-- Support email
-- Support email subject
-- Reviewer login help URL
-- OpenAI model
-- Feature flags
-- AI Premium store product identifiers
+## 33. Scripts and Local Workflow
 
-### Feature flags currently modeled
+The repository includes PowerShell helper scripts:
 
-- `ENABLE_COACH_ROLE`
-- `ENABLE_SELLER_ROLE`
-- `ENABLE_APPLE_SIGN_IN`
-- `ENABLE_STORE_PURCHASES`
-- `ENABLE_COACH_SUBSCRIPTIONS`
-- `ENABLE_AI_PREMIUM`
-
-### Production config validation
-
-Production builds enforce stricter validation such as:
-
-- Privacy policy URL required
-- At least one support contact required
-
-AI Premium also requires all corresponding store product IDs and base plan IDs when enabled.
-
-## 28. Local Development and Operational Workflow
-
-The repository includes scripts to standardize local execution:
-
+- `scripts/flutter_with_env.ps1`
 - `scripts/flutter_run_dev.ps1`
+- `scripts/flutter_test_dev.ps1`
 - `scripts/flutter_build_apk_dev.ps1`
 - `scripts/flutter_build_appbundle_dev.ps1`
-- `scripts/flutter_test_dev.ps1`
-- `scripts/flutter_with_env.ps1`
 - `scripts/sync_local_runtime_config.ps1`
 
-Important operational rules in this codebase:
+### Why scripts exist
 
-- `.env` is a source input for helper scripts, not a runtime file read directly by Flutter
-- Raw `flutter run` does not automatically inject config
-- Local runtime config can be synchronized into an asset fallback file
-- Supabase Dashboard SQL setup is documented separately
+Because Flutter runtime config is sourced from `--dart-define`, raw `flutter run` is not enough to reproduce the app’s intended environment.
 
-## 29. End-to-End “How the App Works”
+### Command of record
+
+Example run flow:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\flutter_run_dev.ps1 -DeviceId emulator-5554
+```
+
+## 34. Documentation Inventory
+
+Additional repository docs include:
+
+- `docs/google_oauth_setup.md`
+- `docs/local_config_standardization.md`
+- `docs/production_architecture.md`
+- `docs/supabase_phase1_setup.md`
+- `docs/store_orders/store_and_orders_audit.md`
+
+### What they cover
+
+- Google OAuth provider setup
+- local config discipline
+- production foundation snapshot
+- Supabase dashboard setup sequence
+- store/orders audit and hardening notes
+
+## 35. Test Suite Inventory
+
+Current Flutter test files include:
+
+- `ai_chat_personalization_test.dart`
+- `auth_callback_utils_test.dart`
+- `auth_flow_screen_test.dart`
+- `auth_route_resolver_test.dart`
+- `auth_token_project_ref_test.dart`
+- `chat_controller_test.dart`
+- `delete_account_screen_test.dart`
+- `historical_record_utils_test.dart`
+- `onboarding_behavior_test.dart`
+- `planner_notification_ids_test.dart`
+- `planner_reminder_bootstrap_service_test.dart`
+- `planner_summary_provider_test.dart`
+- `role_selection_test.dart`
+- `routes_and_features_test.dart`
+- `widget_test.dart`
+- `workout_plan_screen_test.dart`
+- `manual_live_planner_repository_test.dart`
+
+### What the current suite emphasizes
+
+- auth flows
+- route safety
+- onboarding behavior
+- planner summaries and notifications
+- chat controller error handling
+- utility behavior
+- screen-level widget behavior
+
+Edge Function tests also exist for at least:
+
+- `supabase/functions/ai-chat/engine_test.ts`
+- `supabase/functions/delete-account/index_test.ts`
+
+## 36. Screens That Are Fully Data-Backed vs Placeholder-Backed
+
+### Strongly data-backed screens today
+
+- splash
+- welcome
+- login
+- register
+- forgot password
+- reset password
+- OTP
+- role selection
+- onboarding screens
+- member home
+- member profile
+- AI chat home
+- AI conversation
+- AI generated plan
+- AI premium paywall
+- subscription management
+- store home
+- store catalog
+- product details
+- favorites
+- cart
+- checkout preview
+- my orders
+- coaches
+- coach details
+- subscription packages
+- seller dashboard
+- seller product management
+- seller product editor
+- seller orders
+- notifications
+- settings
+- help/support
+- privacy policy
+- terms
+- delete account
+
+### Placeholder-backed or partial screens
+
+- edit profile
+- progress route
+- my subscriptions route
+- seller profile route
+- coach clients route
+- coach packages route
+- add package route
+- coach profile route
+
+These surfaces are deliberately routed, but not yet fully wired to final production UI behavior.
+
+## 37. Current Architectural Reality
+
+GymUnity is not a small toy app anymore.
+
+The repository already has:
+
+- real multi-role auth
+- role-aware onboarding
+- a shared profile core
+- store/catalog/order persistence
+- coach package and subscription persistence
+- AI planner persistence
+- billing state persistence
+- notification persistence
+- storage uploads
+- hard-delete account handling
+
+At the same time, the app is still in active buildout.
+
+Some areas are clearly mature in backend modeling but not yet equally mature in final UI:
+
+- coach owner screens
+- some profile editing surfaces
+- some management screens currently routed to placeholders
+
+## 38. End-to-End Product Flows
 
 ### First-time user flow
 
-1. The user opens the app.
-2. Splash validates config and backend readiness.
-3. The user reaches welcome, registration, or login.
-4. After authentication, GymUnity creates/ensures `users` and `profiles` rows.
-5. If no role is chosen yet, the user goes to role selection.
-6. After role selection, the user enters the matching onboarding flow.
-7. Onboarding writes role-specific records and marks onboarding complete.
-8. The user is routed to the correct dashboard.
+1. open app
+2. splash validates config and backend state
+3. user lands on welcome
+4. user registers or logs in
+5. profile bootstrap creates `users` and `profiles`
+6. role selection is required if role is missing
+7. role-specific onboarding is required if onboarding is incomplete
+8. user reaches role-specific dashboard
 
-### Returning user flow
+### Returning member flow
 
-1. The user opens the app.
-2. Splash restores the session.
-3. Bootstrap checks whether the account is deleted or active.
-4. The correct role dashboard is resolved automatically.
-5. If AI Premium is enabled, monetization bootstrap refreshes entitlement state.
+1. app restores auth session
+2. bootstrap validates account state
+3. route resolver sends member to member home
+4. member can continue AI plan, browse coaches, browse store, or manage settings
 
-### Member daily flow
+### Returning coach flow
 
-Typical member actions can include:
+1. app restores auth session
+2. route resolver sends coach to coach dashboard
+3. coach manages packages, availability, subscriptions, and plans
 
-- Viewing fitness summary
-- Tracking weight and measurements
-- Logging workout sessions
-- Browsing coaches
-- Requesting a coach subscription
-- Browsing the marketplace
-- Adding products to favorites or cart
-- Placing store orders
-- Using AI chat if premium access allows it
+### Returning seller flow
 
-### Coach daily flow
+1. app restores auth session
+2. route resolver sends seller to seller dashboard
+3. seller manages products and orders
 
-Typical coach actions can include:
+### Account deletion and re-registration flow
 
-- Viewing dashboard metrics
-- Managing packages and availability
-- Reviewing subscriptions
-- Creating workout plans
-- Viewing public profile data
-- Receiving and acting on member demand
+1. user confirms delete account
+2. Edge Function prepares data for hard delete
+3. storage objects are removed
+4. auth user is deleted
+5. user is signed out
+6. the same email may be used later to create a brand new account
 
-### Seller daily flow
+## 39. Summary
 
-Typical seller actions can include:
+GymUnity is a Flutter + Supabase multi-role fitness platform with:
 
-- Monitoring dashboard metrics
-- Publishing and editing products
-- Uploading product images
-- Reviewing orders
-- Updating order statuses
+- shared authentication
+- role-aware onboarding
+- member wellness tracking
+- coach discovery and package subscriptions
+- seller product and order management
+- AI chat and AI workout planning
+- AI premium billing
+- notifications and planner reminders
+- storage-backed avatars and product images
+- a modern hard-delete account flow that allows future re-registration with the same email
 
-## 30. Current Project Maturity
+The backend is centered on a relational Supabase schema with RLS and many `security definer` RPCs.
 
-GymUnity is beyond a blank scaffold. It already has:
+The frontend is centered on Riverpod-managed repositories and feature-oriented modules.
 
-- Real route orchestration
-- Real role-aware onboarding
-- Real Supabase schema and RLS
-- Real marketplace cart/order behavior
-- Real coach and member repository logic
-- Real notifications
-- Real account deletion backend logic
-- Real AI chat persistence
-- Real in-app billing scaffolding for AI Premium
-
-At the same time, some product areas are still maturing:
-
-- Several routes are placeholder-driven
-- Some rich coach/member UI surfaces are backed by data but not fully finalized on-screen
-- Google billing verification and some production integrations are implied by the architecture but not all visible in the route/UI layer reviewed here
-
-## 31. Short Summary
-
-GymUnity is a multi-role fitness platform that combines:
-
-- Authentication and role onboarding
-- Member wellness tracking
-- Coach discovery and coaching operations
-- Seller marketplace management
-- Store ordering
-- Real-time notifications
-- AI chat
-- Premium subscription entitlements
-
-The most important architectural characteristic of this project is that the app is not organized around isolated screens. It is organized around business domains with shared identity, role-aware routing, Supabase-backed persistence, and a growing set of backend-enforced workflows.
+The codebase already contains substantial real behavior, plus a smaller set of clearly marked placeholder routes that represent the next UI integration layer rather than missing architectural foundations.

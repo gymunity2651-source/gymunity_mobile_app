@@ -92,7 +92,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'GymUnity will deactivate this account, anonymize personal profile data, revoke the local session, and prevent normal access from this app. Order and subscription records that must be retained stay in an anonymized form.',
+                  'GymUnity will permanently delete this account, erase personal profile data, revoke the current session, and keep only required shared records in anonymized form. You can sign up again later with the same email address as a brand new account.',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     height: 1.5,
@@ -252,7 +252,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Account deleted'),
         content: const Text(
-          'Your GymUnity account has been deactivated and you have been signed out.',
+          'Your GymUnity account was permanently deleted and you have been signed out. You can create a new account later with the same email.',
         ),
         actions: [
           TextButton(
@@ -277,7 +277,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
 
     await ExternalLinkService.composeSupportEmail(
       subject: AppConfig.current.supportEmailSubject,
-      body: 'I need help with a deleted or deactivated GymUnity account.',
+      body: 'I need help with a permanently deleted GymUnity account.',
     );
   }
 }

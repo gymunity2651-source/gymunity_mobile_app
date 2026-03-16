@@ -21,6 +21,9 @@ import '../features/member/presentation/screens/member_home_screen.dart';
 import '../features/member/presentation/screens/member_profile_screen.dart';
 import '../features/monetization/presentation/screens/ai_premium_paywall_screen.dart';
 import '../features/monetization/presentation/screens/subscription_management_screen.dart';
+import '../features/news/domain/entities/news_article.dart';
+import '../features/news/presentation/screens/news_article_details_screen.dart';
+import '../features/news/presentation/screens/news_feed_screen.dart';
 import '../features/onboarding/presentation/screens/coach_onboarding_screen.dart';
 import '../features/onboarding/presentation/screens/member_onboarding_screen.dart';
 import '../features/onboarding/presentation/screens/seller_onboarding_screen.dart';
@@ -75,6 +78,8 @@ class AppRoutes {
   static const String aiGeneratedPlan = '/ai-generated-plan';
   static const String aiPremiumPaywall = '/ai-premium';
   static const String subscriptionManagement = '/subscription-management';
+  static const String newsFeed = '/news-feed';
+  static const String newsArticleDetails = '/news-article-details';
 
   static const String storeHome = '/store-home';
   static const String productList = '/product-list';
@@ -210,6 +215,16 @@ class AppRoutes {
         return _buildRoute(const AiPremiumPaywallScreen());
       case subscriptionManagement:
         return _buildRoute(const SubscriptionManagementScreen());
+      case newsFeed:
+        return _buildRoute(const NewsFeedScreen());
+      case newsArticleDetails:
+        final args = settings.arguments;
+        if (args is NewsArticleEntity) {
+          return _buildRoute(NewsArticleDetailsScreen(initialArticle: args));
+        }
+        return _buildRoute(
+          NewsArticleDetailsScreen(articleId: args as String?),
+        );
 
       case storeHome:
         return _buildRoute(const StoreHomeScreen());

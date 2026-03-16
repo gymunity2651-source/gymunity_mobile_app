@@ -10,7 +10,7 @@
 - Store/coaches/chat screens connected to repository-backed providers with fallback demo data.
 
 ## Supabase assets
-- Migration: `supabase/migrations/20260307_000001_init_gymunity.sql`
+- Migration: `supabase/migrations/20260307000001_init_gymunity.sql`
 - Edge Function: `supabase/functions/ai-chat/index.ts`
 
 ## Env configuration

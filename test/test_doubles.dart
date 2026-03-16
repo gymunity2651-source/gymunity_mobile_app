@@ -18,6 +18,8 @@ import 'package:my_app/features/member/domain/entities/member_home_summary_entit
 import 'package:my_app/features/member/domain/entities/member_profile_entity.dart';
 import 'package:my_app/features/member/domain/entities/member_progress_entity.dart';
 import 'package:my_app/features/member/domain/repositories/member_repository.dart';
+import 'package:my_app/features/news/domain/entities/news_article.dart';
+import 'package:my_app/features/news/domain/repositories/news_repository.dart';
 import 'package:my_app/features/planner/domain/entities/planner_entities.dart';
 import 'package:my_app/features/planner/domain/repositories/planner_repository.dart';
 import 'package:my_app/features/seller/domain/entities/seller_profile_entity.dart';
@@ -901,6 +903,86 @@ class FakeSellerRepository implements SellerRepository {
               : order,
         )
         .toList(growable: false);
+  }
+}
+
+class FakeNewsRepository implements NewsRepository {
+  List<NewsArticleEntity> articles = const <NewsArticleEntity>[];
+  final List<Map<String, dynamic>> trackedInteractions =
+      <Map<String, dynamic>>[];
+  final Set<String> savedArticleIds = <String>{};
+  final Set<String> dismissedArticleIds = <String>{};
+
+  Object? listError;
+  Object? detailsError;
+  Object? trackError;
+  Object? saveError;
+  Object? dismissError;
+
+  @override
+  Future<Paged<NewsArticleEntity>> listPersonalizedNews({
+    String? cursor,
+    int limit = 20,
+  }) async {
+    if (listError != null) throw listError!;
+    final offset = int.tryParse(cursor ?? '') ?? 0;
+    final items = articles
+        .skip(offset)
+        .take(limit)
+        .map((article) {
+          return article.copyWith(
+            isSaved: savedArticleIds.contains(article.id),
+          );
+        })
+        .toList(growable: false);
+    final nextCursor = offset + items.length < articles.length
+        ? (offset + items.length).toString()
+        : null;
+    return Paged<NewsArticleEntity>(items: items, nextCursor: nextCursor);
+  }
+
+  @override
+  Future<NewsArticleEntity?> getArticleById(String articleId) async {
+    if (detailsError != null) throw detailsError!;
+    try {
+      final article = articles.firstWhere((item) => item.id == articleId);
+      return article.copyWith(isSaved: savedArticleIds.contains(article.id));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> trackInteraction(
+    String articleId,
+    NewsInteractionType interactionType, {
+    Map<String, dynamic> metadata = const <String, dynamic>{},
+  }) async {
+    if (trackError != null) throw trackError!;
+    trackedInteractions.add(<String, dynamic>{
+      'articleId': articleId,
+      'interactionType': interactionType.wireValue,
+      'metadata': metadata,
+    });
+  }
+
+  @override
+  Future<bool> saveArticle(String articleId) async {
+    if (saveError != null) throw saveError!;
+    return savedArticleIds.add(articleId);
+  }
+
+  @override
+  Future<void> removeSavedArticle(String articleId) async {
+    if (saveError != null) throw saveError!;
+    savedArticleIds.remove(articleId);
+  }
+
+  @override
+  Future<void> dismissArticle(String articleId) async {
+    if (dismissError != null) throw dismissError!;
+    dismissedArticleIds.add(articleId);
+    articles = articles.where((article) => article.id != articleId).toList();
   }
 }
 

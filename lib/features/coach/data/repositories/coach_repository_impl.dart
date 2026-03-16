@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/paged.dart';
+import '../../../../core/utils/historical_record_utils.dart';
 import '../../domain/entities/coach_entity.dart';
 import '../../domain/entities/subscription_entity.dart';
 import '../../domain/entities/workout_plan_entity.dart';
@@ -355,6 +356,11 @@ class CoachRepositoryImpl implements CoachRepository {
     try {
       final rows = await _client.rpc('list_coach_clients');
       return (rows as List<dynamic>)
+          .where(
+            (dynamic row) =>
+                ((row as Map<String, dynamic>)['member_id'] as String? ?? '')
+                    .isNotEmpty,
+          )
           .map((dynamic row) => _mapClient(row as Map<String, dynamic>))
           .toList(growable: false);
     } on PostgrestException catch (e, st) {
@@ -623,8 +629,11 @@ class CoachRepositoryImpl implements CoachRepository {
   CoachClientEntity _mapClient(Map<String, dynamic> row) {
     return CoachClientEntity(
       subscriptionId: row['subscription_id'] as String,
-      memberId: row['member_id'] as String,
-      memberName: row['member_name'] as String? ?? 'Member',
+      memberId: normalizeHistoricalId(row['member_id']),
+      memberName: normalizeHistoricalLabel(
+        row['member_name'],
+        'Deleted member',
+      ),
       packageTitle: row['package_title'] as String? ?? 'Subscription',
       status: row['status'] as String? ?? 'pending_payment',
       startedAt: _parseDate(row['started_at']) ?? DateTime.now(),
@@ -659,8 +668,8 @@ class CoachRepositoryImpl implements CoachRepository {
   SubscriptionEntity _mapSubscription(Map<String, dynamic> row) {
     return SubscriptionEntity(
       id: row['id'] as String,
-      memberId: row['member_id'] as String,
-      coachId: row['coach_id'] as String,
+      memberId: normalizeHistoricalId(row['member_id']),
+      coachId: normalizeHistoricalId(row['coach_id']),
       packageId: row['package_id'] as String?,
       planName: row['plan_name'] as String? ?? '',
       billingCycle: row['billing_cycle'] as String? ?? 'monthly',

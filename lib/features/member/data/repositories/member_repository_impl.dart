@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/app_failure.dart';
+import '../../../../core/utils/historical_record_utils.dart';
 import '../../domain/entities/member_home_summary_entity.dart';
 import '../../domain/entities/member_profile_entity.dart';
 import '../../domain/entities/member_progress_entity.dart';
@@ -541,11 +542,12 @@ class MemberRepositoryImpl implements MemberRepository {
   }
 
   SubscriptionEntity _mapSubscription(Map<String, dynamic> row) {
+    final memberId = normalizeHistoricalId(row['member_id']);
     return SubscriptionEntity(
       id: row['id'] as String,
-      memberId: row['member_id'] as String,
-      coachId: row['coach_id'] as String,
-      coachName: row['coach_name'] as String?,
+      memberId: memberId.isEmpty ? _userId : memberId,
+      coachId: normalizeHistoricalId(row['coach_id']),
+      coachName: normalizeHistoricalLabel(row['coach_name'], 'Deleted coach'),
       packageId: row['package_id'] as String?,
       packageTitle: row['package_title'] as String?,
       planName: row['plan_name'] as String? ?? '',
@@ -565,8 +567,11 @@ class MemberRepositoryImpl implements MemberRepository {
     return OrderEntity(
       id: row['id'] as String,
       memberId: _userId,
-      sellerId: row['seller_id'] as String,
-      sellerName: row['seller_name'] as String?,
+      sellerId: normalizeHistoricalId(row['seller_id']),
+      sellerName: normalizeHistoricalLabel(
+        row['seller_name'],
+        'Deleted seller',
+      ),
       status: row['status'] as String? ?? 'pending',
       totalAmount: (row['total_amount'] as num?)?.toDouble() ?? 0,
       currency: row['currency'] as String? ?? 'USD',

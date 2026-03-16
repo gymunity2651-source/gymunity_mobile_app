@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/paged.dart';
+import '../../../../core/utils/historical_record_utils.dart';
 import '../../domain/entities/cart_entity.dart';
 import '../../domain/entities/order_entity.dart';
 import '../../domain/entities/product_entity.dart';
@@ -795,7 +796,15 @@ class StoreRepositoryImpl implements StoreRepository {
     return OrderEntity(
       id: row['order_id'] as String? ?? row['id'] as String? ?? '',
       memberId: _userId,
-      sellerId: row['seller_id'] as String? ?? '',
+      sellerId: normalizeHistoricalId(row['seller_id']),
+      sellerName: normalizeHistoricalLabel(
+        row['seller_name'],
+        'Deleted seller',
+      ),
+      memberName: normalizeHistoricalLabel(
+        row['member_name'],
+        'Deleted member',
+      ),
       status: row['status'] as String? ?? 'pending',
       totalAmount: (row['total_amount'] as num?)?.toDouble() ?? 0,
       currency: row['currency'] as String? ?? 'USD',
@@ -811,8 +820,11 @@ class StoreRepositoryImpl implements StoreRepository {
     return OrderEntity(
       id: row['id'] as String? ?? '',
       memberId: _userId,
-      sellerId: row['seller_id'] as String? ?? '',
-      sellerName: row['seller_name'] as String?,
+      sellerId: normalizeHistoricalId(row['seller_id']),
+      sellerName: normalizeHistoricalLabel(
+        row['seller_name'],
+        'Deleted seller',
+      ),
       status: row['status'] as String? ?? 'pending',
       totalAmount: (row['total_amount'] as num?)?.toDouble() ?? 0,
       currency: row['currency'] as String? ?? 'USD',
@@ -828,8 +840,8 @@ class StoreRepositoryImpl implements StoreRepository {
     return OrderItemEntity(
       id: row['id'] as String? ?? '',
       orderId: row['order_id'] as String? ?? '',
-      productId: row['product_id'] as String? ?? '',
-      sellerId: row['seller_id'] as String? ?? '',
+      productId: normalizeHistoricalId(row['product_id']),
+      sellerId: normalizeHistoricalId(row['seller_id']),
       productTitle: row['product_title_snapshot'] as String? ?? '',
       unitPrice: (row['unit_price'] as num?)?.toDouble() ?? 0,
       quantity: row['quantity'] as int? ?? 0,

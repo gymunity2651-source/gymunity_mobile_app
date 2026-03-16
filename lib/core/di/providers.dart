@@ -16,6 +16,8 @@ import '../../features/monetization/data/repositories/billing_repository_impl.da
 import '../../features/monetization/data/repositories/entitlement_repository_impl.dart';
 import '../../features/monetization/domain/repositories/billing_repository.dart';
 import '../../features/monetization/domain/repositories/entitlement_repository.dart';
+import '../../features/news/data/repositories/news_repository_impl.dart';
+import '../../features/news/domain/repositories/news_repository.dart';
 import '../../features/planner/data/repositories/planner_repository_impl.dart';
 import '../../features/planner/domain/repositories/planner_repository.dart';
 import '../../features/seller/data/repositories/seller_repository_impl.dart';
@@ -115,6 +117,11 @@ final entitlementRepositoryProvider = Provider<EntitlementRepository>((ref) {
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return ChatRepositoryImpl(client);
+});
+
+final newsRepositoryProvider = Provider<NewsRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return NewsRepositoryImpl(client);
 });
 
 final authSessionProvider = StreamProvider<AuthSession?>((ref) {

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
+import '../../../member/presentation/widgets/member_profile_shortcut_button.dart';
 import '../../../coach/domain/entities/coach_entity.dart';
 import '../providers/coaches_providers.dart';
 
@@ -76,14 +77,10 @@ class _CoachesScreenState extends ConsumerState<CoachesScreen> {
                         ),
                       ),
                       const Spacer(),
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: AppColors.orange,
-                        child: const Icon(
-                          Icons.person,
-                          color: AppColors.white,
-                          size: 20,
-                        ),
+                      const MemberProfileShortcutButton(
+                        backgroundColor: AppColors.white,
+                        iconColor: AppColors.textDark,
+                        borderColor: AppColors.borderLight,
                       ),
                     ],
                   ),

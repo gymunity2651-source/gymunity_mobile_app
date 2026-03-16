@@ -2,7 +2,7 @@
 -- Run this file only on a fresh Supabase project.
 -- If you already applied incremental migrations, do not run this file afterward.
 
--- 20260307_000001_init_gymunity.sql
+-- 20260307000001_init_gymunity.sql
 create extension if not exists "pgcrypto";
 
 create table if not exists public.roles (
@@ -320,7 +320,7 @@ to authenticated
 using (member_id = auth.uid() or coach_id = auth.uid())
 with check (member_id = auth.uid() or coach_id = auth.uid());
 
--- 20260307_000002_storage.sql
+-- 20260307000002_storage.sql
 insert into storage.buckets (id, name, public)
 values
   ('avatars', 'avatars', false),
@@ -408,7 +408,7 @@ using (
   and split_part(name, '/', 1) = auth.uid()::text
 );
 
--- 20260307_000003_notifications.sql
+-- 20260307000003_notifications.sql
 create table if not exists public.device_tokens (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(user_id) on delete cascade,
@@ -456,7 +456,7 @@ to authenticated
 using (user_id = auth.uid())
 with check (user_id = auth.uid());
 
--- 20260311_000004_coach_directory_rpc.sql
+-- 20260311000004_coach_directory_rpc.sql
 create or replace function public.list_coach_directory(
   specialty_filter text default null,
   limit_count integer default 20
@@ -503,7 +503,7 @@ grant execute
 on function public.list_coach_directory(text, integer)
 to authenticated;
 
--- 20260312_000005_account_deletion.sql
+-- 20260312000005_account_deletion.sql
 alter table public.users
   add column if not exists deleted_at timestamptz,
   add column if not exists deletion_reason text;
@@ -511,7 +511,7 @@ alter table public.users
 alter table public.profiles
   add column if not exists deleted_at timestamptz;
 
--- 20260312_000006_core_role_flows.sql
+-- 20260312000006_core_role_flows.sql
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
@@ -1948,6 +1948,543 @@ grant execute on function public.seller_dashboard_summary() to authenticated;
 grant execute on function public.coach_dashboard_summary() to authenticated;
 grant execute on function public.create_store_order(jsonb, jsonb) to authenticated;
 grant execute on function public.update_store_order_status(uuid, text, text) to authenticated;
+
+
+-- Appended from 20260316000011_hard_delete_account.sql
+
+alter table public.orders
+  alter column member_id drop not null,
+  alter column seller_id drop not null;
+
+alter table public.orders
+  drop constraint if exists orders_member_id_fkey,
+  add constraint orders_member_id_fkey
+    foreign key (member_id) references public.profiles(user_id) on delete set null,
+  drop constraint if exists orders_seller_id_fkey,
+  add constraint orders_seller_id_fkey
+    foreign key (seller_id) references public.profiles(user_id) on delete set null;
+
+alter table public.order_items
+  alter column product_id drop not null,
+  alter column seller_id drop not null;
+
+alter table public.order_items
+  drop constraint if exists order_items_product_id_fkey,
+  add constraint order_items_product_id_fkey
+    foreign key (product_id) references public.products(id) on delete set null,
+  drop constraint if exists order_items_seller_id_fkey,
+  add constraint order_items_seller_id_fkey
+    foreign key (seller_id) references public.profiles(user_id) on delete set null;
+
+alter table public.subscriptions
+  alter column member_id drop not null,
+  alter column coach_id drop not null;
+
+alter table public.subscriptions
+  drop constraint if exists subscriptions_member_id_fkey,
+  add constraint subscriptions_member_id_fkey
+    foreign key (member_id) references public.profiles(user_id) on delete set null,
+  drop constraint if exists subscriptions_coach_id_fkey,
+  add constraint subscriptions_coach_id_fkey
+    foreign key (coach_id) references public.coach_profiles(user_id) on delete set null;
+
+create or replace function public.list_member_subscriptions_detailed()
+returns table (
+  id uuid,
+  member_id uuid,
+  coach_id uuid,
+  coach_name text,
+  package_id uuid,
+  package_title text,
+  plan_name text,
+  billing_cycle text,
+  amount numeric,
+  status text,
+  payment_method text,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  activated_at timestamptz,
+  cancelled_at timestamptz,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    s.id,
+    s.member_id,
+    s.coach_id,
+    coalesce(nullif(p.full_name, ''), 'Deleted coach') as coach_name,
+    s.package_id,
+    coalesce(cp.title, nullif(s.plan_name, ''), 'Archived subscription') as package_title,
+    s.plan_name,
+    s.billing_cycle,
+    s.amount,
+    s.status,
+    s.payment_method,
+    s.starts_at,
+    s.ends_at,
+    s.activated_at,
+    s.cancelled_at,
+    s.created_at
+  from public.subscriptions s
+  left join public.profiles p on p.user_id = s.coach_id
+  left join public.coach_packages cp on cp.id = s.package_id
+  where s.member_id = auth.uid()
+  order by s.created_at desc;
+$$;
+
+create or replace function public.list_member_orders_detailed()
+returns table (
+  id uuid,
+  seller_id uuid,
+  seller_name text,
+  status text,
+  total_amount numeric,
+  currency text,
+  payment_method text,
+  item_count integer,
+  shipping_address_json jsonb,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    o.id,
+    o.seller_id,
+    coalesce(nullif(sp.store_name, ''), nullif(p.full_name, ''), 'Deleted seller') as seller_name,
+    o.status,
+    o.total_amount,
+    o.currency,
+    o.payment_method,
+    coalesce(count(oi.id), 0)::integer as item_count,
+    o.shipping_address_json,
+    o.created_at
+  from public.orders o
+  left join public.order_items oi on oi.order_id = o.id
+  left join public.seller_profiles sp on sp.user_id = o.seller_id
+  left join public.profiles p on p.user_id = o.seller_id
+  where o.member_id = auth.uid()
+  group by o.id, sp.store_name, p.full_name
+  order by o.created_at desc;
+$$;
+
+create or replace function public.list_seller_orders_detailed()
+returns table (
+  id uuid,
+  member_id uuid,
+  member_name text,
+  status text,
+  total_amount numeric,
+  currency text,
+  payment_method text,
+  item_count integer,
+  shipping_address_json jsonb,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    o.id,
+    o.member_id,
+    coalesce(nullif(p.full_name, ''), 'Deleted member') as member_name,
+    o.status,
+    o.total_amount,
+    o.currency,
+    o.payment_method,
+    coalesce(count(oi.id), 0)::integer as item_count,
+    o.shipping_address_json,
+    o.created_at
+  from public.orders o
+  left join public.order_items oi on oi.order_id = o.id
+  left join public.profiles p on p.user_id = o.member_id
+  where o.seller_id = auth.uid()
+  group by o.id, p.full_name
+  order by o.created_at desc;
+$$;
+
+create or replace function public.list_coach_clients()
+returns table (
+  subscription_id uuid,
+  member_id uuid,
+  member_name text,
+  package_title text,
+  status text,
+  started_at timestamptz,
+  active_plan_count integer,
+  last_session_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with plan_counts as (
+    select
+      wp.member_id,
+      count(*) filter (where wp.status = 'active')::integer as active_plan_count
+    from public.workout_plans wp
+    where wp.coach_id = auth.uid()
+      and wp.member_id is not null
+    group by wp.member_id
+  ),
+  session_stats as (
+    select
+      ws.member_id,
+      max(ws.performed_at) as last_session_at
+    from public.workout_sessions ws
+    where ws.coach_id = auth.uid()
+      and ws.member_id is not null
+    group by ws.member_id
+  )
+  select
+    s.id as subscription_id,
+    s.member_id,
+    coalesce(nullif(p.full_name, ''), 'Deleted member') as member_name,
+    coalesce(cp.title, nullif(s.plan_name, ''), 'Subscription') as package_title,
+    s.status,
+    coalesce(s.activated_at, s.starts_at, s.created_at) as started_at,
+    coalesce(pc.active_plan_count, 0) as active_plan_count,
+    ss.last_session_at
+  from public.subscriptions s
+  left join public.profiles p on p.user_id = s.member_id
+  left join public.coach_packages cp on cp.id = s.package_id
+  left join plan_counts pc on pc.member_id = s.member_id
+  left join session_stats ss on ss.member_id = s.member_id
+  where s.coach_id = auth.uid()
+    and s.member_id is not null
+  order by s.created_at desc;
+$$;
+
+create or replace function public.update_store_order_status(
+  target_order_id uuid,
+  new_status text,
+  note text default null
+)
+returns table (
+  order_id uuid,
+  status text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing_order public.orders%rowtype;
+  allowed boolean := false;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication is required.';
+  end if;
+
+  if public.current_role() <> 'seller' then
+    raise exception 'Only sellers can update order status.';
+  end if;
+
+  if new_status not in ('pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled') then
+    raise exception 'The requested status transition is not allowed.';
+  end if;
+
+  select *
+  into existing_order
+  from public.orders
+  where id = target_order_id
+    and seller_id = auth.uid();
+
+  if existing_order.id is null then
+    raise exception 'Order not found for this seller.';
+  end if;
+
+  allowed := (
+    (existing_order.status = 'pending' and new_status in ('paid', 'cancelled'))
+    or (existing_order.status = 'paid' and new_status in ('processing', 'cancelled'))
+    or (existing_order.status = 'processing' and new_status in ('shipped', 'cancelled'))
+    or (existing_order.status = 'shipped' and new_status = 'delivered')
+  );
+
+  if not allowed then
+    raise exception 'The requested status transition is not allowed.';
+  end if;
+
+  if new_status = 'cancelled' then
+    update public.products p
+    set stock_qty = p.stock_qty + oi.quantity,
+        updated_at = timezone('utc', now())
+    from public.order_items oi
+    where oi.order_id = existing_order.id
+      and oi.product_id is not null
+      and p.id = oi.product_id;
+  end if;
+
+  update public.orders
+  set status = new_status,
+      updated_at = timezone('utc', now())
+  where id = existing_order.id;
+
+  insert into public.order_status_history (
+    order_id,
+    status,
+    actor_user_id,
+    note
+  )
+  values (
+    existing_order.id,
+    new_status,
+    auth.uid(),
+    coalesce(note, 'Order status updated by seller.')
+  );
+
+  if existing_order.member_id is not null then
+    insert into public.notifications (
+      user_id,
+      type,
+      title,
+      body,
+      data
+    )
+    values (
+      existing_order.member_id,
+      'orders',
+      'Order status updated',
+      'Your order is now ' || replace(new_status, '_', ' ') || '.',
+      jsonb_build_object('order_id', existing_order.id, 'status', new_status)
+    );
+  end if;
+
+  order_id := existing_order.id;
+  status := new_status;
+  return next;
+end;
+$$;
+
+create or replace function public.update_coach_subscription_status(
+  target_subscription_id uuid,
+  new_status text,
+  note text default null
+)
+returns table (
+  subscription_id uuid,
+  status text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing_subscription public.subscriptions%rowtype;
+  allowed boolean := false;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication is required.';
+  end if;
+
+  if public.current_role() <> 'coach' then
+    raise exception 'Only coaches can update subscription status.';
+  end if;
+
+  select *
+  into existing_subscription
+  from public.subscriptions
+  where id = target_subscription_id
+    and coach_id = auth.uid();
+
+  if existing_subscription.id is null then
+    raise exception 'Subscription not found for this coach.';
+  end if;
+
+  allowed := (
+    (existing_subscription.status = 'pending_payment' and new_status in ('active', 'cancelled'))
+    or (existing_subscription.status = 'active' and new_status in ('completed', 'cancelled'))
+  );
+
+  if not allowed then
+    raise exception 'The requested subscription transition is not allowed.';
+  end if;
+
+  update public.subscriptions
+  set status = new_status,
+      activated_at = case
+        when new_status = 'active' and activated_at is null
+          then timezone('utc', now())
+        else activated_at
+      end,
+      cancelled_at = case
+        when new_status = 'cancelled'
+          then timezone('utc', now())
+        else cancelled_at
+      end,
+      ends_at = case
+        when new_status in ('completed', 'cancelled')
+          then timezone('utc', now())
+        else ends_at
+      end,
+      updated_at = timezone('utc', now())
+  where id = existing_subscription.id;
+
+  if existing_subscription.member_id is not null then
+    insert into public.notifications (
+      user_id,
+      type,
+      title,
+      body,
+      data
+    )
+    values (
+      existing_subscription.member_id,
+      'coaching',
+      'Subscription updated',
+      coalesce(note, 'Your subscription is now ' || replace(new_status, '_', ' ') || '.'),
+      jsonb_build_object('subscription_id', existing_subscription.id, 'status', new_status)
+    );
+  end if;
+
+  subscription_id := existing_subscription.id;
+  status := new_status;
+  return next;
+end;
+$$;
+
+create or replace function public.prepare_account_for_hard_delete(target_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  deleted_timestamp timestamptz := timezone('utc', now());
+begin
+  if target_user_id is null then
+    raise exception 'target_user_id is required';
+  end if;
+
+  delete from public.notifications
+  where user_id = target_user_id;
+
+  delete from public.device_tokens
+  where user_id = target_user_id;
+
+  delete from public.user_preferences
+  where user_id = target_user_id;
+
+  delete from public.member_weight_entries
+  where member_id = target_user_id;
+
+  delete from public.member_body_measurements
+  where member_id = target_user_id;
+
+  delete from public.workout_sessions
+  where member_id = target_user_id;
+
+  delete from public.coach_availability_slots
+  where coach_id = target_user_id;
+
+  delete from public.coach_reviews
+  where member_id = target_user_id
+     or coach_id = target_user_id;
+
+  delete from public.ai_user_memories
+  where user_id = target_user_id;
+
+  delete from public.ai_session_state
+  where user_id = target_user_id;
+
+  delete from public.ai_plan_drafts
+  where user_id = target_user_id;
+
+  delete from public.store_checkout_requests
+  where member_id = target_user_id;
+
+  delete from public.shipping_addresses
+  where user_id = target_user_id;
+
+  delete from public.store_carts
+  where member_id = target_user_id;
+
+  delete from public.product_favorites
+  where member_id = target_user_id;
+
+  delete from public.subscription_entitlements
+  where user_id = target_user_id;
+
+  delete from public.store_transactions
+  where user_id = target_user_id;
+
+  delete from public.billing_customers
+  where user_id = target_user_id;
+
+  update public.billing_sync_events
+  set user_id = null
+  where user_id = target_user_id;
+
+  update public.orders
+  set member_id = case when member_id = target_user_id then null else member_id end,
+      seller_id = case when seller_id = target_user_id then null else seller_id end,
+      updated_at = deleted_timestamp
+  where member_id = target_user_id
+     or seller_id = target_user_id;
+
+  update public.subscriptions
+  set member_id = case when member_id = target_user_id then null else member_id end,
+      coach_id = case when coach_id = target_user_id then null else coach_id end,
+      status = case
+        when status in ('pending_payment', 'active') then 'cancelled'
+        else status
+      end,
+      cancelled_at = case
+        when status in ('pending_payment', 'active') then coalesce(cancelled_at, deleted_timestamp)
+        else cancelled_at
+      end,
+      ends_at = case
+        when status in ('pending_payment', 'active') then coalesce(ends_at, deleted_timestamp)
+        else ends_at
+      end,
+      updated_at = deleted_timestamp
+  where member_id = target_user_id
+     or coach_id = target_user_id;
+
+  delete from public.workout_plans
+  where member_id = target_user_id;
+
+  update public.workout_plans
+  set coach_id = null,
+      status = 'archived',
+      completed_at = coalesce(completed_at, deleted_timestamp),
+      updated_at = deleted_timestamp
+  where coach_id = target_user_id;
+
+  delete from public.coach_packages
+  where coach_id = target_user_id;
+
+  delete from public.products
+  where seller_id = target_user_id;
+
+  delete from public.chat_sessions
+  where user_id = target_user_id;
+
+  delete from public.member_profiles
+  where user_id = target_user_id;
+
+  delete from public.seller_profiles
+  where user_id = target_user_id;
+
+  return jsonb_build_object(
+    'deleted_at', deleted_timestamp,
+    'user_id', target_user_id
+  );
+end;
+$$;
+
+revoke all on function public.prepare_account_for_hard_delete(uuid) from public;
+revoke all on function public.prepare_account_for_hard_delete(uuid) from anon;
+revoke all on function public.prepare_account_for_hard_delete(uuid) from authenticated;
 grant execute on function public.request_coach_subscription(uuid, text) to authenticated;
 grant execute on function public.update_coach_subscription_status(uuid, text, text) to authenticated;
 grant execute on function public.submit_coach_review(uuid, uuid, smallint, text) to authenticated;
@@ -2083,7 +2620,7 @@ revoke all on function public.soft_delete_account(uuid, text) from public;
 revoke all on function public.soft_delete_account(uuid, text) from anon;
 revoke all on function public.soft_delete_account(uuid, text) from authenticated;
 
--- 20260312_000007_store_orders_hardening.sql
+-- 20260312000007_store_orders_hardening.sql
 alter table public.products
   add column if not exists currency text not null default 'USD';
 
@@ -2827,7 +3364,7 @@ grant execute on function public.seller_dashboard_summary() to authenticated;
 grant execute on function public.update_store_order_status(uuid, text, text) to authenticated;
 
 
--- Appended from 20260313_000009_ai_member_planner.sql
+-- Appended from 20260313000009_ai_member_planner.sql
 
 -- AI member planner foundation
 -- Date: 2026-03-13
@@ -3674,3 +4211,1417 @@ end;
 $$;
 
 grant execute on function public.update_ai_plan_reminder_time(uuid, time, text) to authenticated;
+
+create or replace function public.update_store_order_status(
+  target_order_id uuid,
+  new_status text,
+  note text default null
+)
+returns table (
+  order_id uuid,
+  status text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing_order public.orders%rowtype;
+  allowed boolean := false;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication is required.';
+  end if;
+
+  if public.current_role() <> 'seller' then
+    raise exception 'Only sellers can update order status.';
+  end if;
+
+  if new_status not in ('pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled') then
+    raise exception 'The requested status transition is not allowed.';
+  end if;
+
+  select *
+  into existing_order
+  from public.orders
+  where id = target_order_id
+    and seller_id = auth.uid();
+
+  if existing_order.id is null then
+    raise exception 'Order not found for this seller.';
+  end if;
+
+  allowed := (
+    (existing_order.status = 'pending' and new_status in ('paid', 'cancelled'))
+    or (existing_order.status = 'paid' and new_status in ('processing', 'cancelled'))
+    or (existing_order.status = 'processing' and new_status in ('shipped', 'cancelled'))
+    or (existing_order.status = 'shipped' and new_status = 'delivered')
+  );
+
+  if not allowed then
+    raise exception 'The requested status transition is not allowed.';
+  end if;
+
+  if new_status = 'cancelled' then
+    update public.products p
+    set stock_qty = p.stock_qty + oi.quantity,
+        updated_at = timezone('utc', now())
+    from public.order_items oi
+    where oi.order_id = existing_order.id
+      and oi.product_id is not null
+      and p.id = oi.product_id;
+  end if;
+
+  update public.orders
+  set status = new_status,
+      updated_at = timezone('utc', now())
+  where id = existing_order.id;
+
+  insert into public.order_status_history (
+    order_id,
+    status,
+    actor_user_id,
+    note
+  )
+  values (
+    existing_order.id,
+    new_status,
+    auth.uid(),
+    coalesce(note, 'Order status updated by seller.')
+  );
+
+  if existing_order.member_id is not null then
+    insert into public.notifications (
+      user_id,
+      type,
+      title,
+      body,
+      data
+    )
+    values (
+      existing_order.member_id,
+      'orders',
+      'Order status updated',
+      'Your order is now ' || replace(new_status, '_', ' ') || '.',
+      jsonb_build_object('order_id', existing_order.id, 'status', new_status)
+    );
+  end if;
+
+  order_id := existing_order.id;
+  status := new_status;
+  return next;
+end;
+$$;
+
+-- Appended from 20260316000012_personalized_news.sql
+-- Personalized health/news recommendation system
+-- Date: 2026-03-16
+
+create table if not exists public.news_sources (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  base_url text not null,
+  feed_url text,
+  api_endpoint text,
+  source_type text not null check (source_type in ('rss', 'api', 'manual')),
+  language text not null default 'english',
+  country text,
+  category text,
+  is_active boolean not null default true,
+  trust_score numeric(5,2) not null default 80 check (
+    trust_score >= 0 and trust_score <= 100
+  ),
+  source_weight numeric(5,2) not null default 1 check (
+    source_weight > 0 and source_weight <= 5
+  ),
+  last_synced_at timestamptz,
+  last_error_at timestamptz,
+  last_error_message text,
+  notes text,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  check (
+    feed_url is not null
+    or api_endpoint is not null
+    or source_type = 'manual'
+  )
+);
+
+create table if not exists public.news_articles (
+  id uuid primary key default gen_random_uuid(),
+  source_id uuid not null references public.news_sources(id) on delete restrict,
+  canonical_url text not null,
+  external_id text,
+  title text not null,
+  summary text not null default '',
+  content text,
+  author_name text,
+  image_url text,
+  published_at timestamptz not null,
+  fetched_at timestamptz not null default timezone('utc', now()),
+  language text not null default 'english',
+  category text,
+  tags jsonb not null default '[]'::jsonb,
+  target_roles jsonb not null default '[]'::jsonb,
+  target_goals jsonb not null default '[]'::jsonb,
+  target_levels jsonb not null default '[]'::jsonb,
+  trust_score numeric(5,2) not null default 70 check (
+    trust_score >= 0 and trust_score <= 100
+  ),
+  evidence_level text check (
+    evidence_level is null
+    or evidence_level in (
+      'expert_reviewed',
+      'source_reported',
+      'educational',
+      'unknown'
+    )
+  ),
+  safety_level text not null default 'general' check (
+    safety_level in ('general', 'caution', 'restricted')
+  ),
+  quality_score numeric(5,2) not null default 50 check (
+    quality_score >= 0 and quality_score <= 100
+  ),
+  dedupe_hash text,
+  is_active boolean not null default true,
+  is_featured boolean not null default false,
+  ingestion_notes text,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (canonical_url),
+  check (jsonb_typeof(tags) = 'array'),
+  check (jsonb_typeof(target_roles) = 'array'),
+  check (jsonb_typeof(target_goals) = 'array'),
+  check (jsonb_typeof(target_levels) = 'array')
+);
+
+create table if not exists public.news_article_topics (
+  article_id uuid not null references public.news_articles(id) on delete cascade,
+  topic_code text not null,
+  score numeric(5,3) not null check (score > 0 and score <= 1),
+  created_at timestamptz not null default timezone('utc', now()),
+  primary key (article_id, topic_code)
+);
+
+create table if not exists public.user_news_interests (
+  user_id uuid not null references public.profiles(user_id) on delete cascade,
+  topic_code text not null,
+  score numeric(5,3) not null check (score >= -1 and score <= 1),
+  source text not null check (
+    source in (
+      'onboarding',
+      'explicit_preference',
+      'inferred_from_behavior',
+      'inferred_from_ai_memory',
+      'inferred_from_activity'
+    )
+  ),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  primary key (user_id, topic_code, source)
+);
+
+create table if not exists public.news_article_interactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(user_id) on delete cascade,
+  article_id uuid not null references public.news_articles(id) on delete cascade,
+  interaction_type text not null check (
+    interaction_type in (
+      'impression',
+      'click',
+      'open',
+      'save',
+      'dismiss',
+      'share',
+      'mark_not_interested'
+    )
+  ),
+  created_at timestamptz not null default timezone('utc', now()),
+  metadata jsonb not null default '{}'::jsonb,
+  check (jsonb_typeof(metadata) = 'object')
+);
+
+create table if not exists public.news_article_bookmarks (
+  user_id uuid not null references public.profiles(user_id) on delete cascade,
+  article_id uuid not null references public.news_articles(id) on delete cascade,
+  created_at timestamptz not null default timezone('utc', now()),
+  primary key (user_id, article_id)
+);
+
+create index if not exists idx_news_sources_active_synced
+  on public.news_sources(is_active, last_synced_at desc);
+
+create unique index if not exists idx_news_articles_source_external
+  on public.news_articles(source_id, external_id)
+  where external_id is not null;
+
+create unique index if not exists idx_news_articles_dedupe_hash
+  on public.news_articles(dedupe_hash)
+  where dedupe_hash is not null;
+
+create index if not exists idx_news_articles_published
+  on public.news_articles(published_at desc);
+
+create index if not exists idx_news_articles_source_published
+  on public.news_articles(source_id, published_at desc);
+
+create index if not exists idx_news_articles_active_published
+  on public.news_articles(is_active, published_at desc);
+
+create index if not exists idx_news_articles_active_feed
+  on public.news_articles(published_at desc)
+  where is_active = true and safety_level <> 'restricted';
+
+create index if not exists idx_news_articles_safety_published
+  on public.news_articles(safety_level, published_at desc);
+
+create index if not exists idx_news_articles_category_published
+  on public.news_articles(category, published_at desc);
+
+create index if not exists idx_news_articles_language_published
+  on public.news_articles(language, published_at desc);
+
+create index if not exists idx_news_articles_target_roles
+  on public.news_articles using gin(target_roles jsonb_path_ops);
+
+create index if not exists idx_news_articles_target_goals
+  on public.news_articles using gin(target_goals jsonb_path_ops);
+
+create index if not exists idx_news_articles_target_levels
+  on public.news_articles using gin(target_levels jsonb_path_ops);
+
+create index if not exists idx_news_article_topics_article
+  on public.news_article_topics(article_id);
+
+create index if not exists idx_news_article_topics_topic
+  on public.news_article_topics(topic_code, score desc);
+
+create index if not exists idx_user_news_interests_user_updated
+  on public.user_news_interests(user_id, updated_at desc);
+
+create index if not exists idx_news_article_interactions_user_created
+  on public.news_article_interactions(user_id, created_at desc);
+
+create index if not exists idx_news_article_interactions_lookup
+  on public.news_article_interactions(
+    user_id,
+    article_id,
+    interaction_type,
+    created_at desc
+  );
+
+create index if not exists idx_news_article_bookmarks_user_created
+  on public.news_article_bookmarks(user_id, created_at desc);
+
+drop trigger if exists touch_news_sources_updated_at on public.news_sources;
+create trigger touch_news_sources_updated_at
+before update on public.news_sources
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists touch_news_articles_updated_at on public.news_articles;
+create trigger touch_news_articles_updated_at
+before update on public.news_articles
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists touch_user_news_interests_updated_at on public.user_news_interests;
+create trigger touch_user_news_interests_updated_at
+before update on public.user_news_interests
+for each row execute function public.touch_updated_at();
+
+insert into public.news_sources (
+  id,
+  name,
+  base_url,
+  feed_url,
+  source_type,
+  language,
+  country,
+  category,
+  is_active,
+  trust_score,
+  source_weight,
+  notes
+)
+values
+  (
+    '4be51e3b-91be-4c6c-a9cb-09fd9cdd2380',
+    'NIH News Releases',
+    'https://www.nih.gov',
+    'https://www.nih.gov/news-releases/feed.xml',
+    'rss',
+    'english',
+    'US',
+    'research_news',
+    true,
+    92,
+    1.00,
+    'Official National Institutes of Health news releases.'
+  ),
+  (
+    'd69771c2-9c13-4a65-a67d-4742219cbb94',
+    'NIH News in Health',
+    'https://newsinhealth.nih.gov',
+    'https://newsinhealth.nih.gov/rss',
+    'rss',
+    'english',
+    'US',
+    'health_education',
+    true,
+    88,
+    1.05,
+    'Official NIH consumer health education articles.'
+  ),
+  (
+    'b838cb56-852a-4b1b-9878-263f4e433433',
+    'WHO News (English)',
+    'https://www.who.int',
+    'https://www.who.int/rss-feeds/news-english.xml',
+    'rss',
+    'english',
+    'INT',
+    'public_health',
+    true,
+    90,
+    1.10,
+    'Official World Health Organization English news feed.'
+  )
+on conflict (id) do update set
+  name = excluded.name,
+  base_url = excluded.base_url,
+  feed_url = excluded.feed_url,
+  source_type = excluded.source_type,
+  language = excluded.language,
+  country = excluded.country,
+  category = excluded.category,
+  is_active = excluded.is_active,
+  trust_score = excluded.trust_score,
+  source_weight = excluded.source_weight,
+  notes = excluded.notes;
+
+alter table public.news_sources enable row level security;
+alter table public.news_articles enable row level security;
+alter table public.news_article_topics enable row level security;
+alter table public.user_news_interests enable row level security;
+alter table public.news_article_interactions enable row level security;
+alter table public.news_article_bookmarks enable row level security;
+
+drop policy if exists news_sources_read_active on public.news_sources;
+create policy news_sources_read_active
+on public.news_sources for select
+to authenticated
+using (is_active = true);
+
+drop policy if exists news_articles_read_safe_active on public.news_articles;
+create policy news_articles_read_safe_active
+on public.news_articles for select
+to authenticated
+using (
+  is_active = true
+  and safety_level <> 'restricted'
+  and exists (
+    select 1
+    from public.news_sources source_row
+    where source_row.id = news_articles.source_id
+      and source_row.is_active = true
+  )
+);
+
+drop policy if exists news_article_topics_read_safe_articles on public.news_article_topics;
+create policy news_article_topics_read_safe_articles
+on public.news_article_topics for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.news_articles article_row
+    join public.news_sources source_row on source_row.id = article_row.source_id
+    where article_row.id = news_article_topics.article_id
+      and article_row.is_active = true
+      and article_row.safety_level <> 'restricted'
+      and source_row.is_active = true
+  )
+);
+
+drop policy if exists user_news_interests_read_own on public.user_news_interests;
+create policy user_news_interests_read_own
+on public.user_news_interests for select
+to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists news_article_interactions_read_own on public.news_article_interactions;
+create policy news_article_interactions_read_own
+on public.news_article_interactions for select
+to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists news_article_interactions_insert_own on public.news_article_interactions;
+create policy news_article_interactions_insert_own
+on public.news_article_interactions for insert
+to authenticated
+with check (user_id = auth.uid());
+
+drop policy if exists news_article_bookmarks_read_own on public.news_article_bookmarks;
+create policy news_article_bookmarks_read_own
+on public.news_article_bookmarks for select
+to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists news_article_bookmarks_manage_own on public.news_article_bookmarks;
+create policy news_article_bookmarks_manage_own
+on public.news_article_bookmarks for all
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+create or replace function public.news_safe_jsonb_array(input jsonb)
+returns jsonb
+language sql
+immutable
+as $$
+  select case
+    when jsonb_typeof(input) = 'array' then input
+    else '[]'::jsonb
+  end
+$$;
+
+create or replace function public.news_target_matches(targets jsonb, desired text)
+returns boolean
+language sql
+immutable
+as $$
+  select
+    desired is null
+    or jsonb_array_length(public.news_safe_jsonb_array(targets)) = 0
+    or public.news_safe_jsonb_array(targets) @> to_jsonb(array['all']::text[])
+    or public.news_safe_jsonb_array(targets) @> to_jsonb(array[lower(desired)]::text[])
+$$;
+
+create or replace function public.normalize_news_goal(input_goal text)
+returns text
+language sql
+immutable
+as $$
+  select case trim(lower(coalesce(input_goal, '')))
+    when '' then null
+    when 'build_muscle' then 'muscle_gain'
+    when 'muscle_gain' then 'muscle_gain'
+    when 'lose_weight' then 'fat_loss'
+    when 'fat_loss' then 'fat_loss'
+    when 'endurance' then 'endurance'
+    when 'mobility' then 'mobility'
+    when 'recovery' then 'recovery'
+    when 'functional' then 'general_fitness'
+    when 'sports' then 'sports_performance'
+    when 'general_fitness' then 'general_fitness'
+    else replace(trim(lower(input_goal)), ' ', '_')
+  end
+$$;
+
+create or replace function public.normalize_news_level(input_level text)
+returns text
+language sql
+immutable
+as $$
+  select case trim(lower(coalesce(input_level, '')))
+    when '' then null
+    when 'beginner' then 'beginner'
+    when 'intermediate' then 'intermediate'
+    when 'advanced' then 'advanced'
+    when 'athlete' then 'advanced'
+    when 'all' then 'all'
+    else replace(trim(lower(input_level)), ' ', '_')
+  end
+$$;
+
+create or replace function public.upsert_user_news_interest(
+  p_user_id uuid,
+  p_topic_code text,
+  p_score numeric,
+  p_source text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_user_id is null
+     or nullif(trim(coalesce(p_topic_code, '')), '') is null
+     or nullif(trim(coalesce(p_source, '')), '') is null then
+    return;
+  end if;
+
+  insert into public.user_news_interests (
+    user_id,
+    topic_code,
+    score,
+    source,
+    created_at,
+    updated_at
+  )
+  values (
+    p_user_id,
+    lower(trim(p_topic_code)),
+    greatest(-1::numeric, least(1::numeric, coalesce(p_score, 0))),
+    lower(trim(p_source)),
+    timezone('utc', now()),
+    timezone('utc', now())
+  )
+  on conflict (user_id, topic_code, source) do update
+  set score = excluded.score,
+      updated_at = excluded.updated_at;
+end;
+$$;
+
+create or replace function public.bump_user_news_interest(
+  p_user_id uuid,
+  p_topic_code text,
+  p_delta numeric,
+  p_source text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_user_id is null
+     or nullif(trim(coalesce(p_topic_code, '')), '') is null
+     or nullif(trim(coalesce(p_source, '')), '') is null
+     or coalesce(p_delta, 0) = 0 then
+    return;
+  end if;
+
+  insert into public.user_news_interests (
+    user_id,
+    topic_code,
+    score,
+    source,
+    created_at,
+    updated_at
+  )
+  values (
+    p_user_id,
+    lower(trim(p_topic_code)),
+    greatest(-1::numeric, least(1::numeric, coalesce(p_delta, 0))),
+    lower(trim(p_source)),
+    timezone('utc', now()),
+    timezone('utc', now())
+  )
+  on conflict (user_id, topic_code, source) do update
+  set score = greatest(
+        -1::numeric,
+        least(1::numeric, public.user_news_interests.score + excluded.score)
+      ),
+      updated_at = excluded.updated_at;
+end;
+$$;
+
+create or replace function public.sync_member_news_interests(p_user_id uuid default auth.uid())
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requester uuid := coalesce(p_user_id, auth.uid());
+  role_code text;
+  goal_code text;
+  level_code text;
+  sessions_last_30d integer := 0;
+  days_since_last_workout integer;
+  memory_text text := '';
+begin
+  if requester is null then
+    return;
+  end if;
+
+  select
+    r.code,
+    public.normalize_news_goal(mp.goal),
+    public.normalize_news_level(mp.experience_level)
+  into role_code, goal_code, level_code
+  from public.profiles profile_row
+  left join public.roles r on r.id = profile_row.role_id
+  left join public.member_profiles mp on mp.user_id = profile_row.user_id
+  where profile_row.user_id = requester;
+
+  delete from public.user_news_interests
+  where user_id = requester
+    and source in (
+      'onboarding',
+      'inferred_from_activity',
+      'inferred_from_ai_memory'
+    );
+
+  if coalesce(role_code, '') <> 'member' then
+    return;
+  end if;
+
+  case goal_code
+    when 'muscle_gain' then
+      perform public.upsert_user_news_interest(requester, 'muscle_gain', 0.95, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'strength_training', 0.75, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'nutrition_basics', 0.45, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'recovery', 0.35, 'onboarding');
+    when 'fat_loss' then
+      perform public.upsert_user_news_interest(requester, 'fat_loss', 0.95, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'nutrition_basics', 0.75, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'workout_consistency', 0.60, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'general_wellness', 0.35, 'onboarding');
+    when 'endurance' then
+      perform public.upsert_user_news_interest(requester, 'endurance', 0.95, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'heart_health', 0.60, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'hydration', 0.45, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'recovery', 0.40, 'onboarding');
+    when 'mobility' then
+      perform public.upsert_user_news_interest(requester, 'mobility', 0.95, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'recovery', 0.70, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'injury_prevention', 0.65, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'general_wellness', 0.30, 'onboarding');
+    when 'sports_performance' then
+      perform public.upsert_user_news_interest(requester, 'endurance', 0.60, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'strength_training', 0.60, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'recovery', 0.50, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'injury_prevention', 0.45, 'onboarding');
+    when 'general_fitness' then
+      perform public.upsert_user_news_interest(requester, 'general_wellness', 0.70, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'strength_training', 0.45, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'mobility', 0.40, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'workout_consistency', 0.50, 'onboarding');
+  end case;
+
+  case level_code
+    when 'beginner' then
+      perform public.upsert_user_news_interest(requester, 'beginner_training', 0.85, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'injury_prevention', 0.50, 'onboarding');
+    when 'intermediate' then
+      perform public.upsert_user_news_interest(requester, 'workout_consistency', 0.30, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'recovery', 0.25, 'onboarding');
+    when 'advanced' then
+      perform public.upsert_user_news_interest(requester, 'recovery', 0.45, 'onboarding');
+      perform public.upsert_user_news_interest(requester, 'hydration', 0.30, 'onboarding');
+  end case;
+
+  select count(*)
+  into sessions_last_30d
+  from public.workout_sessions
+  where member_id = requester
+    and performed_at >= timezone('utc', now()) - interval '30 days';
+
+  select (current_date - max(performed_at::date))::integer
+  into days_since_last_workout
+  from public.workout_sessions
+  where member_id = requester;
+
+  if coalesce(sessions_last_30d, 0) = 0 then
+    perform public.upsert_user_news_interest(requester, 'workout_consistency', 0.75, 'inferred_from_activity');
+    perform public.upsert_user_news_interest(requester, 'beginner_training', 0.35, 'inferred_from_activity');
+  elsif sessions_last_30d between 1 and 5 then
+    perform public.upsert_user_news_interest(requester, 'workout_consistency', 0.45, 'inferred_from_activity');
+    perform public.upsert_user_news_interest(requester, 'recovery', 0.25, 'inferred_from_activity');
+  else
+    perform public.upsert_user_news_interest(requester, 'recovery', 0.55, 'inferred_from_activity');
+    perform public.upsert_user_news_interest(requester, 'hydration', 0.40, 'inferred_from_activity');
+    perform public.upsert_user_news_interest(requester, 'sleep', 0.35, 'inferred_from_activity');
+  end if;
+
+  if coalesce(days_since_last_workout, 0) >= 10 then
+    perform public.upsert_user_news_interest(requester, 'workout_consistency', 0.65, 'inferred_from_activity');
+  end if;
+
+  select lower(
+           coalesce(
+             string_agg(memory_key || ' ' || coalesce(memory_value_json::text, ''), ' ' order by updated_at desc),
+             ''
+           )
+         )
+  into memory_text
+  from public.ai_user_memories
+  where user_id = requester;
+
+  if memory_text like '%sleep%' then
+    perform public.upsert_user_news_interest(requester, 'sleep', 0.50, 'inferred_from_ai_memory');
+  end if;
+
+  if memory_text like '%hydrat%' then
+    perform public.upsert_user_news_interest(requester, 'hydration', 0.45, 'inferred_from_ai_memory');
+  end if;
+
+  if memory_text like '%recover%' then
+    perform public.upsert_user_news_interest(requester, 'recovery', 0.55, 'inferred_from_ai_memory');
+  end if;
+
+  if memory_text like '%injur%'
+     or memory_text like '%pain%'
+     or memory_text like '%knee%'
+     or memory_text like '%back%' then
+    perform public.upsert_user_news_interest(requester, 'injury_prevention', 0.60, 'inferred_from_ai_memory');
+    perform public.upsert_user_news_interest(requester, 'mobility', 0.40, 'inferred_from_ai_memory');
+  end if;
+
+  if memory_text like '%nutrition%'
+     or memory_text like '%protein%'
+     or memory_text like '%meal%' then
+    perform public.upsert_user_news_interest(requester, 'nutrition_basics', 0.55, 'inferred_from_ai_memory');
+  end if;
+end;
+$$;
+
+create or replace function public.track_news_interaction(
+  p_article_id uuid,
+  p_interaction_type text,
+  p_metadata jsonb default '{}'::jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requester uuid := auth.uid();
+  interaction_id uuid;
+  topic_row record;
+  applied_delta numeric := 0;
+begin
+  if requester is null then
+    raise exception 'Not authenticated.';
+  end if;
+
+  if lower(trim(coalesce(p_interaction_type, ''))) not in (
+    'impression',
+    'click',
+    'open',
+    'save',
+    'dismiss',
+    'share',
+    'mark_not_interested'
+  ) then
+    raise exception 'Unsupported interaction type.';
+  end if;
+
+  if p_metadata is null or jsonb_typeof(p_metadata) <> 'object' then
+    raise exception 'Interaction metadata must be a JSON object.';
+  end if;
+
+  if not exists (
+    select 1
+    from public.news_articles article_row
+    join public.news_sources source_row on source_row.id = article_row.source_id
+    where article_row.id = p_article_id
+      and article_row.is_active = true
+      and article_row.safety_level <> 'restricted'
+      and source_row.is_active = true
+  ) then
+    raise exception 'Article not found.';
+  end if;
+
+  insert into public.news_article_interactions (
+    user_id,
+    article_id,
+    interaction_type,
+    metadata
+  )
+  values (
+    requester,
+    p_article_id,
+    lower(trim(p_interaction_type)),
+    p_metadata
+  )
+  returning id into interaction_id;
+
+  applied_delta := case lower(trim(p_interaction_type))
+    when 'save' then 0.18
+    when 'share' then 0.15
+    when 'open' then 0.12
+    when 'click' then 0.10
+    when 'impression' then 0.02
+    when 'dismiss' then -0.15
+    when 'mark_not_interested' then -0.30
+    else 0
+  end;
+
+  if applied_delta <> 0 then
+    for topic_row in
+      select topic_code, score
+      from public.news_article_topics
+      where article_id = p_article_id
+    loop
+      perform public.bump_user_news_interest(
+        requester,
+        topic_row.topic_code,
+        applied_delta * greatest(topic_row.score, 0.15),
+        'inferred_from_behavior'
+      );
+    end loop;
+  end if;
+
+  return interaction_id;
+end;
+$$;
+
+create or replace function public.save_news_article(p_article_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requester uuid := auth.uid();
+begin
+  if requester is null then
+    raise exception 'Not authenticated.';
+  end if;
+
+  if exists (
+    select 1
+    from public.news_article_bookmarks
+    where user_id = requester
+      and article_id = p_article_id
+  ) then
+    return false;
+  end if;
+
+  insert into public.news_article_bookmarks (user_id, article_id)
+  values (requester, p_article_id);
+
+  perform public.track_news_interaction(
+    p_article_id,
+    'save',
+    '{"origin":"bookmark"}'::jsonb
+  );
+
+  return true;
+end;
+$$;
+
+create or replace function public.dismiss_news_article(p_article_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.track_news_interaction(
+    p_article_id,
+    'dismiss',
+    '{"origin":"feed"}'::jsonb
+  );
+  return true;
+end;
+$$;
+
+create or replace function public.list_news_article_topics(p_article_id uuid)
+returns table (
+  topic_code text,
+  score numeric
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    topic_code,
+    score
+  from public.news_article_topics
+  where article_id = p_article_id
+  order by score desc, topic_code asc
+$$;
+
+create or replace function public.list_saved_news_articles()
+returns table (
+  article_id uuid,
+  source_id uuid,
+  source_name text,
+  source_base_url text,
+  canonical_url text,
+  title text,
+  summary text,
+  image_url text,
+  published_at timestamptz,
+  language text,
+  category text,
+  safety_level text,
+  evidence_level text,
+  trust_score numeric,
+  quality_score numeric,
+  topic_codes text[],
+  is_saved boolean,
+  saved_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    article_row.id as article_id,
+    article_row.source_id,
+    source_row.name as source_name,
+    source_row.base_url as source_base_url,
+    article_row.canonical_url,
+    article_row.title,
+    article_row.summary,
+    article_row.image_url,
+    article_row.published_at,
+    article_row.language,
+    article_row.category,
+    article_row.safety_level,
+    article_row.evidence_level,
+    article_row.trust_score,
+    article_row.quality_score,
+    coalesce(topic_rollup.topic_codes, '{}'::text[]) as topic_codes,
+    true as is_saved,
+    bookmark_row.created_at as saved_at
+  from public.news_article_bookmarks bookmark_row
+  join public.news_articles article_row on article_row.id = bookmark_row.article_id
+  join public.news_sources source_row on source_row.id = article_row.source_id
+  left join (
+    select
+      article_id,
+      array_agg(topic_code order by score desc, topic_code asc) as topic_codes
+    from public.news_article_topics
+    group by article_id
+  ) topic_rollup on topic_rollup.article_id = article_row.id
+  where bookmark_row.user_id = auth.uid()
+    and article_row.is_active = true
+    and article_row.safety_level <> 'restricted'
+    and source_row.is_active = true
+  order by bookmark_row.created_at desc
+$$;
+
+create or replace function public.list_personalized_news(
+  p_limit integer default 20,
+  p_offset integer default 0
+)
+returns table (
+  article_id uuid,
+  source_id uuid,
+  source_name text,
+  source_base_url text,
+  canonical_url text,
+  title text,
+  summary text,
+  image_url text,
+  published_at timestamptz,
+  language text,
+  category text,
+  safety_level text,
+  evidence_level text,
+  trust_score numeric,
+  quality_score numeric,
+  topic_codes text[],
+  relevance_reason text,
+  relevance_tags text[],
+  ranking_score numeric,
+  is_saved boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requester uuid := auth.uid();
+  role_code text := 'member';
+  goal_code text;
+  level_code text;
+  preferred_language text := 'english';
+begin
+  if requester is null then
+    raise exception 'Not authenticated.';
+  end if;
+
+  select
+    coalesce(role_row.code, 'member'),
+    public.normalize_news_goal(member_row.goal),
+    public.normalize_news_level(member_row.experience_level),
+    coalesce(preferences_row.language, 'english')
+  into role_code, goal_code, level_code, preferred_language
+  from public.profiles profile_row
+  left join public.roles role_row on role_row.id = profile_row.role_id
+  left join public.member_profiles member_row on member_row.user_id = profile_row.user_id
+  left join public.user_preferences preferences_row on preferences_row.user_id = profile_row.user_id
+  where profile_row.user_id = requester;
+
+  perform public.sync_member_news_interests(requester);
+
+  return query
+  with aggregated_interests as (
+    select
+      topic_code,
+      max(score) as score
+    from public.user_news_interests
+    where user_id = requester
+    group by topic_code
+  ),
+  interaction_topic_rollup as (
+    select
+      topic_row.topic_code,
+      count(*) filter (
+        where interaction_row.interaction_type in ('open', 'click', 'save', 'share')
+      )::numeric as positive_events,
+      count(*) filter (
+        where interaction_row.interaction_type in ('dismiss', 'mark_not_interested')
+      )::numeric as negative_events
+    from public.news_article_interactions interaction_row
+    join public.news_article_topics topic_row on topic_row.article_id = interaction_row.article_id
+    where interaction_row.user_id = requester
+      and interaction_row.created_at >= timezone('utc', now()) - interval '120 days'
+    group by topic_row.topic_code
+  ),
+  article_topics as (
+    select
+      topic_row.article_id,
+      array_agg(topic_row.topic_code order by topic_row.score desc, topic_row.topic_code asc) as topic_codes,
+      coalesce(sum(topic_row.score * greatest(coalesce(interest_row.score, 0), 0)), 0) as interest_alignment,
+      coalesce(sum(topic_row.score * coalesce(interaction_row.positive_events, 0)), 0) as positive_alignment,
+      coalesce(sum(topic_row.score * coalesce(interaction_row.negative_events, 0)), 0) as negative_alignment
+    from public.news_article_topics topic_row
+    left join aggregated_interests interest_row on interest_row.topic_code = topic_row.topic_code
+    left join interaction_topic_rollup interaction_row on interaction_row.topic_code = topic_row.topic_code
+    group by topic_row.article_id
+  ),
+  article_user_state as (
+    select
+      interaction_row.article_id,
+      bool_or(interaction_row.interaction_type = 'dismiss') as dismissed,
+      bool_or(interaction_row.interaction_type = 'mark_not_interested') as marked_not_interested,
+      max(interaction_row.created_at) filter (
+        where interaction_row.interaction_type in ('open', 'click')
+      ) as last_opened_at
+    from public.news_article_interactions interaction_row
+    where interaction_row.user_id = requester
+    group by interaction_row.article_id
+  ),
+  candidate_articles as (
+    select
+      article_row.id as article_id,
+      article_row.source_id,
+      source_row.name as source_name,
+      source_row.base_url as source_base_url,
+      article_row.canonical_url,
+      article_row.title,
+      article_row.summary,
+      article_row.image_url,
+      article_row.published_at,
+      article_row.language,
+      article_row.category,
+      article_row.safety_level,
+      article_row.evidence_level,
+      article_row.trust_score,
+      article_row.quality_score,
+      article_row.target_goals,
+      article_row.target_levels,
+      coalesce(topic_rollup.topic_codes, '{}'::text[]) as topic_codes,
+      coalesce(topic_rollup.interest_alignment, 0) as interest_alignment,
+      coalesce(topic_rollup.positive_alignment, 0) as positive_alignment,
+      coalesce(topic_rollup.negative_alignment, 0) as negative_alignment,
+      coalesce(article_state.dismissed, false) as dismissed,
+      coalesce(article_state.marked_not_interested, false) as marked_not_interested,
+      article_state.last_opened_at,
+      exists (
+        select 1
+        from public.news_article_bookmarks bookmark_row
+        where bookmark_row.user_id = requester
+          and bookmark_row.article_id = article_row.id
+      ) as is_saved,
+      (
+        case
+          when public.news_target_matches(article_row.target_roles, role_code) then 20
+          else -1000
+        end
+        + case
+            when goal_code is not null
+                 and public.news_target_matches(article_row.target_goals, goal_code) then 18
+            when goal_code is null then 4
+            when jsonb_array_length(public.news_safe_jsonb_array(article_row.target_goals)) = 0 then 6
+            else 0
+          end
+        + case
+            when level_code is not null
+                 and public.news_target_matches(article_row.target_levels, level_code) then 10
+            when jsonb_array_length(public.news_safe_jsonb_array(article_row.target_levels)) = 0 then 4
+            else 0
+          end
+        + least(coalesce(article_row.trust_score, source_row.trust_score), 100) * 0.18
+        + least(coalesce(article_row.quality_score, 0), 100) * 0.12
+        + greatest(
+            0::numeric,
+            21::numeric - extract(epoch from (timezone('utc', now()) - article_row.published_at)) / 86400
+          ) * 1.10
+        + least(coalesce(topic_rollup.interest_alignment, 0), 4) * 25
+        + least(coalesce(topic_rollup.positive_alignment, 0), 4) * 4
+        - least(coalesce(topic_rollup.negative_alignment, 0), 4) * 6
+        + case
+            when lower(coalesce(article_row.language, 'english')) = lower(preferred_language) then 6
+            when lower(coalesce(article_row.language, 'english')) = 'english' then 3
+            else 0
+          end
+        + case when article_row.is_featured then 4 else 0 end
+        - case
+            when article_state.last_opened_at is not null
+                 and article_state.last_opened_at >= timezone('utc', now()) - interval '14 days' then 10
+            else 0
+          end
+      )::numeric(10,3) as ranking_score
+    from public.news_articles article_row
+    join public.news_sources source_row on source_row.id = article_row.source_id
+    left join article_topics topic_rollup on topic_rollup.article_id = article_row.id
+    left join article_user_state article_state on article_state.article_id = article_row.id
+    where article_row.is_active = true
+      and article_row.safety_level <> 'restricted'
+      and source_row.is_active = true
+      and public.news_target_matches(article_row.target_roles, role_code)
+      and coalesce(article_row.trust_score, source_row.trust_score) >= 55
+      and coalesce(article_row.quality_score, 0) >= 35
+  )
+  select
+    candidate_row.article_id,
+    candidate_row.source_id,
+    candidate_row.source_name,
+    candidate_row.source_base_url,
+    candidate_row.canonical_url,
+    candidate_row.title,
+    candidate_row.summary,
+    candidate_row.image_url,
+    candidate_row.published_at,
+    candidate_row.language,
+    candidate_row.category,
+    candidate_row.safety_level,
+    candidate_row.evidence_level,
+    candidate_row.trust_score,
+    candidate_row.quality_score,
+    candidate_row.topic_codes,
+    coalesce(
+      (
+        array_remove(
+          array[
+            case
+              when goal_code is not null
+                   and public.news_target_matches(candidate_row.target_goals, goal_code) then 'Matches your goal'
+            end,
+            case when candidate_row.interest_alignment > 0.25 then 'Aligned with your interests' end,
+            case when candidate_row.positive_alignment > 0 then 'Based on what you open' end,
+            case when candidate_row.quality_score >= 75 then 'Trusted, high-quality source' end,
+            case
+              when candidate_row.published_at >= timezone('utc', now()) - interval '7 days' then 'Fresh this week'
+            end,
+            case
+              when level_code is not null
+                   and public.news_target_matches(candidate_row.target_levels, level_code) then 'Fits your training level'
+            end
+          ],
+          null
+        )
+      )[1],
+      'Recommended for you'
+    ) as relevance_reason,
+    coalesce(
+      array_remove(
+        array[
+          case
+            when goal_code is not null
+                 and public.news_target_matches(candidate_row.target_goals, goal_code) then 'goal match'
+          end,
+          case when candidate_row.interest_alignment > 0.25 then 'interest match' end,
+          case when candidate_row.positive_alignment > 0 then 'similar to past reads' end,
+          case when candidate_row.quality_score >= 75 then 'trusted source' end,
+          case
+            when candidate_row.published_at >= timezone('utc', now()) - interval '7 days' then 'recent'
+          end,
+          case
+            when level_code is not null
+                 and public.news_target_matches(candidate_row.target_levels, level_code) then 'level fit'
+          end
+        ],
+        null
+      ),
+      '{}'::text[]
+    ) as relevance_tags,
+    candidate_row.ranking_score,
+    candidate_row.is_saved
+  from candidate_articles candidate_row
+  where candidate_row.marked_not_interested = false
+    and candidate_row.dismissed = false
+  order by candidate_row.ranking_score desc, candidate_row.published_at desc
+  limit greatest(coalesce(p_limit, 20), 1)
+  offset greatest(coalesce(p_offset, 0), 0);
+end;
+$$;
+
+revoke all on function public.news_safe_jsonb_array(jsonb) from public;
+revoke all on function public.news_target_matches(jsonb, text) from public;
+revoke all on function public.normalize_news_goal(text) from public;
+revoke all on function public.normalize_news_level(text) from public;
+revoke all on function public.upsert_user_news_interest(uuid, text, numeric, text) from public;
+revoke all on function public.bump_user_news_interest(uuid, text, numeric, text) from public;
+revoke all on function public.sync_member_news_interests(uuid) from public;
+
+revoke all on function public.track_news_interaction(uuid, text, jsonb) from public;
+grant execute on function public.track_news_interaction(uuid, text, jsonb) to authenticated;
+
+revoke all on function public.save_news_article(uuid) from public;
+grant execute on function public.save_news_article(uuid) to authenticated;
+
+revoke all on function public.dismiss_news_article(uuid) from public;
+grant execute on function public.dismiss_news_article(uuid) to authenticated;
+
+revoke all on function public.list_news_article_topics(uuid) from public;
+grant execute on function public.list_news_article_topics(uuid) to authenticated;
+
+revoke all on function public.list_saved_news_articles() from public;
+grant execute on function public.list_saved_news_articles() to authenticated;
+
+revoke all on function public.list_personalized_news(integer, integer) from public;
+grant execute on function public.list_personalized_news(integer, integer) to authenticated;
+
+-- Appended from 20260316000013_news_sync_scheduler.sql
+-- Scheduled news ingestion infrastructure
+-- Date: 2026-03-16
+
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+create extension if not exists vault;
+
+create schema if not exists private;
+revoke all on schema private from public;
+
+create or replace function private.upsert_vault_secret(
+  p_name text,
+  p_secret text,
+  p_description text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = private, vault, public
+as $$
+declare
+  existing_id uuid;
+begin
+  if p_name is null or btrim(p_name) = '' then
+    raise exception 'Vault secret name is required.';
+  end if;
+
+  if p_secret is null or btrim(p_secret) = '' then
+    raise exception 'Vault secret value is required.';
+  end if;
+
+  select id
+  into existing_id
+  from vault.decrypted_secrets
+  where name = p_name
+  limit 1;
+
+  if existing_id is null then
+    select id
+    into existing_id
+    from vault.create_secret(p_secret, p_name, p_description);
+  else
+    perform vault.update_secret(existing_id, p_secret, p_name, p_description);
+  end if;
+
+  return existing_id;
+end;
+$$;
+
+create or replace function private.unschedule_news_sync()
+returns void
+language plpgsql
+security definer
+set search_path = private, cron, public
+as $$
+declare
+  existing_job_id bigint;
+begin
+  select jobid
+  into existing_job_id
+  from cron.job
+  where jobname = 'sync-news-feeds-every-4-hours'
+  limit 1;
+
+  if existing_job_id is not null then
+    perform cron.unschedule(existing_job_id);
+  end if;
+end;
+$$;
+
+create or replace function private.schedule_news_sync(
+  p_project_url text,
+  p_sync_secret text,
+  p_cron text default '17 */4 * * *'
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = private, public, vault, cron, net
+as $$
+declare
+  normalized_url text;
+  created_job_id bigint;
+begin
+  normalized_url := regexp_replace(coalesce(btrim(p_project_url), ''), '/+$', '');
+
+  if normalized_url = '' or normalized_url !~ '^https://[A-Za-z0-9.-]+$' then
+    raise exception 'Project URL must be a valid https origin.';
+  end if;
+
+  if p_sync_secret is null or length(btrim(p_sync_secret)) < 16 then
+    raise exception 'Sync secret must be present and sufficiently long.';
+  end if;
+
+  if p_cron is null or btrim(p_cron) = '' then
+    raise exception 'Cron expression is required.';
+  end if;
+
+  perform private.upsert_vault_secret(
+    'news_sync_project_url',
+    normalized_url,
+    'GymUnity project URL used by the scheduled sync-news-feeds cron job.'
+  );
+
+  perform private.upsert_vault_secret(
+    'news_sync_secret',
+    btrim(p_sync_secret),
+    'GymUnity shared secret for scheduled sync-news-feeds requests.'
+  );
+
+  perform private.unschedule_news_sync();
+
+  select cron.schedule(
+    'sync-news-feeds-every-4-hours',
+    p_cron,
+    $job$
+    select
+      net.http_post(
+        url := (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'news_sync_project_url'
+        ) || '/functions/v1/sync-news-feeds',
+        headers := jsonb_build_object(
+          'Content-Type',
+          'application/json',
+          'x-news-sync-secret',
+          (
+            select decrypted_secret
+            from vault.decrypted_secrets
+            where name = 'news_sync_secret'
+          )
+        ),
+        body := jsonb_build_object('trigger', 'pg_cron')
+      ) as request_id;
+    $job$
+  )
+  into created_job_id;
+
+  return created_job_id;
+end;
+$$;
+
+revoke all on function private.upsert_vault_secret(text, text, text) from public;
+revoke all on function private.unschedule_news_sync() from public;
+revoke all on function private.schedule_news_sync(text, text, text) from public;
+
+comment on function private.schedule_news_sync(text, text, text) is
+  'Configures the recurring sync-news-feeds cron job after NEWS_SYNC_SECRET is set in Edge Function secrets.';

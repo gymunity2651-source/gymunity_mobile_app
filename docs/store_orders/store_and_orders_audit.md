@@ -56,9 +56,9 @@ This audit covers the store, cart, favorites, checkout, orders, and seller order
   - `lib/features/seller/data/repositories/seller_repository_impl.dart`
 
 ## Existing backend assets audited
-- `supabase/migrations/20260307_000001_init_gymunity.sql`
-- `supabase/migrations/20260312_000006_core_role_flows.sql`
-- `supabase/migrations/20260312_000007_store_orders_hardening.sql`
+- `supabase/migrations/20260307000001_init_gymunity.sql`
+- `supabase/migrations/20260312000006_core_role_flows.sql`
+- `supabase/migrations/20260312000007_store_orders_hardening.sql`
 - `supabase/sql/phase1_dashboard_setup.sql`
 
 ## Missing pieces identified before implementation

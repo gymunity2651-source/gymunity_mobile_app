@@ -323,6 +323,7 @@ Future<void> _pumpNamedRoute(
   FakeCoachRepository? coachRepository,
   FakeMemberRepository? memberRepository,
   FakeSellerRepository? sellerRepository,
+  FakeNewsRepository? newsRepository,
   FakeChatRepository? chatRepository,
   FakePlannerRepository? plannerRepository,
 }) async {
@@ -343,6 +344,9 @@ Future<void> _pumpNamedRoute(
         ),
         storeRepositoryProvider.overrideWithValue(
           storeRepository ?? FakeStoreRepository(),
+        ),
+        newsRepositoryProvider.overrideWithValue(
+          newsRepository ?? FakeNewsRepository(),
         ),
         coachRepositoryProvider.overrideWithValue(
           coachRepository ?? FakeCoachRepository(),
@@ -382,6 +386,7 @@ Future<void> _pumpScreen(
   FakeCoachRepository? coachRepository,
   FakeMemberRepository? memberRepository,
   FakeSellerRepository? sellerRepository,
+  FakeNewsRepository? newsRepository,
   FakeChatRepository? chatRepository,
   FakePlannerRepository? plannerRepository,
 }) async {
@@ -402,6 +407,9 @@ Future<void> _pumpScreen(
         ),
         storeRepositoryProvider.overrideWithValue(
           storeRepository ?? FakeStoreRepository(),
+        ),
+        newsRepositoryProvider.overrideWithValue(
+          newsRepository ?? FakeNewsRepository(),
         ),
         coachRepositoryProvider.overrideWithValue(
           coachRepository ?? FakeCoachRepository(),

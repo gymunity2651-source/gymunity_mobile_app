@@ -5,6 +5,7 @@ import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/app_failure.dart';
+import '../../../../core/utils/historical_record_utils.dart';
 import '../../../store/domain/entities/order_entity.dart';
 import '../../../store/domain/entities/product_entity.dart';
 import '../../domain/entities/seller_profile_entity.dart';
@@ -422,8 +423,11 @@ class SellerRepositoryImpl implements SellerRepository {
   OrderEntity _mapOrderSummaryRow(Map<String, dynamic> row) {
     return OrderEntity(
       id: row['id'] as String? ?? '',
-      memberId: row['member_id'] as String? ?? '',
-      memberName: row['member_name'] as String?,
+      memberId: normalizeHistoricalId(row['member_id']),
+      memberName: normalizeHistoricalLabel(
+        row['member_name'],
+        'Deleted member',
+      ),
       sellerId: _userId,
       status: row['status'] as String? ?? 'pending',
       totalAmount: (row['total_amount'] as num?)?.toDouble() ?? 0,
