@@ -6,6 +6,7 @@ import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../../core/widgets/app_reveal.dart';
 import '../../domain/entities/planner_entities.dart';
 import '../providers/planner_providers.dart';
 import '../route_args.dart';
@@ -107,153 +108,181 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
               .expand((week) => week.days)
               .take(6)
               .toList(growable: false);
+          Duration revealDelay(int index) =>
+              Duration(milliseconds: 40 + (index * 55));
 
           return ListView(
             padding: const EdgeInsets.all(AppSizes.screenPadding),
             children: [
-              _PlannerHeroCard(
-                title: plan.title,
-                summary: plan.summary,
-                status: draft.status,
-                durationWeeks: plan.durationWeeks,
-                level: plan.level,
+              AppReveal(
+                delay: revealDelay(0),
+                child: _PlannerHeroCard(
+                  title: plan.title,
+                  summary: plan.summary,
+                  status: draft.status,
+                  durationWeeks: plan.durationWeeks,
+                  level: plan.level,
+                ),
               ),
               if (draft.missingFields.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                _MissingInfoCard(fields: draft.missingFields),
+                AppReveal(
+                  delay: revealDelay(1),
+                  child: _MissingInfoCard(fields: draft.missingFields),
+                ),
               ],
               const SizedBox(height: 16),
-              _SelectionCard(
-                title: 'Activation settings',
-                child: Column(
-                  children: [
-                    _SelectionTile(
-                      icon: Icons.calendar_today_outlined,
-                      label: 'Start date',
-                      value: _formatDate(_selectedStartDate),
-                      onTap: _pickStartDate,
-                    ),
-                    const SizedBox(height: 12),
-                    _SelectionTile(
-                      icon: Icons.alarm_outlined,
-                      label: 'Default reminder',
-                      value: _formatTimeOfDay(_selectedReminderTime),
-                      onTap: _pickReminderTime,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _SelectionCard(
-                title: 'Plan highlights',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if ((plan.restGuidance ?? '').trim().isNotEmpty)
-                      _GuidanceLine(
-                        label: 'Recovery',
-                        value: plan.restGuidance!.trim(),
+              AppReveal(
+                delay: revealDelay(2),
+                child: _SelectionCard(
+                  title: 'Activation settings',
+                  child: Column(
+                    children: [
+                      _SelectionTile(
+                        icon: Icons.calendar_today_outlined,
+                        label: 'Start date',
+                        value: _formatDate(_selectedStartDate),
+                        onTap: _pickStartDate,
                       ),
-                    if ((plan.nutritionGuidance ?? '').trim().isNotEmpty)
-                      _GuidanceLine(
-                        label: 'Nutrition',
-                        value: plan.nutritionGuidance!.trim(),
-                      ),
-                    if ((plan.hydrationGuidance ?? '').trim().isNotEmpty)
-                      _GuidanceLine(
-                        label: 'Hydration',
-                        value: plan.hydrationGuidance!.trim(),
-                      ),
-                    if ((plan.sleepGuidance ?? '').trim().isNotEmpty)
-                      _GuidanceLine(
-                        label: 'Sleep',
-                        value: plan.sleepGuidance!.trim(),
-                      ),
-                    if ((plan.stepTarget ?? '').trim().isNotEmpty)
-                      _GuidanceLine(
-                        label: 'Steps',
-                        value: plan.stepTarget!.trim(),
-                      ),
-                    if (plan.safetyNotes.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      Text(
-                        'Safety notes',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
+                      _SelectionTile(
+                        icon: Icons.alarm_outlined,
+                        label: 'Default reminder',
+                        value: _formatTimeOfDay(_selectedReminderTime),
+                        onTap: _pickReminderTime,
                       ),
-                      const SizedBox(height: 8),
-                      ...plan.safetyNotes.map(_SafetyNote.new),
                     ],
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
-              _SelectionCard(
-                title: 'Weekly structure preview',
-                child: Column(
-                  children: previewDays
-                      .map(
-                        (day) => _PlanPreviewDayCard(
-                          day: day,
-                          reminderTime: _formatTimeForTasks(day.tasks),
+              AppReveal(
+                delay: revealDelay(3),
+                child: _SelectionCard(
+                  title: 'Plan highlights',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if ((plan.restGuidance ?? '').trim().isNotEmpty)
+                        _GuidanceLine(
+                          label: 'Recovery',
+                          value: plan.restGuidance!.trim(),
                         ),
-                      )
-                      .toList(growable: false),
+                      if ((plan.nutritionGuidance ?? '').trim().isNotEmpty)
+                        _GuidanceLine(
+                          label: 'Nutrition',
+                          value: plan.nutritionGuidance!.trim(),
+                        ),
+                      if ((plan.hydrationGuidance ?? '').trim().isNotEmpty)
+                        _GuidanceLine(
+                          label: 'Hydration',
+                          value: plan.hydrationGuidance!.trim(),
+                        ),
+                      if ((plan.sleepGuidance ?? '').trim().isNotEmpty)
+                        _GuidanceLine(
+                          label: 'Sleep',
+                          value: plan.sleepGuidance!.trim(),
+                        ),
+                      if ((plan.stepTarget ?? '').trim().isNotEmpty)
+                        _GuidanceLine(
+                          label: 'Steps',
+                          value: plan.stepTarget!.trim(),
+                        ),
+                      if (plan.safetyNotes.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Safety notes',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...plan.safetyNotes.map(_SafetyNote.new),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              AppReveal(
+                delay: revealDelay(4),
+                child: _SelectionCard(
+                  title: 'Weekly structure preview',
+                  child: Column(
+                    children: previewDays
+                        .map(
+                          (day) => _PlanPreviewDayCard(
+                            day: day,
+                            reminderTime: _formatTimeForTasks(day.tasks),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
               if (actionState.errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    actionState.errorMessage!,
-                    style: GoogleFonts.inter(
-                      color: AppColors.error,
-                      fontSize: 13,
+                AppReveal(
+                  delay: revealDelay(5),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      actionState.errorMessage!,
+                      style: GoogleFonts.inter(
+                        color: AppColors.error,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: chatState.isRegenerating
-                          ? null
-                          : _regenerateDraft,
-                      child: Text(
-                        chatState.isRegenerating ? 'Updating...' : 'Regenerate',
+              AppReveal(
+                delay: revealDelay(6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: chatState.isRegenerating
+                            ? null
+                            : _regenerateDraft,
+                        child: Text(
+                          chatState.isRegenerating
+                              ? 'Updating...'
+                              : 'Regenerate',
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.aiConversation,
-                        arguments: widget.sessionId,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.aiConversation,
+                          arguments: widget.sessionId,
+                        ),
+                        child: const Text('Refine in chat'),
                       ),
-                      child: const Text('Refine in chat'),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: actionState.isActivating ? null : _activateDraft,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.orange,
-                    foregroundColor: AppColors.white,
-                  ),
-                  child: Text(
-                    actionState.isActivating
-                        ? 'Activating plan...'
-                        : 'Approve and activate',
+              AppReveal(
+                delay: revealDelay(7),
+                child: SizedBox(
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: actionState.isActivating ? null : _activateDraft,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.orange,
+                      foregroundColor: AppColors.white,
+                    ),
+                    child: Text(
+                      actionState.isActivating
+                          ? 'Activating plan...'
+                          : 'Approve and activate',
+                    ),
                   ),
                 ),
               ),
@@ -692,7 +721,7 @@ class _PlanPreviewDayCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Week ${day.weekNumber} • Day ${day.dayNumber}',
+                  'Week ${day.weekNumber} - Day ${day.dayNumber}',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -735,7 +764,7 @@ class _PlanPreviewDayCard extends StatelessWidget {
                 (task) => Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
-                    '• ${task.title}',
+                    '- ${task.title}',
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       color: AppColors.textSecondary,

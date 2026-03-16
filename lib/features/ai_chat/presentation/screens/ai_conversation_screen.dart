@@ -327,21 +327,76 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
                 color: isUser ? AppColors.white : AppColors.textPrimary,
               ),
             ),
-            if (message.missingFields.isNotEmpty) ...[
+            if (!isUser && message.personalizationUsed.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Used context',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textMuted,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: message.personalizationUsed
+                    .map(
+                      (item) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.border.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.radiusFull,
+                          ),
+                        ),
+                        child: Text(
+                          item,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ],
+            if (!isUser &&
+                (message.suggestedReplies.isNotEmpty ||
+                    message.missingFields.isNotEmpty)) ...[
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: message.missingFields
-                    .map(
-                      (field) => _FieldChip(
-                        label: field.replaceAll('_', ' '),
-                        onTap: isUser
-                            ? null
-                            : () => _primeSingleFieldReply(field),
+                children: [
+                  ...message.suggestedReplies.map(
+                    (reply) => _FieldChip(
+                      label: reply,
+                      onTap: () => _applySuggestedReply(reply),
+                    ),
+                  ),
+                  ...message.missingFields
+                      .where(
+                        (field) => message.suggestedReplies.every(
+                          (reply) => !reply.toLowerCase().contains(
+                            field.toLowerCase(),
+                          ),
+                        ),
+                      )
+                      .map(
+                        (field) => _FieldChip(
+                          label: field.replaceAll('_', ' '),
+                          onTap: () => _primeSingleFieldReply(field),
+                        ),
                       ),
-                    )
-                    .toList(growable: false),
+                ],
               ),
             ],
           ],
@@ -451,6 +506,10 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
 
   void _primeSingleFieldReply(String field) {
     _appendComposerTemplate(_templateForMissingField(field));
+  }
+
+  void _applySuggestedReply(String reply) {
+    _appendComposerTemplate(reply.trim());
   }
 
   void _primeMissingFieldReply(List<String> missingFields) {

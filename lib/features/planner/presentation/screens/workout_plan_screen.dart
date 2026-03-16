@@ -6,6 +6,7 @@ import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../../core/widgets/app_reveal.dart';
 import '../../domain/entities/planner_entities.dart';
 import '../providers/planner_providers.dart';
 import '../route_args.dart';
@@ -98,6 +99,8 @@ class WorkoutPlanScreen extends ConsumerWidget {
               .where((day) => !_isBeforeToday(day.scheduledDate, now))
               .take(10)
               .toList(growable: false);
+          Duration revealDelay(int index) =>
+              Duration(milliseconds: 40 + (index * 55));
 
           return SafeArea(
             child: RefreshIndicator(
@@ -109,222 +112,224 @@ class WorkoutPlanScreen extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.all(AppSizes.screenPadding),
                 children: [
-                  _SurfaceCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          plan.planTitle,
-                          style: GoogleFonts.spaceGrotesk(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
+                  AppReveal(
+                    delay: revealDelay(0),
+                    child: _SurfaceCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            plan.planTitle,
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
+                          const SizedBox(height: 8),
+                          Text(
+                            generatedPlan?.summary.trim().isNotEmpty == true
+                                ? generatedPlan!.summary
+                                : 'Your active AI plan is ready for daily execution.',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              height: 1.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              _Tag(label: _titleCase(plan.planStatus)),
+                              if (generatedPlan != null)
+                                _Tag(label: _titleCase(generatedPlan.level)),
+                              if (generatedPlan != null)
+                                _Tag(
+                                  label: '${generatedPlan.durationWeeks} weeks',
+                                ),
+                              if ((plan.defaultReminderTime ?? '').isNotEmpty)
+                                _Tag(
+                                  label:
+                                      'Reminder ${plan.defaultReminderTime!}',
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppReveal(
+                    delay: revealDelay(1),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MetricCard(
+                                label: 'Completed',
+                                value: completedCount.toString(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _MetricCard(
+                                label: 'Partial',
+                                value: partialCount.toString(),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          generatedPlan?.summary.trim().isNotEmpty == true
-                              ? generatedPlan!.summary
-                              : 'Your active AI plan is ready for daily execution.',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            height: 1.5,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
+                        Row(
                           children: [
-                            _Tag(label: _titleCase(plan.planStatus)),
-                            if (generatedPlan != null)
-                              _Tag(label: _titleCase(generatedPlan.level)),
-                            if (generatedPlan != null)
-                              _Tag(
-                                label: '${generatedPlan.durationWeeks} weeks',
+                            Expanded(
+                              child: _MetricCard(
+                                label: 'Skipped',
+                                value: skippedCount.toString(),
                               ),
-                            if ((plan.defaultReminderTime ?? '').isNotEmpty)
-                              _Tag(
-                                label:
-                                    'Reminder ${plan.defaultReminderTime!}',
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _MetricCard(
+                                label: 'Missed',
+                                value: missedCount.toString(),
                               ),
+                            ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MetricCard(
-                          label: 'Completed',
-                          value: completedCount.toString(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _MetricCard(
-                          label: 'Partial',
-                          value: partialCount.toString(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MetricCard(
-                          label: 'Skipped',
-                          value: skippedCount.toString(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _MetricCard(
-                          label: 'Missed',
-                          value: missedCount.toString(),
-                        ),
-                      ),
-                    ],
-                  ),
                   if (generatedPlan != null &&
                       generatedPlan.safetyNotes.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    _SectionTitle('Safety Notes'),
-                    const SizedBox(height: 10),
-                    _SurfaceCard(
+                    AppReveal(
+                      delay: revealDelay(2),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: generatedPlan.safetyNotes
-                            .map(
-                              (note) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Text(
-                                  '- $note',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    height: 1.5,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
+                        children: [
+                          _SectionTitle('Safety Notes'),
+                          const SizedBox(height: 10),
+                          _SurfaceCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: generatedPlan.safetyNotes
+                                  .map(
+                                    (note) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Text(
+                                        '- $note',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          height: 1.5,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                   if (actionState.errorMessage != null) ...[
                     const SizedBox(height: 16),
-                    Text(
-                      actionState.errorMessage!,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: AppColors.error,
+                    AppReveal(
+                      delay: revealDelay(3),
+                      child: Text(
+                        actionState.errorMessage!,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: AppColors.error,
+                        ),
                       ),
                     ),
                   ],
                   const SizedBox(height: 16),
-                  _SectionTitle('Today'),
-                  const SizedBox(height: 10),
-                  if (todayTasks.isEmpty)
-                    const _SurfaceCard(
-                      child: Text(
-                        'No AI tasks are scheduled for today. Your plan starts on the next scheduled day.',
-                      ),
-                    )
-                  else
-                    ...todayTasks.map(
-                      (task) => _TaskTile(
-                        title: task.title,
-                        subtitle:
-                            task.reminderTime ??
-                            task.scheduledTime ??
-                            'Any time today',
-                        trailing: task.completionStatus.label,
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.workoutDetails,
-                          arguments: WorkoutDayArgs(
-                            planId: plan.planId,
-                            dayId: task.dayId,
-                          ),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  _SectionTitle('Upcoming Days'),
-                  const SizedBox(height: 10),
-                  if (upcomingDays.isEmpty)
-                    const _SurfaceCard(
-                      child: Text(
-                        'No upcoming days were generated for this plan.',
-                      ),
-                    )
-                  else
-                    ...upcomingDays.map(
-                      (day) => _TaskTile(
-                        title: day.label,
-                        subtitle:
-                            '${_formatDate(day.scheduledDate)} | ${day.tasks.length} tasks',
-                        trailing:
-                            '${day.tasks.where((task) => task.completionStatus == TaskCompletionStatus.completed).length}/${day.tasks.length}',
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.workoutDetails,
-                          arguments: WorkoutDayArgs(
-                            planId: plan.planId,
-                            dayId: day.id,
-                          ),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  _SurfaceCard(
-                    child: Row(
+                  AppReveal(
+                    delay: revealDelay(4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.alarm_outlined,
-                          color: AppColors.orange,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Daily reminder',
-                                style: GoogleFonts.inter(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
+                        _SectionTitle('Today'),
+                        const SizedBox(height: 10),
+                        if (todayTasks.isEmpty)
+                          const _SurfaceCard(
+                            child: Text(
+                              'No AI tasks are scheduled for today. Your plan starts on the next scheduled day.',
+                            ),
+                          )
+                        else
+                          ...todayTasks.map(
+                            (task) => _TaskTile(
+                              title: task.title,
+                              subtitle:
+                                  task.reminderTime ??
+                                  task.scheduledTime ??
+                                  'Any time today',
+                              trailing: task.completionStatus.label,
+                              onTap: () => Navigator.pushNamed(
+                                context,
+                                AppRoutes.workoutDetails,
+                                arguments: WorkoutDayArgs(
+                                  planId: plan.planId,
+                                  dayId: task.dayId,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                plan.defaultReminderTime ?? 'Not set',
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: actionState.isUpdatingReminder
-                              ? null
-                              : () => _editReminderTime(context, ref, plan),
-                          icon: const Icon(Icons.edit_outlined),
-                          label: Text(
-                            actionState.isUpdatingReminder
-                                ? 'Saving...'
-                                : 'Edit',
-                          ),
-                        ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppReveal(
+                    delay: revealDelay(5),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SectionTitle('Upcoming Days'),
+                        const SizedBox(height: 10),
+                        if (upcomingDays.isEmpty)
+                          const _SurfaceCard(
+                            child: Text(
+                              'No upcoming days were generated for this plan.',
+                            ),
+                          )
+                        else
+                          ...upcomingDays.map(
+                            (day) => _TaskTile(
+                              title: day.label,
+                              subtitle:
+                                  '${_formatDate(day.scheduledDate)} | ${day.tasks.length} tasks',
+                              trailing:
+                                  '${day.tasks.where((task) => task.completionStatus == TaskCompletionStatus.completed).length}/${day.tasks.length}',
+                              onTap: () => Navigator.pushNamed(
+                                context,
+                                AppRoutes.workoutDetails,
+                                arguments: WorkoutDayArgs(
+                                  planId: plan.planId,
+                                  dayId: day.id,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppReveal(
+                    delay: revealDelay(6),
+                    child: _PlanReminderCard(
+                      reminderTime: plan.defaultReminderTime,
+                      isUpdating: actionState.isUpdatingReminder,
+                      onPressed: actionState.isUpdatingReminder
+                          ? null
+                          : () => _editReminderTime(context, ref, plan),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -385,16 +390,58 @@ bool _isSameDay(DateTime left, DateTime right) {
 }
 
 TimeOfDay _parseTime(String? value) {
-  final parts = (value ?? '07:00').split(':');
-  final hour = int.tryParse(parts.first);
-  final minute = parts.length > 1 ? int.tryParse(parts[1]) : null;
-  return TimeOfDay(hour: hour ?? 7, minute: minute ?? 0);
+  return _tryParseTimeOfDay(value) ?? const TimeOfDay(hour: 7, minute: 0);
 }
 
 String _formatTimeOfDay(TimeOfDay value) {
   final hour = value.hour.toString().padLeft(2, '0');
   final minute = value.minute.toString().padLeft(2, '0');
   return '$hour:$minute';
+}
+
+String? _normalizeReminderTime(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return null;
+  }
+  return trimmed;
+}
+
+TimeOfDay? _tryParseTimeOfDay(String? value) {
+  final normalized = _normalizeReminderTime(value);
+  if (normalized == null) {
+    return null;
+  }
+
+  final parts = normalized.split(':');
+  if (parts.length < 2) {
+    return null;
+  }
+
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) {
+    return null;
+  }
+
+  return TimeOfDay(hour: hour, minute: minute);
+}
+
+String _formatReminderDisplayValue(String? value) {
+  final normalized = _normalizeReminderTime(value);
+  if (normalized == null) {
+    return 'Not set';
+  }
+
+  final parsed = _tryParseTimeOfDay(normalized);
+  if (parsed == null) {
+    return normalized;
+  }
+
+  final hour = parsed.hourOfPeriod == 0 ? 12 : parsed.hourOfPeriod;
+  final minute = parsed.minute.toString().padLeft(2, '0');
+  final suffix = parsed.period == DayPeriod.am ? 'AM' : 'PM';
+  return '$hour:$minute $suffix';
 }
 
 String _formatDate(DateTime value) {
@@ -468,10 +515,7 @@ class _MetricCard extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              color: AppColors.textMuted,
-            ),
+            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
           ),
           const SizedBox(height: 8),
           Text(
@@ -511,6 +555,205 @@ class _SurfaceCard extends StatelessWidget {
         ),
         child: child,
       ),
+    );
+  }
+}
+
+class _PlanReminderCard extends StatelessWidget {
+  const _PlanReminderCard({
+    required this.reminderTime,
+    required this.isUpdating,
+    required this.onPressed,
+  });
+
+  final String? reminderTime;
+  final bool isUpdating;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedReminderTime = _normalizeReminderTime(reminderTime);
+    final hasReminder = normalizedReminderTime != null;
+    final actionLabel = isUpdating
+        ? 'Saving...'
+        : hasReminder
+        ? 'Edit'
+        : 'Set reminder';
+    final helperText = hasReminder
+        ? 'This time is used for your upcoming AI tasks.'
+        : 'Choose a default time for your upcoming AI tasks.';
+    final button = OutlinedButton(
+      key: const ValueKey<String>('workout-plan-reminder-button'),
+      onPressed: isUpdating ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.textPrimary,
+        backgroundColor: AppColors.surface.withValues(alpha: 0.62),
+        side: BorderSide(color: AppColors.borderLight.withValues(alpha: 0.9)),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        ),
+      ),
+      child: Text(
+        actionLabel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final effectiveWidth =
+            constraints.maxWidth + (AppSizes.screenPadding * 2);
+        final isCompact = effectiveWidth < 380;
+        final content = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppColors.orange.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                border: Border.all(
+                  color: AppColors.orange.withValues(alpha: 0.28),
+                ),
+              ),
+              child: const Icon(
+                Icons.alarm_rounded,
+                color: AppColors.orange,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.orange.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+                    ),
+                    child: Text(
+                      'DAILY REMINDER',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
+                        color: AppColors.orangeLight,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: hasReminder
+                          ? AppColors.orange.withValues(alpha: 0.12)
+                          : AppColors.surface.withValues(alpha: 0.88),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                      border: Border.all(
+                        color: hasReminder
+                            ? AppColors.orange.withValues(alpha: 0.22)
+                            : AppColors.borderLight.withValues(alpha: 0.75),
+                      ),
+                    ),
+                    child: Text(
+                      _formatReminderDisplayValue(normalizedReminderTime),
+                      key: const ValueKey<String>('workout-plan-reminder-time'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: hasReminder
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    helperText,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.cardDark,
+                AppColors.surfaceRaised.withValues(alpha: 0.96),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(AppSizes.radiusXl),
+            border: Border.all(
+              color: AppColors.borderLight.withValues(alpha: 0.88),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.2),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+              BoxShadow(
+                color: AppColors.orange.withValues(alpha: 0.05),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: isCompact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    content,
+                    const SizedBox(height: 16),
+                    SizedBox(width: double.infinity, child: button),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(child: content),
+                    const SizedBox(width: 18),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minWidth: 116,
+                        maxWidth: 144,
+                      ),
+                      child: button,
+                    ),
+                  ],
+                ),
+        );
+      },
     );
   }
 }

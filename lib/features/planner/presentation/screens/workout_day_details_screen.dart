@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../../core/widgets/app_reveal.dart';
 import '../../domain/entities/planner_entities.dart';
 import '../providers/planner_providers.dart';
 
@@ -68,46 +69,57 @@ class WorkoutDayDetailsScreen extends ConsumerWidget {
               ),
             );
           }
+          Duration revealDelay(int index) =>
+              Duration(milliseconds: 40 + (index * 55));
 
           return ListView(
             padding: const EdgeInsets.all(AppSizes.screenPadding),
             children: [
-              _DayHeroCard(day: day, planTitle: plan.planTitle),
+              AppReveal(
+                delay: revealDelay(0),
+                child: _DayHeroCard(day: day, planTitle: plan.planTitle),
+              ),
               if (actionState.errorMessage != null) ...[
                 const SizedBox(height: 12),
-                Text(
-                  actionState.errorMessage!,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.error,
+                AppReveal(
+                  delay: revealDelay(1),
+                  child: Text(
+                    actionState.errorMessage!,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AppColors.error,
+                    ),
                   ),
                 ),
               ],
               const SizedBox(height: 16),
-              ...day.tasks.map(
-                (task) => _TaskDetailCard(
-                  task: task,
-                  isUpdating: actionState.isUpdatingTask,
-                  onComplete: () => _updateTask(
-                    context,
-                    ref,
-                    task,
-                    TaskCompletionStatus.completed,
-                    completionPercent: 100,
-                  ),
-                  onPartial: () => _updateTask(
-                    context,
-                    ref,
-                    task,
-                    TaskCompletionStatus.partial,
-                    completionPercent: 50,
-                  ),
-                  onSkip: () => _updateTask(
-                    context,
-                    ref,
-                    task,
-                    TaskCompletionStatus.skipped,
-                    completionPercent: 0,
+              ...day.tasks.asMap().entries.map(
+                (entry) => AppReveal(
+                  delay: revealDelay(entry.key + 2),
+                  child: _TaskDetailCard(
+                    task: entry.value,
+                    isUpdating: actionState.isUpdatingTask,
+                    onComplete: () => _updateTask(
+                      context,
+                      ref,
+                      entry.value,
+                      TaskCompletionStatus.completed,
+                      completionPercent: 100,
+                    ),
+                    onPartial: () => _updateTask(
+                      context,
+                      ref,
+                      entry.value,
+                      TaskCompletionStatus.partial,
+                      completionPercent: 50,
+                    ),
+                    onSkip: () => _updateTask(
+                      context,
+                      ref,
+                      entry.value,
+                      TaskCompletionStatus.skipped,
+                      completionPercent: 0,
+                    ),
                   ),
                 ),
               ),
@@ -192,7 +204,7 @@ class _DayHeroCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '${_formatDate(day.scheduledDate)}${(day.focus ?? '').trim().isEmpty ? '' : ' • ${day.focus}'}',
+            '${_formatDate(day.scheduledDate)}${(day.focus ?? '').trim().isEmpty ? '' : ' - ${day.focus}'}',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: AppColors.textSecondary,

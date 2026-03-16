@@ -6,9 +6,12 @@ import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../../core/widgets/app_reveal.dart';
+import '../../../member/presentation/providers/member_providers.dart';
 import '../../../monetization/presentation/providers/monetization_providers.dart';
 import '../../../monetization/presentation/screens/ai_premium_paywall_screen.dart';
 import '../../domain/entities/chat_session_entity.dart';
+import '../ai_personalization.dart';
 import '../providers/chat_controller.dart';
 import '../providers/chat_providers.dart';
 
@@ -73,6 +76,15 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chatState = ref.watch(chatControllerProvider);
     final sessionsAsync = ref.watch(chatSessionsProvider);
+    final memberProfile = ref.watch(memberProfileDetailsProvider).valueOrNull;
+    final memberSummary = ref.watch(memberHomeSummaryProvider).valueOrNull;
+    final personalizedSuggestions = buildPersonalizedAiSuggestions(
+      profile: memberProfile,
+      summary: memberSummary,
+    );
+    final quickActions = _buildQuickActions(personalizedSuggestions);
+    Duration revealDelay(int index) =>
+        Duration(milliseconds: 40 + (index * 55));
 
     Future<void> openSession({
       required ChatSessionType type,
@@ -113,35 +125,41 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSizes.screenPadding,
-                AppSizes.lg,
-                AppSizes.screenPadding,
-                0,
-              ),
-              child: Text(
-                'AI Assistant',
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+            AppReveal(
+              delay: revealDelay(0),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSizes.screenPadding,
+                  AppSizes.lg,
+                  AppSizes.screenPadding,
+                  0,
+                ),
+                child: Text(
+                  'AI Assistant',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSizes.screenPadding,
-                8,
-                AppSizes.screenPadding,
-                0,
-              ),
-              child: Text(
-                'Start a guided member plan or keep a general fitness conversation inside your GymUnity account.',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: AppColors.textSecondary,
+            AppReveal(
+              delay: revealDelay(1),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSizes.screenPadding,
+                  8,
+                  AppSizes.screenPadding,
+                  0,
+                ),
+                child: Text(
+                  'Start a guided member plan or keep a general fitness conversation inside your GymUnity account.',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
             ),
@@ -149,136 +167,134 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.all(AppSizes.screenPadding),
                 children: [
-                  _EntryCard(
-                    icon: Icons.route_outlined,
-                    title: 'Start AI plan',
-                    description:
-                        'Answer focused follow-up questions, review the generated plan, then activate daily tasks and reminders.',
-                    accent: AppColors.orange,
-                    buttonLabel: 'Open planner',
-                    onTap: () => openSession(type: ChatSessionType.planner),
+                  AppReveal(
+                    delay: revealDelay(2),
+                    child: _EntryCard(
+                      icon: Icons.route_outlined,
+                      title: 'Start AI plan',
+                      description:
+                          'Answer focused follow-up questions, review the generated plan, then activate daily tasks and reminders.',
+                      accent: AppColors.orange,
+                      buttonLabel: 'Open planner',
+                      onTap: () => openSession(type: ChatSessionType.planner),
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  _EntryCard(
-                    icon: Icons.chat_bubble_outline,
-                    title: 'General AI conversation',
-                    description:
-                        'Use AI for practical fitness guidance, nutrition tips, and recovery questions without entering the planning flow.',
-                    accent: AppColors.electricBlue,
-                    buttonLabel: 'Open chat',
-                    onTap: () => openSession(type: ChatSessionType.general),
+                  AppReveal(
+                    delay: revealDelay(3),
+                    child: _EntryCard(
+                      icon: Icons.chat_bubble_outline,
+                      title: 'General AI conversation',
+                      description:
+                          'Use AI for practical fitness guidance, nutrition tips, and recovery questions without entering the planning flow.',
+                      accent: AppColors.electricBlue,
+                      buttonLabel: 'Open chat',
+                      onTap: () => openSession(type: ChatSessionType.general),
+                    ),
                   ),
                   const SizedBox(height: 24),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _QuickChip(
-                        icon: Icons.fitness_center_outlined,
-                        label: 'Strength plan',
-                        onTap: () => openSession(
-                          type: ChatSessionType.planner,
-                          seedPrompt:
-                              'I want a structured strength-focused plan. Ask me the key questions you need first.',
-                        ),
-                      ),
-                      _QuickChip(
-                        icon: Icons.directions_run_outlined,
-                        label: 'Fat loss plan',
-                        onTap: () => openSession(
-                          type: ChatSessionType.planner,
-                          seedPrompt:
-                              'I want a realistic fat loss plan. Ask me for the missing details before generating it.',
-                        ),
-                      ),
-                      _QuickChip(
-                        icon: Icons.restaurant_outlined,
-                        label: 'Nutrition tips',
-                        onTap: () => openSession(
-                          type: ChatSessionType.general,
-                          seedPrompt:
-                              'Give me practical nutrition tips that support my current fitness goal.',
-                        ),
-                      ),
-                    ],
+                  AppReveal(
+                    delay: revealDelay(4),
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: quickActions
+                          .map(
+                            (action) => _QuickChip(
+                              icon: action.icon,
+                              label: action.label,
+                              onTap: () => openSession(
+                                type: action.type,
+                                seedPrompt: action.prompt,
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
                   ),
                   const SizedBox(height: 28),
-                  Text(
-                    'Recent sessions',
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                  AppReveal(
+                    delay: revealDelay(5),
+                    child: Text(
+                      'Recent sessions',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
-                  sessionsAsync.when(
-                    loading: () => const Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 28),
-                        child: CircularProgressIndicator(
-                          color: AppColors.orange,
+                  AppReveal(
+                    delay: revealDelay(6),
+                    child: sessionsAsync.when(
+                      loading: () => const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 28),
+                          child: CircularProgressIndicator(
+                            color: AppColors.orange,
+                          ),
                         ),
                       ),
-                    ),
-                    error: (error, stackTrace) => _StateCard(
-                      icon: Icons.cloud_off_outlined,
-                      title: 'Unable to load AI sessions',
-                      description:
-                          'GymUnity could not fetch your stored conversations from Supabase.',
-                      actionLabel: 'Retry',
-                      onTap: () => ref.refresh(chatSessionsProvider),
-                    ),
-                    data: (sessions) {
-                      if (sessions.isEmpty) {
-                        return _StateCard(
-                          icon: Icons.auto_awesome_outlined,
-                          title: 'No AI sessions yet',
-                          description:
-                              'Start a planner session or a general conversation and GymUnity will keep it here.',
-                          actionLabel: 'Start planner',
-                          onTap: () =>
-                              openSession(type: ChatSessionType.planner),
-                        );
-                      }
+                      error: (error, stackTrace) => _StateCard(
+                        icon: Icons.cloud_off_outlined,
+                        title: 'Unable to load AI sessions',
+                        description:
+                            'GymUnity could not fetch your stored conversations from Supabase.',
+                        actionLabel: 'Retry',
+                        onTap: () => ref.refresh(chatSessionsProvider),
+                      ),
+                      data: (sessions) {
+                        if (sessions.isEmpty) {
+                          return _StateCard(
+                            icon: Icons.auto_awesome_outlined,
+                            title: 'No AI sessions yet',
+                            description:
+                                'Start a planner session or a general conversation and GymUnity will keep it here.',
+                            actionLabel: 'Start planner',
+                            onTap: () =>
+                                openSession(type: ChatSessionType.planner),
+                          );
+                        }
 
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2A1F14),
-                          borderRadius: BorderRadius.circular(
-                            AppSizes.radiusLg,
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2A1F14),
+                            borderRadius: BorderRadius.circular(
+                              AppSizes.radiusLg,
+                            ),
+                            border: Border.all(
+                              color: AppColors.border.withValues(alpha: 0.5),
+                            ),
                           ),
-                          border: Border.all(
-                            color: AppColors.border.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Column(
-                          children: List.generate(sessions.length, (index) {
-                            final session = sessions[index];
-                            return Column(
-                              children: [
-                                _SessionTile(
-                                  session: session,
-                                  onTap: () => openSession(
-                                    type: session.type,
-                                    sessionId: session.id,
-                                  ),
-                                ),
-                                if (index < sessions.length - 1)
-                                  Divider(
-                                    color: AppColors.border.withValues(
-                                      alpha: 0.3,
+                          child: Column(
+                            children: List.generate(sessions.length, (index) {
+                              final session = sessions[index];
+                              return Column(
+                                children: [
+                                  _SessionTile(
+                                    session: session,
+                                    onTap: () => openSession(
+                                      type: session.type,
+                                      sessionId: session.id,
                                     ),
-                                    height: 1,
-                                    indent: 16,
-                                    endIndent: 16,
                                   ),
-                              ],
-                            );
-                          }),
-                        ),
-                      );
-                    },
+                                  if (index < sessions.length - 1)
+                                    Divider(
+                                      color: AppColors.border.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                      height: 1,
+                                      indent: 16,
+                                      endIndent: 16,
+                                    ),
+                                ],
+                              );
+                            }),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -297,6 +313,69 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
       ),
     );
   }
+}
+
+List<_QuickAction> _buildQuickActions(
+  List<AiEntrySuggestion> personalizedSuggestions,
+) {
+  final actions = <_QuickAction>[
+    ...personalizedSuggestions.map(_quickActionFromSuggestion),
+    const _QuickAction(
+      icon: Icons.fitness_center_outlined,
+      label: 'Strength plan',
+      type: ChatSessionType.planner,
+      prompt:
+          'I want a structured strength-focused plan. Ask me the key questions you need first.',
+    ),
+    const _QuickAction(
+      icon: Icons.directions_run_outlined,
+      label: 'Fat loss plan',
+      type: ChatSessionType.planner,
+      prompt:
+          'I want a realistic fat loss plan. Ask me for the missing details before generating it.',
+    ),
+    const _QuickAction(
+      icon: Icons.restaurant_outlined,
+      label: 'Nutrition tips',
+      type: ChatSessionType.general,
+      prompt:
+          'Give me practical nutrition tips that support my current fitness goal.',
+    ),
+  ];
+
+  final seenLabels = <String>{};
+  return actions
+      .where((action) {
+        final key = action.label.trim().toLowerCase();
+        return seenLabels.add(key);
+      })
+      .toList(growable: false);
+}
+
+_QuickAction _quickActionFromSuggestion(AiEntrySuggestion suggestion) {
+  final normalizedLabel = suggestion.label.trim().toLowerCase();
+  final isPlanner =
+      normalizedLabel.contains('plan') || normalizedLabel.contains('refine');
+  return _QuickAction(
+    icon: Icons.auto_awesome_outlined,
+    label: suggestion.label,
+    prompt: suggestion.prompt,
+    type: isPlanner ? ChatSessionType.planner : ChatSessionType.general,
+  );
+}
+
+class _QuickAction {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.prompt,
+    required this.type,
+  });
+
+  final IconData icon;
+  final String label;
+  final String prompt;
+  final ChatSessionType type;
 }
 
 class _EntryCard extends StatelessWidget {
@@ -424,7 +503,7 @@ class _SessionTile extends StatelessWidget {
         ? AppColors.orange
         : AppColors.electricBlue;
     final subtitle = session.isPlanner
-        ? 'Planner • ${session.plannerStatus.replaceAll('_', ' ')}'
+        ? 'Planner - ${session.plannerStatus.replaceAll('_', ' ')}'
         : 'Conversation';
 
     return ListTile(

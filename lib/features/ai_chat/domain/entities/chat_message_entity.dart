@@ -23,11 +23,34 @@ class ChatMessageEntity {
 
   String? get replyToMessageId => metadata['reply_to_message_id'] as String?;
 
+  String? get conversationMode => metadata['conversation_mode'] as String?;
+
   List<String> get missingFields {
     final value = metadata['missing_fields'];
     if (value is List) {
       return value
           .map((dynamic item) => item.toString())
+          .toList(growable: false);
+    }
+    return const <String>[];
+  }
+
+  List<String> get personalizationUsed {
+    final value = metadata['personalization_used'];
+    if (value is List) {
+      return value
+          .map((dynamic item) => item.toString())
+          .toList(growable: false);
+    }
+    return const <String>[];
+  }
+
+  List<String> get suggestedReplies {
+    final value = metadata['suggested_replies'];
+    if (value is List) {
+      return value
+          .map((dynamic item) => item.toString())
+          .where((String item) => item.trim().isNotEmpty)
           .toList(growable: false);
     }
     return const <String>[];

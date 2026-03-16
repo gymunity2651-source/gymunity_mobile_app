@@ -10,6 +10,27 @@ import '../../../../core/di/providers.dart';
 import '../../domain/entities/planner_entities.dart';
 import 'planner_notification_ids.dart';
 
+List<PlanTaskEntity> selectSchedulablePlannerTasks(
+  Iterable<PlanTaskEntity> agenda,
+) {
+  return agenda
+      .where(
+        (task) =>
+            task.planSource == 'ai' &&
+            task.planStatus == 'active' &&
+            (task.reminderTime?.trim().isNotEmpty ?? false) &&
+            task.completionStatus == TaskCompletionStatus.pending,
+      )
+      .toList(growable: false)
+    ..sort((a, b) {
+      final dateCompare = a.scheduledDate.compareTo(b.scheduledDate);
+      if (dateCompare != 0) {
+        return dateCompare;
+      }
+      return (a.reminderTime ?? '').compareTo(b.reminderTime ?? '');
+    });
+}
+
 class PlannerReminderBootstrapService {
   PlannerReminderBootstrapService(this._ref, this._plugin);
 
@@ -70,22 +91,7 @@ class PlannerReminderBootstrapService {
           dateFrom: now,
           dateTo: now.add(const Duration(days: 60)),
         );
-    final schedulableTasks =
-        agenda
-            .where(
-              (task) =>
-                  task.planSource == 'ai' &&
-                  task.reminderTime != null &&
-                  task.completionStatus == TaskCompletionStatus.pending,
-            )
-            .toList(growable: false)
-          ..sort((a, b) {
-            final dateCompare = a.scheduledDate.compareTo(b.scheduledDate);
-            if (dateCompare != 0) {
-              return dateCompare;
-            }
-            return (a.reminderTime ?? '').compareTo(b.reminderTime ?? '');
-          });
+    final schedulableTasks = selectSchedulablePlannerTasks(agenda);
 
     final desiredIds = <int>{};
     final androidScheduleMode = await _resolveAndroidScheduleMode();
@@ -202,7 +208,8 @@ class PlannerReminderBootstrapService {
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >();
-    final exactPermission = await androidPlugin?.canScheduleExactNotifications();
+    final exactPermission = await androidPlugin
+        ?.canScheduleExactNotifications();
     if (exactPermission ?? false) {
       return AndroidScheduleMode.exactAllowWhileIdle;
     }
@@ -222,6 +229,7 @@ class PlannerReminderBootstrapService {
     if (requestPermissions) {
       final androidAllowed =
           await androidPlugin?.requestNotificationsPermission() ?? true;
+      await _ensureExactAlarmPermission(androidPlugin);
       final iosAllowed =
           await darwinPlugin?.requestPermissions(
             alert: true,
@@ -231,7 +239,28 @@ class PlannerReminderBootstrapService {
           true;
       return androidAllowed && iosAllowed;
     }
-    return true;
+
+    final androidAllowed =
+        await androidPlugin?.areNotificationsEnabled() ?? true;
+    final iosPermissions = await darwinPlugin?.checkPermissions();
+    final iosAllowed = iosPermissions == null
+        ? true
+        : iosPermissions.isEnabled || iosPermissions.isProvisionalEnabled;
+    return androidAllowed && iosAllowed;
+  }
+
+  Future<void> _ensureExactAlarmPermission(
+    AndroidFlutterLocalNotificationsPlugin? androidPlugin,
+  ) async {
+    if (androidPlugin == null) {
+      return;
+    }
+    final canScheduleExact =
+        await androidPlugin.canScheduleExactNotifications() ?? false;
+    if (canScheduleExact) {
+      return;
+    }
+    await androidPlugin.requestExactAlarmsPermission();
   }
 
   Future<void> _cancelAllPlannerNotifications() async {

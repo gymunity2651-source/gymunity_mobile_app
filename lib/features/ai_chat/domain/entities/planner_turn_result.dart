@@ -9,6 +9,9 @@ class PlannerTurnResult {
     this.missingFields = const <String>[],
     this.extractedProfile = const PlannerProfileSnapshotEntity(),
     this.plan,
+    this.conversationMode,
+    this.personalizationUsed = const <String>[],
+    this.suggestedReplies = const <String>[],
   });
 
   final String assistantMessage;
@@ -18,6 +21,9 @@ class PlannerTurnResult {
   final List<String> missingFields;
   final PlannerProfileSnapshotEntity extractedProfile;
   final GeneratedPlanEntity? plan;
+  final String? conversationMode;
+  final List<String> personalizationUsed;
+  final List<String> suggestedReplies;
 
   bool get isPlanReady => status == 'plan_ready' || status == 'plan_updated';
 
@@ -52,6 +58,17 @@ class PlannerTurnResult {
               ),
             )
           : null,
+      conversationMode: map['conversation_mode'] as String?,
+      personalizationUsed: map['personalization_used'] is List
+          ? (map['personalization_used'] as List)
+                .map((dynamic item) => item.toString())
+                .toList(growable: false)
+          : const <String>[],
+      suggestedReplies: map['suggested_replies'] is List
+          ? (map['suggested_replies'] as List)
+                .map((dynamic item) => item.toString())
+                .toList(growable: false)
+          : const <String>[],
     );
   }
 }
