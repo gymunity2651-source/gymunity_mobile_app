@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../domain/entities/monetization_entities.dart';
@@ -49,9 +50,7 @@ class SubscriptionManagementController
       final token = await _ref
           .read(entitlementRepositoryProvider)
           .ensureBillingCustomerToken();
-      final currentSubscription = _ref.read(
-        currentSubscriptionSummaryProvider,
-      );
+      final currentSubscription = _ref.read(currentSubscriptionSummaryProvider);
 
       await _ref
           .read(billingRepositoryProvider)
@@ -65,7 +64,7 @@ class SubscriptionManagementController
       state = state.copyWith(
         actionState: PurchaseActionState.pending,
         message:
-            'Complete the purchase in the store dialog. GymUnity will unlock AI Premium after verification succeeds.',
+            'Complete the purchase in the store dialog. GymUnity will unlock ${AiBranding.premiumName} after verification succeeds.',
       );
     } on AppFailure catch (error) {
       state = state.copyWith(

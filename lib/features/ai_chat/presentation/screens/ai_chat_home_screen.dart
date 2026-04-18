@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
@@ -12,6 +13,7 @@ import '../../../member/presentation/widgets/member_profile_shortcut_button.dart
 import '../../../member/presentation/providers/member_providers.dart';
 import '../../../monetization/presentation/providers/monetization_providers.dart';
 import '../../../monetization/presentation/screens/ai_premium_paywall_screen.dart';
+import '../../../planner/presentation/route_args.dart';
 import '../../domain/entities/chat_session_entity.dart';
 import '../ai_personalization.dart';
 import '../providers/chat_controller.dart';
@@ -43,7 +45,7 @@ class AiChatHomeScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'GymUnity could not verify AI Premium access right now.',
+                    'GymUnity could not verify ${AiBranding.premiumName} access right now.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
                       fontSize: 14,
@@ -99,6 +101,18 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
       String? sessionId,
       String? seedPrompt,
     }) async {
+      if (type == ChatSessionType.planner) {
+        Navigator.pushNamed(
+          context,
+          AppRoutes.aiPlannerBuilder,
+          arguments: PlannerBuilderArgs(
+            seedPrompt: seedPrompt,
+            existingSessionId: sessionId,
+          ),
+        );
+        return;
+      }
+
       try {
         final resolvedSessionId =
             sessionId ??
@@ -120,11 +134,35 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
         if (!context.mounted) {
           return;
         }
-        showAppFeedback(
-          context,
-          'GymUnity could not open this AI session right now.',
-        );
+        showAppFeedback(context, 'GymUnity could not open TAIYO right now.');
       }
+    }
+
+    void openPlannerSession(ChatSessionEntity session) {
+      final draftId = session.latestDraftId;
+      final status = session.plannerStatus.trim().toLowerCase();
+      final canReview =
+          draftId != null &&
+          draftId.isNotEmpty &&
+          (status == 'plan_ready' ||
+              status == 'plan_updated' ||
+              status == 'activated');
+      if (canReview) {
+        Navigator.pushNamed(
+          context,
+          AppRoutes.aiGeneratedPlan,
+          arguments: AiGeneratedPlanArgs(
+            sessionId: session.id,
+            draftId: draftId,
+          ),
+        );
+        return;
+      }
+      Navigator.pushNamed(
+        context,
+        AppRoutes.aiPlannerBuilder,
+        arguments: PlannerBuilderArgs(existingSessionId: session.id),
+      );
     }
 
     return Scaffold(
@@ -149,7 +187,7 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'AI Assistant',
+                          AiBranding.assistantName,
                           style: GoogleFonts.spaceGrotesk(
                             fontSize: 28,
                             fontWeight: FontWeight.w700,
@@ -173,7 +211,7 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                     0,
                   ),
                   child: Text(
-                    'Start a guided member plan or keep a general fitness conversation inside your GymUnity account.',
+                    '${AiBranding.assistantName} is your AI assistant for guided plans, practical fitness advice, and quick follow-up prompts inside GymUnity.',
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       height: 1.5,
@@ -198,11 +236,11 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                       delay: revealDelay(3),
                       child: _EntryCard(
                         icon: Icons.route_outlined,
-                        title: 'Start AI plan',
+                        title: 'Build a plan with TAIYO',
                         description:
-                            'Answer focused follow-up questions, review the generated plan, then activate daily tasks and reminders.',
+                            'Use a guided AI Builder that scans your data, asks focused steps, then opens a plan review before activation.',
                         accent: AppColors.orange,
-                        buttonLabel: 'Open planner',
+                        buttonLabel: 'Open builder',
                         onTap: () => openSession(type: ChatSessionType.planner),
                       ),
                     ),
@@ -211,11 +249,11 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                       delay: revealDelay(4),
                       child: _EntryCard(
                         icon: Icons.chat_bubble_outline,
-                        title: 'General AI conversation',
+                        title: 'Talk to TAIYO',
                         description:
-                            'Use AI for practical fitness guidance, nutrition tips, and recovery questions without entering the planning flow.',
+                            'Use TAIYO for practical fitness guidance, nutrition tips, and recovery questions without entering the planning flow.',
                         accent: AppColors.electricBlue,
-                        buttonLabel: 'Open chat',
+                        buttonLabel: 'Open TAIYO',
                         onTap: () => openSession(type: ChatSessionType.general),
                       ),
                     ),
@@ -243,7 +281,7 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                     AppReveal(
                       delay: revealDelay(6),
                       child: Text(
-                        'Recent sessions',
+                        'Recent TAIYO sessions',
                         style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -265,9 +303,9 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                         ),
                         error: (error, stackTrace) => _StateCard(
                           icon: Icons.cloud_off_outlined,
-                          title: 'Unable to load AI sessions',
+                          title: 'Unable to load TAIYO sessions',
                           description:
-                              'GymUnity could not fetch your stored conversations from Supabase.',
+                              'GymUnity could not fetch your saved TAIYO conversations from Supabase.',
                           actionLabel: 'Retry',
                           onTap: () => ref.refresh(chatSessionsProvider),
                         ),
@@ -275,10 +313,10 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                           if (sessions.isEmpty) {
                             return _StateCard(
                               icon: Icons.auto_awesome_outlined,
-                              title: 'No AI sessions yet',
+                              title: 'No TAIYO sessions yet',
                               description:
-                                  'Start a planner session or a general conversation and GymUnity will keep it here.',
-                              actionLabel: 'Start planner',
+                                  'Start AI Builder or a general TAIYO conversation and GymUnity will keep it here.',
+                              actionLabel: 'Start builder',
                               onTap: () =>
                                   openSession(type: ChatSessionType.planner),
                             );
@@ -312,10 +350,12 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
                                   children: [
                                     _SessionTile(
                                       session: session,
-                                      onTap: () => openSession(
-                                        type: session.type,
-                                        sessionId: session.id,
-                                      ),
+                                      onTap: () => session.isPlanner
+                                          ? openPlannerSession(session)
+                                          : openSession(
+                                              type: session.type,
+                                              sessionId: session.id,
+                                            ),
                                     ),
                                     if (index < sessions.length - 1)
                                       Divider(
@@ -348,7 +388,7 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
         backgroundColor: AppColors.orange,
         foregroundColor: AppColors.white,
         icon: const Icon(Icons.auto_awesome),
-        label: const Text('Plan'),
+        label: const Text('AI Builder'),
       ),
     );
   }
@@ -453,7 +493,7 @@ class _AiHero extends StatelessWidget {
           ),
           const SizedBox(height: AppSizes.lg),
           Text(
-            'Built to feel focused, fast, and useful.',
+            'Built so TAIYO feels focused, fast, and useful.',
             style: GoogleFonts.spaceGrotesk(
               fontSize: 24,
               fontWeight: FontWeight.w700,
@@ -463,7 +503,7 @@ class _AiHero extends StatelessWidget {
           ),
           const SizedBox(height: AppSizes.sm),
           Text(
-            'Start with a structured plan, jump into a quick prompt, or reopen a saved conversation without hunting through clutter.',
+            'Start with a structured plan, jump into a quick prompt, or reopen a saved TAIYO conversation without hunting through clutter.',
             style: GoogleFonts.inter(
               fontSize: 13,
               height: 1.55,
@@ -712,8 +752,8 @@ class _SessionTile extends StatelessWidget {
         ? AppColors.orange
         : AppColors.electricBlue;
     final subtitle = session.isPlanner
-        ? 'Planner - ${session.plannerStatus.replaceAll('_', ' ')}'
-        : 'Conversation';
+        ? 'Builder - ${session.plannerStatus.replaceAll('_', ' ')}'
+        : 'TAIYO conversation';
 
     return ListTile(
       onTap: onTap,

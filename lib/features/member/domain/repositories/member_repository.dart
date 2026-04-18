@@ -1,6 +1,7 @@
 import '../../../coach/domain/entities/subscription_entity.dart';
 import '../../../coach/domain/entities/workout_plan_entity.dart';
 import '../../../store/domain/entities/order_entity.dart';
+import '../entities/coaching_engagement_entity.dart';
 import '../entities/member_home_summary_entity.dart';
 import '../entities/member_profile_entity.dart';
 import '../entities/member_progress_entity.dart';
@@ -16,6 +17,12 @@ abstract class MemberRepository {
     required double currentWeightKg,
     required String trainingFrequency,
     required String experienceLevel,
+    int? budgetEgp,
+    String? city,
+    String? coachingPreference,
+    String? trainingPlace,
+    String? preferredLanguage,
+    String? preferredCoachGender,
   });
 
   Future<UserPreferencesEntity> getPreferences();
@@ -66,6 +73,43 @@ abstract class MemberRepository {
   Future<void> deleteWorkoutSession(String sessionId);
 
   Future<List<SubscriptionEntity>> listSubscriptions();
+
+  Future<SubscriptionEntity> confirmCoachPayment({
+    required String subscriptionId,
+    String? paymentReference,
+  });
+
+  Future<SubscriptionEntity> pauseSubscription({
+    required String subscriptionId,
+    bool pauseNow = true,
+  });
+
+  Future<List<CoachingThreadEntity>> listCoachingThreads();
+
+  Future<List<CoachingMessageEntity>> listCoachingMessages(String threadId);
+
+  Future<void> sendCoachingMessage({
+    required String threadId,
+    required String content,
+  });
+
+  Future<List<WeeklyCheckinEntity>> listWeeklyCheckins({
+    String? subscriptionId,
+  });
+
+  Future<WeeklyCheckinEntity> submitWeeklyCheckin({
+    required String subscriptionId,
+    required DateTime weekStart,
+    double? weightKg,
+    double? waistCm,
+    int adherenceScore = 0,
+    int? energyScore,
+    int? sleepScore,
+    String? wins,
+    String? blockers,
+    String? questions,
+    List<Map<String, dynamic>> photos = const <Map<String, dynamic>>[],
+  });
 
   Future<List<OrderEntity>> listOrders();
 

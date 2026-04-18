@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/utils/historical_record_utils.dart';
 import '../../domain/entities/member_home_summary_entity.dart';
+import '../../domain/entities/coaching_engagement_entity.dart';
 import '../../domain/entities/member_profile_entity.dart';
 import '../../domain/entities/member_progress_entity.dart';
 import '../../domain/repositories/member_repository.dart';
@@ -54,19 +55,35 @@ class MemberRepositoryImpl implements MemberRepository {
     required double currentWeightKg,
     required String trainingFrequency,
     required String experienceLevel,
+    int? budgetEgp,
+    String? city,
+    String? coachingPreference,
+    String? trainingPlace,
+    String? preferredLanguage,
+    String? preferredCoachGender,
   }) async {
     final userId = _userId;
     try {
-      await _client.from('member_profiles').upsert(<String, dynamic>{
-        'user_id': userId,
-        'goal': goal,
-        'age': age,
-        'gender': gender,
-        'height_cm': heightCm,
-        'current_weight_kg': currentWeightKg,
-        'training_frequency': trainingFrequency,
-        'experience_level': experienceLevel,
-      });
+      await _client
+          .from('member_profiles')
+          .upsert(
+            <String, dynamic>{
+              'user_id': userId,
+              'goal': goal,
+              'age': age,
+              'gender': gender,
+              'height_cm': heightCm,
+              'current_weight_kg': currentWeightKg,
+              'training_frequency': trainingFrequency,
+              'experience_level': experienceLevel,
+              'budget_egp': budgetEgp,
+              'city': city,
+              'coaching_preference': coachingPreference,
+              'training_place': trainingPlace,
+              'preferred_language': preferredLanguage,
+              'preferred_coach_gender': preferredCoachGender,
+            }..removeWhere((String key, dynamic value) => value == null),
+          );
 
       await _client
           .from('profiles')
@@ -413,10 +430,259 @@ class MemberRepositoryImpl implements MemberRepository {
   @override
   Future<List<SubscriptionEntity>> listSubscriptions() async {
     try {
-      final rows = await _client.rpc('list_member_subscriptions_detailed');
+      final rows = await _listSubscriptionRows();
       return (rows as List<dynamic>)
           .map((dynamic row) => _mapSubscription(row as Map<String, dynamic>))
           .toList(growable: false);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<List<dynamic>> _listSubscriptionRows() async {
+    try {
+      return await _client.rpc('list_member_subscriptions_live')
+          as List<dynamic>;
+    } on PostgrestException catch (error) {
+      if (!_shouldFallbackToDetailedSubscriptions(error)) {
+        rethrow;
+      }
+      return await _client.rpc('list_member_subscriptions_detailed')
+          as List<dynamic>;
+    }
+  }
+
+  bool _shouldFallbackToDetailedSubscriptions(PostgrestException error) {
+    final message = error.message.toLowerCase();
+    return error.code == 'PGRST202' &&
+        message.contains('list_member_subscriptions_live');
+  }
+
+  @override
+  Future<SubscriptionEntity> confirmCoachPayment({
+    required String subscriptionId,
+    String? paymentReference,
+  }) async {
+    try {
+      final rows = await _client.rpc(
+        'confirm_coach_payment',
+        params: <String, dynamic>{
+          'target_subscription_id': subscriptionId,
+          'input_payment_reference': paymentReference,
+        }..removeWhere((String key, dynamic value) => value == null),
+      );
+      return _mapSubscription(
+        (rows as List<dynamic>).first as Map<String, dynamic>,
+      );
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<SubscriptionEntity> pauseSubscription({
+    required String subscriptionId,
+    bool pauseNow = true,
+  }) async {
+    try {
+      await _client.rpc(
+        'pause_coach_subscription',
+        params: <String, dynamic>{
+          'target_subscription_id': subscriptionId,
+          'pause_now': pauseNow,
+        },
+      );
+      final subscriptions = await listSubscriptions();
+      return subscriptions.firstWhere(
+        (subscription) => subscription.id == subscriptionId,
+      );
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<List<CoachingThreadEntity>> listCoachingThreads() async {
+    try {
+      final rows = await _client
+          .from('coach_member_threads')
+          .select()
+          .eq('member_id', _userId)
+          .order('updated_at', ascending: false);
+      final subscriptions = await listSubscriptions();
+      final subscriptionsById = <String, SubscriptionEntity>{
+        for (final subscription in subscriptions) subscription.id: subscription,
+      };
+
+      return (rows as List<dynamic>)
+          .map((dynamic row) {
+            final threadRow = row as Map<String, dynamic>;
+            final subscription =
+                subscriptionsById[threadRow['subscription_id']];
+            return _mapThread(<String, dynamic>{
+              ...threadRow,
+              'coach_name': subscription?.coachName,
+              'package_title': subscription?.displayTitle,
+            });
+          })
+          .toList(growable: false);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<List<CoachingMessageEntity>> listCoachingMessages(
+    String threadId,
+  ) async {
+    try {
+      final rows = await _client
+          .from('coach_messages')
+          .select()
+          .eq('thread_id', threadId)
+          .order('created_at', ascending: true);
+      return (rows as List<dynamic>)
+          .map((dynamic row) => _mapMessage(row as Map<String, dynamic>))
+          .toList(growable: false);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<void> sendCoachingMessage({
+    required String threadId,
+    required String content,
+  }) async {
+    try {
+      await _client.from('coach_messages').insert(<String, dynamic>{
+        'thread_id': threadId,
+        'sender_user_id': _userId,
+        'sender_role': 'member',
+        'message_type': 'text',
+        'content': content.trim(),
+      });
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<List<WeeklyCheckinEntity>> listWeeklyCheckins({
+    String? subscriptionId,
+  }) async {
+    try {
+      dynamic query = _client
+          .from('weekly_checkins')
+          .select('''
+            id,
+            subscription_id,
+            thread_id,
+            member_id,
+            coach_id,
+            week_start,
+            weight_kg,
+            waist_cm,
+            adherence_score,
+            energy_score,
+            sleep_score,
+            wins,
+            blockers,
+            questions,
+            coach_reply,
+            created_at,
+            updated_at,
+            progress_photos(id, storage_path, angle, created_at)
+          ''')
+          .eq('member_id', _userId)
+          .order('week_start', ascending: false);
+      if (subscriptionId != null && subscriptionId.isNotEmpty) {
+        query = query.eq('subscription_id', subscriptionId);
+      }
+
+      final rows = await query;
+      return (rows as List<dynamic>)
+          .map((dynamic row) => _mapWeeklyCheckin(row as Map<String, dynamic>))
+          .toList(growable: false);
+    } on PostgrestException catch (e, st) {
+      throw NetworkFailure(
+        message: e.message,
+        code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<WeeklyCheckinEntity> submitWeeklyCheckin({
+    required String subscriptionId,
+    required DateTime weekStart,
+    double? weightKg,
+    double? waistCm,
+    int adherenceScore = 0,
+    int? energyScore,
+    int? sleepScore,
+    String? wins,
+    String? blockers,
+    String? questions,
+    List<Map<String, dynamic>> photos = const <Map<String, dynamic>>[],
+  }) async {
+    try {
+      final rows = await _client.rpc(
+        'submit_weekly_checkin',
+        params: <String, dynamic>{
+          'target_subscription_id': subscriptionId,
+          'input_week_start': DateTime.utc(
+            weekStart.year,
+            weekStart.month,
+            weekStart.day,
+          ).toIso8601String().split('T').first,
+          'input_weight_kg': weightKg,
+          'input_waist_cm': waistCm,
+          'input_adherence_score': adherenceScore,
+          'input_energy_score': energyScore,
+          'input_sleep_score': sleepScore,
+          'input_wins': wins,
+          'input_blockers': blockers,
+          'input_questions': questions,
+          'input_photo_paths': photos,
+        }..removeWhere((String key, dynamic value) => value == null),
+      );
+      final entity = _mapWeeklyCheckin(
+        (rows as List<dynamic>).first as Map<String, dynamic>,
+      );
+      return entity;
     } on PostgrestException catch (e, st) {
       throw NetworkFailure(
         message: e.message,
@@ -473,6 +739,12 @@ class MemberRepositoryImpl implements MemberRepository {
       currentWeightKg: (row['current_weight_kg'] as num?)?.toDouble(),
       trainingFrequency: row['training_frequency'] as String?,
       experienceLevel: row['experience_level'] as String?,
+      budgetEgp: (row['budget_egp'] as num?)?.toInt(),
+      city: row['city'] as String?,
+      coachingPreference: row['coaching_preference'] as String?,
+      trainingPlace: row['training_place'] as String?,
+      preferredLanguage: row['preferred_language'] as String?,
+      preferredCoachGender: row['preferred_coach_gender'] as String?,
     );
   }
 
@@ -548,17 +820,95 @@ class MemberRepositoryImpl implements MemberRepository {
       memberId: memberId.isEmpty ? _userId : memberId,
       coachId: normalizeHistoricalId(row['coach_id']),
       coachName: normalizeHistoricalLabel(row['coach_name'], 'Deleted coach'),
+      coachCity: row['coach_city'] as String?,
       packageId: row['package_id'] as String?,
       packageTitle: row['package_title'] as String?,
       planName: row['plan_name'] as String? ?? '',
       billingCycle: row['billing_cycle'] as String? ?? 'monthly',
       amount: (row['amount'] as num?)?.toDouble() ?? 0,
-      status: row['status'] as String? ?? 'pending_payment',
+      status: row['status'] as String? ?? 'checkout_pending',
       paymentMethod: row['payment_method'] as String? ?? 'manual',
+      checkoutStatus: row['checkout_status'] as String? ?? 'not_started',
       startsAt: _parseDate(row['starts_at']),
       endsAt: _parseDate(row['ends_at']),
       activatedAt: _parseDate(row['activated_at']),
       cancelledAt: _parseDate(row['cancelled_at']),
+      createdAt: _parseDate(row['created_at']),
+      nextRenewalAt: _parseDate(row['next_renewal_at']),
+      pausedAt: _parseDate(row['paused_at']),
+      cancelAtPeriodEnd: row['cancel_at_period_end'] as bool? ?? false,
+      trialDays: (row['trial_days'] as num?)?.toInt(),
+      renewalPriceEgp: (row['renewal_price_egp'] as num?)?.toDouble(),
+      responseSlaHours: (row['response_sla_hours'] as num?)?.toInt(),
+      verificationStatus: row['verification_status'] as String?,
+      weeklyCheckinType: row['weekly_checkin_type'] as String?,
+      deliveryMode: row['delivery_mode'] as String?,
+      locationMode: row['location_mode'] as String?,
+      threadId: row['thread_id'] as String?,
+    );
+  }
+
+  CoachingThreadEntity _mapThread(Map<String, dynamic> row) {
+    return CoachingThreadEntity(
+      id: row['id'] as String,
+      subscriptionId: row['subscription_id'] as String,
+      memberId: row['member_id'] as String,
+      coachId: row['coach_id'] as String,
+      coachName: row['coach_name'] as String?,
+      packageTitle: row['package_title'] as String?,
+      lastMessagePreview: row['last_message_preview'] as String? ?? '',
+      lastMessageAt: _parseDate(row['last_message_at']),
+      createdAt: _parseDate(row['created_at']),
+      updatedAt: _parseDate(row['updated_at']),
+    );
+  }
+
+  CoachingMessageEntity _mapMessage(Map<String, dynamic> row) {
+    return CoachingMessageEntity(
+      id: row['id'] as String,
+      threadId: row['thread_id'] as String,
+      senderUserId: row['sender_user_id'] as String,
+      senderRole: row['sender_role'] as String? ?? 'member',
+      messageType: row['message_type'] as String? ?? 'text',
+      content: row['content'] as String? ?? '',
+      createdAt: _parseDate(row['created_at']) ?? DateTime.now(),
+    );
+  }
+
+  WeeklyCheckinEntity _mapWeeklyCheckin(Map<String, dynamic> row) {
+    return WeeklyCheckinEntity(
+      id: row['id'] as String,
+      subscriptionId: row['subscription_id'] as String,
+      threadId: row['thread_id'] as String?,
+      memberId: row['member_id'] as String,
+      coachId: row['coach_id'] as String,
+      weekStart:
+          _parseDate(row['week_start']) ??
+          DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1)),
+      weightKg: (row['weight_kg'] as num?)?.toDouble(),
+      waistCm: (row['waist_cm'] as num?)?.toDouble(),
+      adherenceScore: (row['adherence_score'] as num?)?.toInt() ?? 0,
+      energyScore: (row['energy_score'] as num?)?.toInt(),
+      sleepScore: (row['sleep_score'] as num?)?.toInt(),
+      wins: row['wins'] as String?,
+      blockers: row['blockers'] as String?,
+      questions: row['questions'] as String?,
+      coachReply: row['coach_reply'] as String?,
+      photos: _asList(row['progress_photos'])
+          .map(
+            (dynamic photo) => _mapProgressPhoto(photo as Map<String, dynamic>),
+          )
+          .toList(growable: false),
+      createdAt: _parseDate(row['created_at']),
+      updatedAt: _parseDate(row['updated_at']),
+    );
+  }
+
+  ProgressPhotoEntity _mapProgressPhoto(Map<String, dynamic> row) {
+    return ProgressPhotoEntity(
+      id: row['id'] as String? ?? '',
+      storagePath: row['storage_path'] as String? ?? '',
+      angle: row['angle'] as String? ?? 'front',
       createdAt: _parseDate(row['created_at']),
     );
   }
@@ -603,5 +953,15 @@ class MemberRepositoryImpl implements MemberRepository {
       );
     }
     return const <String, dynamic>{};
+  }
+
+  List<dynamic> _asList(dynamic value) {
+    if (value is List<dynamic>) {
+      return value;
+    }
+    if (value is List) {
+      return List<dynamic>.from(value);
+    }
+    return const <dynamic>[];
   }
 }

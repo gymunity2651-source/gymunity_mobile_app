@@ -15,6 +15,7 @@ import 'package:my_app/features/coach/domain/entities/subscription_entity.dart';
 import 'package:my_app/features/coach/domain/entities/workout_plan_entity.dart';
 import 'package:my_app/features/coach/domain/repositories/coach_repository.dart';
 import 'package:my_app/features/member/domain/entities/member_home_summary_entity.dart';
+import 'package:my_app/features/member/domain/entities/coaching_engagement_entity.dart';
 import 'package:my_app/features/member/domain/entities/member_profile_entity.dart';
 import 'package:my_app/features/member/domain/entities/member_progress_entity.dart';
 import 'package:my_app/features/member/domain/repositories/member_repository.dart';
@@ -233,10 +234,17 @@ class FakeCoachRepository implements CoachRepository {
   List<WorkoutPlanEntity> plans = const <WorkoutPlanEntity>[];
   List<SubscriptionEntity> subscriptions = const <SubscriptionEntity>[];
   List<CoachReviewEntity> reviews = const <CoachReviewEntity>[];
+  SubscriptionEntity? lastRequestedSubscription;
+  SubscriptionEntity? lastActivatedSubscription;
+  Map<String, dynamic>? lastSavedPackagePayload;
 
   @override
   Future<Paged<CoachEntity>> listCoaches({
     String? specialty,
+    String? city,
+    String? language,
+    String? coachGender,
+    double? maxBudget,
     String? cursor,
     int limit = 20,
   }) async {
@@ -246,7 +254,45 @@ class FakeCoachRepository implements CoachRepository {
   @override
   Future<CoachEntity?> getCoachDetails(String coachId) async {
     try {
-      return coaches.firstWhere((coach) => coach.id == coachId);
+      final coach = coaches.firstWhere((coach) => coach.id == coachId);
+      final coachPackages = packages
+          .where((package) => package.coachId == coachId)
+          .toList(growable: false);
+      if (coachPackages.isEmpty) {
+        return coach;
+      }
+      final publishedPackages =
+          coachPackages
+              .where((package) => package.visibilityStatus == 'published')
+              .toList(growable: true)
+            ..sort((a, b) => a.price.compareTo(b.price));
+      return CoachEntity(
+        id: coach.id,
+        name: coach.name,
+        avatarPath: coach.avatarPath,
+        bio: coach.bio,
+        specialties: coach.specialties,
+        yearsExperience: coach.yearsExperience,
+        hourlyRate: coach.hourlyRate,
+        pricingCurrency: coach.pricingCurrency,
+        ratingAvg: coach.ratingAvg,
+        ratingCount: coach.ratingCount,
+        isVerified: coach.isVerified,
+        deliveryMode: coach.deliveryMode,
+        serviceSummary: coach.serviceSummary,
+        startingPackagePrice: publishedPackages.isEmpty
+            ? coach.startingPackagePrice
+            : publishedPackages.first.price,
+        startingPackageBillingCycle: publishedPackages.isEmpty
+            ? coach.startingPackageBillingCycle
+            : publishedPackages.first.billingCycle,
+        activePackageCount: publishedPackages.isEmpty
+            ? coach.activePackageCount
+            : publishedPackages.length,
+        packages: coachPackages,
+        availability: coach.availability,
+        reviews: coach.reviews,
+      );
     } catch (_) {
       return null;
     }
@@ -260,6 +306,13 @@ class FakeCoachRepository implements CoachRepository {
     required double hourlyRate,
     required String deliveryMode,
     required String serviceSummary,
+    String? city,
+    List<String> languages = const <String>[],
+    String? coachGender,
+    int responseSlaHours = 12,
+    bool trialOfferEnabled = true,
+    double trialPriceEgp = 0,
+    bool remoteOnly = false,
   }) async {
     if (upsertError != null) throw upsertError!;
   }
@@ -269,7 +322,18 @@ class FakeCoachRepository implements CoachRepository {
     String? coachId,
     bool activeOnly = false,
   }) async {
-    return packages;
+    var results = packages;
+    if (coachId != null) {
+      results = results
+          .where((package) => package.coachId == coachId)
+          .toList(growable: false);
+    }
+    if (!activeOnly) {
+      return results;
+    }
+    return results
+        .where((package) => package.visibilityStatus == 'published')
+        .toList(growable: false);
   }
 
   @override
@@ -279,11 +343,139 @@ class FakeCoachRepository implements CoachRepository {
     required String description,
     required String billingCycle,
     required double price,
+    String subtitle = '',
+    String outcomeSummary = '',
+    List<String> idealFor = const <String>[],
+    int durationWeeks = 4,
+    int sessionsPerWeek = 3,
+    String difficultyLevel = 'beginner',
+    List<String> equipmentTags = const <String>[],
+    List<String> includedFeatures = const <String>[],
+    String checkInFrequency = '',
+    String supportSummary = '',
+    List<CoachPackageFaqEntity> faqItems = const <CoachPackageFaqEntity>[],
+    Map<String, dynamic> planPreviewJson = const <String, dynamic>{},
+    String? visibilityStatus,
     bool isActive = true,
-  }) async {}
+    List<String> targetGoalTags = const <String>[],
+    String locationMode = 'online',
+    String deliveryMode = 'chat',
+    String weeklyCheckinType = 'form',
+    int trialDays = 7,
+    double depositAmountEgp = 0,
+    double renewalPriceEgp = 0,
+    int maxSlots = 100,
+    bool pauseAllowed = true,
+    List<String> paymentRails = const <String>[],
+  }) async {
+    final resolvedVisibilityStatus =
+        visibilityStatus ?? (isActive ? 'published' : 'draft');
+    lastSavedPackagePayload = <String, dynamic>{
+      'packageId': packageId,
+      'title': title,
+      'description': description,
+      'billingCycle': billingCycle,
+      'price': price,
+      'subtitle': subtitle,
+      'outcomeSummary': outcomeSummary,
+      'idealFor': idealFor,
+      'durationWeeks': durationWeeks,
+      'sessionsPerWeek': sessionsPerWeek,
+      'difficultyLevel': difficultyLevel,
+      'equipmentTags': equipmentTags,
+      'includedFeatures': includedFeatures,
+      'checkInFrequency': checkInFrequency,
+      'supportSummary': supportSummary,
+      'faqItems': faqItems,
+      'planPreviewJson': planPreviewJson,
+      'visibilityStatus': resolvedVisibilityStatus,
+      'isActive': resolvedVisibilityStatus == 'published' && isActive,
+      'targetGoalTags': targetGoalTags,
+      'locationMode': locationMode,
+      'deliveryMode': deliveryMode,
+      'weeklyCheckinType': weeklyCheckinType,
+      'trialDays': trialDays,
+      'depositAmountEgp': depositAmountEgp,
+      'renewalPriceEgp': renewalPriceEgp,
+      'maxSlots': maxSlots,
+      'pauseAllowed': pauseAllowed,
+      'paymentRails': paymentRails,
+    };
+
+    final coachId = coaches.isNotEmpty ? coaches.first.id : 'coach-1';
+    final savedPackage = CoachPackageEntity(
+      id: packageId ?? 'package-${packages.length + 1}',
+      coachId: coachId,
+      title: title,
+      description: description,
+      billingCycle: billingCycle,
+      price: price,
+      subtitle: subtitle,
+      outcomeSummary: outcomeSummary,
+      idealFor: idealFor,
+      durationWeeks: durationWeeks,
+      sessionsPerWeek: sessionsPerWeek,
+      difficultyLevel: difficultyLevel,
+      equipmentTags: equipmentTags,
+      includedFeatures: includedFeatures,
+      checkInFrequency: checkInFrequency,
+      supportSummary: supportSummary,
+      faqItems: faqItems,
+      planPreviewJson: planPreviewJson,
+      visibilityStatus: resolvedVisibilityStatus,
+      isActive: resolvedVisibilityStatus == 'published' && isActive,
+      targetGoalTags: targetGoalTags,
+      locationMode: locationMode,
+      deliveryMode: deliveryMode,
+      weeklyCheckinType: weeklyCheckinType,
+      trialDays: trialDays,
+      depositAmountEgp: depositAmountEgp,
+      renewalPriceEgp: renewalPriceEgp,
+      maxSlots: maxSlots,
+      pauseAllowed: pauseAllowed,
+      paymentRails: paymentRails,
+    );
+
+    packages = <CoachPackageEntity>[
+      for (final package in packages)
+        if (package.id != savedPackage.id) package,
+      savedPackage,
+    ];
+  }
 
   @override
-  Future<void> deleteCoachPackage(String packageId) async {}
+  Future<void> deleteCoachPackage(String packageId) async {
+    packages = packages
+        .map((package) {
+          if (package.id != packageId) {
+            return package;
+          }
+          return CoachPackageEntity(
+            id: package.id,
+            coachId: package.coachId,
+            title: package.title,
+            description: package.description,
+            billingCycle: package.billingCycle,
+            price: package.price,
+            subtitle: package.subtitle,
+            outcomeSummary: package.outcomeSummary,
+            idealFor: package.idealFor,
+            durationWeeks: package.durationWeeks,
+            sessionsPerWeek: package.sessionsPerWeek,
+            difficultyLevel: package.difficultyLevel,
+            equipmentTags: package.equipmentTags,
+            includedFeatures: package.includedFeatures,
+            checkInFrequency: package.checkInFrequency,
+            supportSummary: package.supportSummary,
+            faqItems: package.faqItems,
+            planPreviewJson: package.planPreviewJson,
+            visibilityStatus: 'archived',
+            isActive: false,
+            createdAt: package.createdAt,
+          );
+        })
+        .toList(growable: false);
+  }
 
   @override
   Future<List<CoachAvailabilitySlotEntity>> listAvailability({
@@ -353,19 +545,42 @@ class FakeCoachRepository implements CoachRepository {
   Future<List<SubscriptionEntity>> listSubscriptions() async => subscriptions;
 
   @override
+  Future<List<SubscriptionEntity>> listSubscriptionRequests() async =>
+      subscriptions;
+
+  @override
   Future<SubscriptionEntity> requestSubscription({
     required String packageId,
+    CoachSubscriptionIntakeEntity intakeSnapshot =
+        const CoachSubscriptionIntakeEntity(),
     String? note,
+    String paymentRail = 'instapay',
   }) async {
-    return SubscriptionEntity(
+    final packageTitle = packages
+        .where((package) => package.id == packageId)
+        .map((package) => package.title)
+        .fold<String?>(
+          null,
+          (previousValue, element) => previousValue ?? element,
+        );
+    final created = SubscriptionEntity(
       id: 'subscription-1',
       memberId: 'member-1',
       coachId: 'coach-1',
       packageId: packageId,
+      packageTitle: packageTitle,
+      memberName: 'Member One',
+      memberNote: note,
+      intakeSnapshot: intakeSnapshot,
       planName: 'Starter',
-      status: 'pending_payment',
+      status: 'checkout_pending',
+      checkoutStatus: 'checkout_pending',
+      paymentMethod: paymentRail,
       amount: 100,
     );
+    lastRequestedSubscription = created;
+    subscriptions = <SubscriptionEntity>[created, ...subscriptions];
+    return created;
   }
 
   @override
@@ -373,7 +588,100 @@ class FakeCoachRepository implements CoachRepository {
     required String subscriptionId,
     required String newStatus,
     String? note,
-  }) async {}
+  }) async {
+    subscriptions = subscriptions
+        .map((subscription) {
+          if (subscription.id != subscriptionId) {
+            return subscription;
+          }
+          return SubscriptionEntity(
+            id: subscription.id,
+            memberId: subscription.memberId,
+            coachId: subscription.coachId,
+            coachName: subscription.coachName,
+            packageId: subscription.packageId,
+            packageTitle: subscription.packageTitle,
+            memberName: subscription.memberName,
+            memberNote: subscription.memberNote,
+            intakeSnapshot: subscription.intakeSnapshot,
+            status: newStatus,
+            amount: subscription.amount,
+            planName: subscription.planName,
+            billingCycle: subscription.billingCycle,
+            paymentMethod: subscription.paymentMethod,
+            startsAt: subscription.startsAt,
+            endsAt: subscription.endsAt,
+            activatedAt: subscription.activatedAt,
+            cancelledAt: newStatus == 'cancelled' ? DateTime.now() : null,
+            createdAt: subscription.createdAt,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<SubscriptionEntity> activateSubscriptionWithStarterPlan({
+    required String subscriptionId,
+    DateTime? startDate,
+    String? reminderTime,
+    String? note,
+  }) async {
+    final existing = subscriptions.firstWhere(
+      (subscription) => subscription.id == subscriptionId,
+      orElse: () => SubscriptionEntity(
+        id: subscriptionId,
+        memberId: 'member-1',
+        coachId: 'coach-1',
+        packageId: 'package-1',
+        packageTitle: 'Starter',
+        memberName: 'Member One',
+        status: 'pending_payment',
+        amount: 100,
+        planName: 'Starter',
+      ),
+    );
+    final activated = SubscriptionEntity(
+      id: existing.id,
+      memberId: existing.memberId,
+      coachId: existing.coachId,
+      coachName: existing.coachName,
+      packageId: existing.packageId,
+      packageTitle: existing.packageTitle,
+      memberName: existing.memberName,
+      memberNote: existing.memberNote,
+      intakeSnapshot: existing.intakeSnapshot,
+      status: 'active',
+      amount: existing.amount,
+      planName: existing.planName,
+      billingCycle: existing.billingCycle,
+      paymentMethod: existing.paymentMethod,
+      startsAt: startDate,
+      activatedAt: startDate ?? DateTime.now(),
+      createdAt: existing.createdAt,
+    );
+    lastActivatedSubscription = activated;
+    plans = <WorkoutPlanEntity>[
+      WorkoutPlanEntity(
+        id: 'plan-${plans.length + 1}',
+        memberId: activated.memberId,
+        coachId: activated.coachId,
+        source: 'coach',
+        title: activated.packageTitle ?? activated.planName,
+        status: 'active',
+        planJson: const <String, dynamic>{
+          'title': 'Coach Starter Plan',
+          'weekly_structure': <dynamic>[],
+        },
+      ),
+      ...plans,
+    ];
+    subscriptions = <SubscriptionEntity>[
+      activated,
+      for (final subscription in subscriptions)
+        if (subscription.id != subscriptionId) subscription,
+    ];
+    return activated;
+  }
 
   @override
   Future<List<CoachReviewEntity>> listCoachReviews(String coachId) async =>
@@ -413,6 +721,12 @@ class FakeMemberRepository implements MemberRepository {
     required double currentWeightKg,
     required String trainingFrequency,
     required String experienceLevel,
+    int? budgetEgp,
+    String? city,
+    String? coachingPreference,
+    String? trainingPlace,
+    String? preferredLanguage,
+    String? preferredCoachGender,
   }) async {
     if (upsertError != null) {
       throw upsertError!;
@@ -427,6 +741,12 @@ class FakeMemberRepository implements MemberRepository {
       currentWeightKg: currentWeightKg,
       trainingFrequency: trainingFrequency,
       experienceLevel: experienceLevel,
+      budgetEgp: budgetEgp,
+      city: city,
+      coachingPreference: coachingPreference,
+      trainingPlace: trainingPlace,
+      preferredLanguage: preferredLanguage,
+      preferredCoachGender: preferredCoachGender,
     );
   }
 
@@ -495,6 +815,126 @@ class FakeMemberRepository implements MemberRepository {
 
   @override
   Future<List<SubscriptionEntity>> listSubscriptions() async => subscriptions;
+
+  @override
+  Future<SubscriptionEntity> confirmCoachPayment({
+    required String subscriptionId,
+    String? paymentReference,
+  }) async {
+    final existing = subscriptions.firstWhere(
+      (item) => item.id == subscriptionId,
+    );
+    final updated = existing.copyWith(
+      status: 'active',
+      checkoutStatus: 'paid',
+      activatedAt: DateTime.now(),
+      paymentMethod: existing.paymentMethod,
+      threadId: existing.threadId ?? 'thread-1',
+    );
+    subscriptions = <SubscriptionEntity>[
+      updated,
+      for (final subscription in subscriptions)
+        if (subscription.id != subscriptionId) subscription,
+    ];
+    return updated;
+  }
+
+  @override
+  Future<SubscriptionEntity> pauseSubscription({
+    required String subscriptionId,
+    bool pauseNow = true,
+  }) async {
+    final existing = subscriptions.firstWhere(
+      (item) => item.id == subscriptionId,
+    );
+    final updated = existing.copyWith(
+      status: pauseNow ? 'paused' : 'active',
+      pausedAt: pauseNow ? DateTime.now() : null,
+    );
+    subscriptions = <SubscriptionEntity>[
+      updated,
+      for (final subscription in subscriptions)
+        if (subscription.id != subscriptionId) subscription,
+    ];
+    return updated;
+  }
+
+  @override
+  Future<List<CoachingThreadEntity>> listCoachingThreads() async {
+    return subscriptions
+        .where((subscription) => subscription.threadId != null)
+        .map(
+          (subscription) => CoachingThreadEntity(
+            id: subscription.threadId!,
+            subscriptionId: subscription.id,
+            memberId: subscription.memberId,
+            coachId: subscription.coachId,
+            coachName: subscription.coachName,
+            packageTitle: subscription.displayTitle,
+            lastMessagePreview: 'Your coaching thread is ready.',
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<CoachingMessageEntity>> listCoachingMessages(
+    String threadId,
+  ) async {
+    return <CoachingMessageEntity>[
+      CoachingMessageEntity(
+        id: 'message-1',
+        threadId: threadId,
+        senderUserId: 'coach-1',
+        senderRole: 'system',
+        messageType: 'system',
+        content: 'Your coaching thread is ready.',
+        createdAt: DateTime(2026, 3, 18),
+      ),
+    ];
+  }
+
+  @override
+  Future<void> sendCoachingMessage({
+    required String threadId,
+    required String content,
+  }) async {}
+
+  @override
+  Future<List<WeeklyCheckinEntity>> listWeeklyCheckins({
+    String? subscriptionId,
+  }) async {
+    return const <WeeklyCheckinEntity>[];
+  }
+
+  @override
+  Future<WeeklyCheckinEntity> submitWeeklyCheckin({
+    required String subscriptionId,
+    required DateTime weekStart,
+    double? weightKg,
+    double? waistCm,
+    int adherenceScore = 0,
+    int? energyScore,
+    int? sleepScore,
+    String? wins,
+    String? blockers,
+    String? questions,
+    List<Map<String, dynamic>> photos = const <Map<String, dynamic>>[],
+  }) async {
+    return WeeklyCheckinEntity(
+      id: 'checkin-1',
+      subscriptionId: subscriptionId,
+      memberId: 'member-1',
+      coachId: 'coach-1',
+      weekStart: weekStart,
+      weightKg: weightKg,
+      waistCm: waistCm,
+      adherenceScore: adherenceScore,
+      wins: wins,
+      blockers: blockers,
+      questions: questions,
+    );
+  }
 
   @override
   Future<List<OrderEntity>> listOrders() async => orders;
@@ -1001,6 +1441,8 @@ class FakeChatRepository implements ChatRepository {
   int createSessionCalls = 0;
   int sendMessageCalls = 0;
   int regeneratePlanCalls = 0;
+  String? lastSentMessage;
+  PlannerTurnResult? nextSendMessageResult;
   int _counter = 0;
 
   @override
@@ -1022,7 +1464,9 @@ class FakeChatRepository implements ChatRepository {
       userId: 'user-1',
       title:
           title ??
-          (type == ChatSessionType.planner ? 'AI Planner' : 'New chat'),
+          (type == ChatSessionType.planner
+              ? 'TAIYO Planner'
+              : 'New TAIYO chat'),
       updatedAt: DateTime(2026, 3, 8),
       type: type,
       plannerStatus: type == ChatSessionType.planner
@@ -1057,6 +1501,7 @@ class FakeChatRepository implements ChatRepository {
     required String message,
   }) async {
     sendMessageCalls++;
+    lastSentMessage = message;
     if (sendMessageError != null) throw sendMessageError!;
     if (sendMessageDelay > Duration.zero) {
       await Future<void>.delayed(sendMessageDelay);
@@ -1067,7 +1512,7 @@ class FakeChatRepository implements ChatRepository {
       orElse: () => ChatSessionEntity(
         id: sessionId,
         userId: 'user-1',
-        title: 'New chat',
+        title: 'New TAIYO chat',
         updatedAt: DateTime(2026, 3, 8),
       ),
     );
@@ -1082,27 +1527,33 @@ class FakeChatRepository implements ChatRepository {
     );
     final isPlanner = session.isPlanner;
     final draftId = isPlanner ? 'draft-$_counter-${list.length}' : null;
+    final overriddenResult = nextSendMessageResult;
     final response = ChatMessageEntity(
       id: 'assistant-${list.length}',
       sessionId: sessionId,
       sender: 'assistant',
-      content: isPlanner
-          ? 'Handled planner request: $message'
-          : 'Handled: $message',
+      content:
+          overriddenResult?.assistantMessage ??
+          (isPlanner
+              ? 'Handled planner request: $message'
+              : 'Handled: $message'),
       createdAt: DateTime(2026, 3, 8, 12, 1),
       metadata: isPlanner
           ? <String, dynamic>{
-              'planner_status': 'needs_more_info',
-              'draft_id': draftId,
-              'missing_fields': const <String>[
-                'days_per_week',
-                'session_minutes',
-              ],
+              'planner_status': overriddenResult?.status ?? 'needs_more_info',
+              'draft_id': overriddenResult?.draftId ?? draftId,
+              'missing_fields':
+                  overriddenResult?.missingFields ??
+                  const <String>['days_per_week', 'session_minutes'],
             }
           : const <String, dynamic>{},
     );
     list.add(response);
     _controllerFor(sessionId).add(List<ChatMessageEntity>.from(list));
+    if (overriddenResult != null) {
+      nextSendMessageResult = null;
+      return overriddenResult;
+    }
     return PlannerTurnResult(
       assistantMessage: response.content,
       status: isPlanner ? 'needs_more_info' : 'general_response',

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
 import '../../../../core/error/app_failure.dart';
+import '../../../coach/domain/offer_preview_factory.dart';
 import '../../../coach/domain/repositories/coach_repository.dart';
 import '../../../member/domain/repositories/member_repository.dart';
 import '../../../seller/domain/repositories/seller_repository.dart';
@@ -60,6 +61,12 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
     required double currentWeightKg,
     required String trainingFrequency,
     required String experienceLevel,
+    int? budgetEgp,
+    String? city,
+    String? coachingPreference,
+    String? trainingPlace,
+    String? preferredLanguage,
+    String? preferredCoachGender,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -71,6 +78,12 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
         currentWeightKg: currentWeightKg,
         trainingFrequency: trainingFrequency,
         experienceLevel: experienceLevel,
+        budgetEgp: budgetEgp,
+        city: city,
+        coachingPreference: coachingPreference,
+        trainingPlace: trainingPlace,
+        preferredLanguage: preferredLanguage,
+        preferredCoachGender: preferredCoachGender,
       );
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
@@ -143,6 +156,28 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
         description: packageDescription,
         billingCycle: billingCycle,
         price: packagePrice,
+        subtitle: 'Starter coaching offer',
+        outcomeSummary: serviceSummary,
+        idealFor: specialties,
+        durationWeeks: 4,
+        sessionsPerWeek: 3,
+        difficultyLevel: 'beginner',
+        includedFeatures: const <String>[
+          'Personalized training structure',
+          'Recurring coach check-ins',
+          'Progress support',
+        ],
+        checkInFrequency: 'Weekly',
+        supportSummary: serviceSummary,
+        planPreviewJson: buildCoachOfferPlanPreview(
+          title: packageTitle,
+          summary: serviceSummary,
+          durationWeeks: 4,
+          sessionsPerWeek: 3,
+          difficultyLevel: 'beginner',
+        ),
+        visibilityStatus: 'draft',
+        isActive: false,
       );
       await _coachRepo.saveAvailabilitySlot(
         weekday: availabilityWeekday,

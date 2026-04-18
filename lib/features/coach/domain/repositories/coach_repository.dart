@@ -6,6 +6,10 @@ import '../entities/workout_plan_entity.dart';
 abstract class CoachRepository {
   Future<Paged<CoachEntity>> listCoaches({
     String? specialty,
+    String? city,
+    String? language,
+    String? coachGender,
+    double? maxBudget,
     String? cursor,
     int limit = 20,
   });
@@ -19,6 +23,13 @@ abstract class CoachRepository {
     required double hourlyRate,
     required String deliveryMode,
     required String serviceSummary,
+    String? city,
+    List<String> languages = const <String>[],
+    String? coachGender,
+    int responseSlaHours = 12,
+    bool trialOfferEnabled = true,
+    double trialPriceEgp = 0,
+    bool remoteOnly = false,
   });
 
   Future<List<CoachPackageEntity>> listCoachPackages({
@@ -32,7 +43,30 @@ abstract class CoachRepository {
     required String description,
     required String billingCycle,
     required double price,
+    String subtitle = '',
+    String outcomeSummary = '',
+    List<String> idealFor = const <String>[],
+    int durationWeeks = 4,
+    int sessionsPerWeek = 3,
+    String difficultyLevel = 'beginner',
+    List<String> equipmentTags = const <String>[],
+    List<String> includedFeatures = const <String>[],
+    String checkInFrequency = '',
+    String supportSummary = '',
+    List<CoachPackageFaqEntity> faqItems = const <CoachPackageFaqEntity>[],
+    Map<String, dynamic> planPreviewJson = const <String, dynamic>{},
+    String? visibilityStatus,
     bool isActive = true,
+    List<String> targetGoalTags = const <String>[],
+    String locationMode = 'online',
+    String deliveryMode = 'chat',
+    String weeklyCheckinType = 'form',
+    int trialDays = 7,
+    double depositAmountEgp = 0,
+    double renewalPriceEgp = 0,
+    int maxSlots = 100,
+    bool pauseAllowed = true,
+    List<String> paymentRails = const <String>[],
   });
 
   Future<void> deleteCoachPackage(String packageId);
@@ -70,14 +104,26 @@ abstract class CoachRepository {
 
   Future<List<SubscriptionEntity>> listSubscriptions();
 
+  Future<List<SubscriptionEntity>> listSubscriptionRequests();
+
   Future<SubscriptionEntity> requestSubscription({
     required String packageId,
+    CoachSubscriptionIntakeEntity intakeSnapshot =
+        const CoachSubscriptionIntakeEntity(),
     String? note,
+    String paymentRail = 'instapay',
   });
 
   Future<void> updateSubscriptionStatus({
     required String subscriptionId,
     required String newStatus,
+    String? note,
+  });
+
+  Future<SubscriptionEntity> activateSubscriptionWithStarterPlan({
+    required String subscriptionId,
+    DateTime? startDate,
+    String? reminderTime,
     String? note,
   });
 

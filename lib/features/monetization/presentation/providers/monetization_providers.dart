@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/supabase/supabase_initializer.dart';
 import '../../../../features/auth/domain/entities/auth_session.dart';
@@ -36,8 +37,8 @@ class AiPremiumGateDecision {
     return const AiPremiumGateDecision._(
       requiresBilling: false,
       hasAccess: true,
-      title: 'AI available',
-      message: 'AI Premium is disabled in this build.',
+      title: '${AiBranding.assistantName} available',
+      message: '${AiBranding.premiumName} is disabled in this build.',
     );
   }
 
@@ -45,9 +46,10 @@ class AiPremiumGateDecision {
     return AiPremiumGateDecision._(
       requiresBilling: true,
       hasAccess: true,
-      title: 'AI Premium active',
+      title: '${AiBranding.premiumName} active',
       message:
-          summary?.entitlement.message ?? 'AI Premium is active for this account.',
+          summary?.entitlement.message ??
+          '${AiBranding.premiumName} is active for this account.',
       summary: summary,
     );
   }
@@ -56,10 +58,10 @@ class AiPremiumGateDecision {
     return AiPremiumGateDecision._(
       requiresBilling: true,
       hasAccess: false,
-      title: 'AI Premium required',
+      title: '${AiBranding.premiumName} required',
       message:
           summary?.entitlement.message ??
-          'Subscribe to AI Premium to use AI chat and AI-guided plans.',
+          'Subscribe to ${AiBranding.premiumName} to use TAIYO chat and TAIYO-guided plans.',
       summary: summary,
     );
   }
@@ -84,7 +86,8 @@ class CurrentSubscriptionController
 
   Future<void> refreshFromBackend() async {
     state = await AsyncValue.guard(
-      () => ref.read(entitlementRepositoryProvider).refreshCurrentSubscription(),
+      () =>
+          ref.read(entitlementRepositoryProvider).refreshCurrentSubscription(),
     );
   }
 
@@ -145,17 +148,19 @@ class MonetizationBootstrapService {
 
   Future<void> _reconcileExistingAndroidPurchases() async {
     try {
-      final purchases = await _ref.read(billingRepositoryProvider).queryExistingPurchases();
+      final purchases = await _ref
+          .read(billingRepositoryProvider)
+          .queryExistingPurchases();
       if (purchases.isNotEmpty) {
         await _handlePurchaseBatch(purchases);
       }
     } catch (_) {
-      _ref.read(billingInteractionEventProvider.notifier).state =
-          const BillingInteractionEvent(
-            state: PurchaseActionState.failed,
-            message:
-                'GymUnity could not reconcile previous Google Play purchases.',
-          );
+      _ref
+          .read(billingInteractionEventProvider.notifier)
+          .state = const BillingInteractionEvent(
+        state: PurchaseActionState.failed,
+        message: 'GymUnity could not reconcile previous Google Play purchases.',
+      );
     }
   }
 
@@ -163,32 +168,37 @@ class MonetizationBootstrapService {
     for (final purchase in purchases) {
       switch (purchase.status) {
         case PurchaseStatus.pending:
-          _ref.read(billingInteractionEventProvider.notifier).state =
-              const BillingInteractionEvent(
-                state: PurchaseActionState.pending,
-                purchaseStatus: PurchaseStatus.pending,
-                message: 'Your purchase is pending store confirmation.',
-              );
+          _ref
+              .read(billingInteractionEventProvider.notifier)
+              .state = const BillingInteractionEvent(
+            state: PurchaseActionState.pending,
+            purchaseStatus: PurchaseStatus.pending,
+            message: 'Your purchase is pending store confirmation.',
+          );
           break;
         case PurchaseStatus.canceled:
-          _ref.read(billingInteractionEventProvider.notifier).state =
-              const BillingInteractionEvent(
-                state: PurchaseActionState.cancelled,
-                purchaseStatus: PurchaseStatus.canceled,
-                message: 'Purchase cancelled. No premium access was granted.',
-              );
+          _ref
+              .read(billingInteractionEventProvider.notifier)
+              .state = const BillingInteractionEvent(
+            state: PurchaseActionState.cancelled,
+            purchaseStatus: PurchaseStatus.canceled,
+            message: 'Purchase cancelled. No premium access was granted.',
+          );
           break;
         case PurchaseStatus.error:
-          _ref.read(billingInteractionEventProvider.notifier).state =
-              BillingInteractionEvent(
-                state: PurchaseActionState.failed,
-                purchaseStatus: PurchaseStatus.error,
-                message:
-                    purchase.error?.message ??
-                    'The store reported a purchase error.',
-              );
+          _ref
+              .read(billingInteractionEventProvider.notifier)
+              .state = BillingInteractionEvent(
+            state: PurchaseActionState.failed,
+            purchaseStatus: PurchaseStatus.error,
+            message:
+                purchase.error?.message ??
+                'The store reported a purchase error.',
+          );
           if (purchase.pendingCompletePurchase) {
-            await _ref.read(billingRepositoryProvider).completePurchase(purchase);
+            await _ref
+                .read(billingRepositoryProvider)
+                .completePurchase(purchase);
           }
           break;
         case PurchaseStatus.purchased:
@@ -197,26 +207,30 @@ class MonetizationBootstrapService {
             await _ref
                 .read(currentSubscriptionSummaryProvider.notifier)
                 .syncPurchase(purchase);
-            _ref.read(billingInteractionEventProvider.notifier).state =
-                BillingInteractionEvent(
-                  state: PurchaseActionState.synced,
-                  purchaseStatus: purchase.status,
-                  message: purchase.status == PurchaseStatus.restored
-                      ? 'Your purchase was restored and AI Premium is refreshed.'
-                      : 'Purchase verified. AI Premium access is now refreshed.',
-                );
+            _ref
+                .read(billingInteractionEventProvider.notifier)
+                .state = BillingInteractionEvent(
+              state: PurchaseActionState.synced,
+              purchaseStatus: purchase.status,
+              message: purchase.status == PurchaseStatus.restored
+                  ? 'Your purchase was restored and ${AiBranding.premiumName} is refreshed.'
+                  : 'Purchase verified. ${AiBranding.premiumName} access is now refreshed.',
+            );
           } catch (error) {
-            _ref.read(billingInteractionEventProvider.notifier).state =
-                BillingInteractionEvent(
-                  state: PurchaseActionState.failed,
-                  purchaseStatus: purchase.status,
-                  message: error is Exception
-                      ? error.toString().replaceFirst('Exception: ', '')
-                      : 'GymUnity could not verify this purchase.',
-                );
+            _ref
+                .read(billingInteractionEventProvider.notifier)
+                .state = BillingInteractionEvent(
+              state: PurchaseActionState.failed,
+              purchaseStatus: purchase.status,
+              message: error is Exception
+                  ? error.toString().replaceFirst('Exception: ', '')
+                  : 'GymUnity could not verify this purchase.',
+            );
           }
           if (purchase.pendingCompletePurchase) {
-            await _ref.read(billingRepositoryProvider).completePurchase(purchase);
+            await _ref
+                .read(billingRepositoryProvider)
+                .completePurchase(purchase);
           }
           break;
       }
@@ -237,37 +251,41 @@ final billingCatalogProvider = FutureProvider<BillingCatalog?>((ref) async {
 });
 
 final currentSubscriptionSummaryProvider =
-    AsyncNotifierProvider<CurrentSubscriptionController, CurrentSubscriptionSummary?>(
-      CurrentSubscriptionController.new,
-    );
+    AsyncNotifierProvider<
+      CurrentSubscriptionController,
+      CurrentSubscriptionSummary?
+    >(CurrentSubscriptionController.new);
 
-final billingInteractionEventProvider =
-    StateProvider<BillingInteractionEvent?>((ref) => null);
+final billingInteractionEventProvider = StateProvider<BillingInteractionEvent?>(
+  (ref) => null,
+);
 
-final subscriptionManagementControllerProvider = StateNotifierProvider<
-  SubscriptionManagementController,
-  SubscriptionManagementState
->((ref) {
-  return SubscriptionManagementController(ref);
-});
-
-final aiPremiumGateProvider =
-    Provider<AsyncValue<AiPremiumGateDecision>>((ref) {
-      final config = ref.watch(monetizationConfigProvider);
-      if (!config.enableAiPremium) {
-        return AsyncValue<AiPremiumGateDecision>.data(
-          AiPremiumGateDecision.freeAccess(),
-        );
-      }
-
-      final summaryAsync = ref.watch(currentSubscriptionSummaryProvider);
-      return summaryAsync.whenData((summary) {
-        if (summary?.hasAccess ?? false) {
-          return AiPremiumGateDecision.unlocked(summary);
-        }
-        return AiPremiumGateDecision.locked(summary);
-      });
+final subscriptionManagementControllerProvider =
+    StateNotifierProvider<
+      SubscriptionManagementController,
+      SubscriptionManagementState
+    >((ref) {
+      return SubscriptionManagementController(ref);
     });
+
+final aiPremiumGateProvider = Provider<AsyncValue<AiPremiumGateDecision>>((
+  ref,
+) {
+  final config = ref.watch(monetizationConfigProvider);
+  if (!config.enableAiPremium) {
+    return AsyncValue<AiPremiumGateDecision>.data(
+      AiPremiumGateDecision.freeAccess(),
+    );
+  }
+
+  final summaryAsync = ref.watch(currentSubscriptionSummaryProvider);
+  return summaryAsync.whenData((summary) {
+    if (summary?.hasAccess ?? false) {
+      return AiPremiumGateDecision.unlocked(summary);
+    }
+    return AiPremiumGateDecision.locked(summary);
+  });
+});
 
 final monetizationBootstrapProvider = Provider<MonetizationBootstrapService>((
   ref,

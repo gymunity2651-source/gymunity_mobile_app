@@ -196,7 +196,7 @@ class GeneratedPlanEntity {
 
   factory GeneratedPlanEntity.fromMap(Map<String, dynamic> map) {
     return GeneratedPlanEntity(
-      title: map['title'] as String? ?? 'AI Workout Plan',
+      title: map['title'] as String? ?? 'TAIYO Workout Plan',
       summary: map['summary'] as String? ?? '',
       durationWeeks: (map['duration_weeks'] as num?)?.toInt() ?? 1,
       level: map['level'] as String? ?? 'beginner',

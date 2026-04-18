@@ -115,14 +115,14 @@ class PlannerReminderBootstrapService {
 
       await _plugin.zonedSchedule(
         notificationId,
-        task.isToday ? 'Today\'s AI task' : 'Upcoming AI task',
+        task.isToday ? 'Today\'s TAIYO task' : 'Upcoming TAIYO task',
         '${task.title} from ${task.planTitle}',
         scheduledAt,
         const NotificationDetails(
           android: AndroidNotificationDetails(
             'planner_tasks',
             'Planner Tasks',
-            channelDescription: 'Daily reminders for AI workout plan tasks.',
+            channelDescription: 'Daily reminders for TAIYO workout plan tasks.',
             importance: Importance.high,
             priority: Priority.high,
           ),

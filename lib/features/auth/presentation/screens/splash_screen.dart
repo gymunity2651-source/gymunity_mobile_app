@@ -6,8 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/config/app_config.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../controllers/app_bootstrap_controller.dart';
 import '../controllers/google_oauth_controller.dart';
@@ -67,19 +66,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         ? ref.watch(authFlowControllerProvider)
         : const AuthFlowState();
 
-    final message = switch (bootstrapState.status) {
-      AppBootstrapStatus.loading => 'Preparing your release environment...',
-      AppBootstrapStatus.authenticated => 'Restoring your account...',
-      AppBootstrapStatus.unauthenticated => 'Opening GymUnity...',
-      AppBootstrapStatus.configError =>
-        bootstrapState.message ??
-            'GymUnity is missing required release configuration.',
-      AppBootstrapStatus.backendError =>
-        bootstrapState.message ?? 'GymUnity could not reach the backend.',
-      AppBootstrapStatus.deletedAccount =>
-        bootstrapState.message ?? 'This account is no longer available.',
-    };
-
     final showProgress =
         !_hasNavigated &&
         (bootstrapState.status == AppBootstrapStatus.loading ||
@@ -88,120 +74,182 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             authFlowState.isBusy);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AtelierColors.surfaceContainerLowest,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Spacer(),
+              const Spacer(flex: 3),
+              // GU Logo
               Text(
                 'GU',
-                style: GoogleFonts.inter(
-                  fontSize: 96,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.limeGreen,
+                style: GoogleFonts.notoSerif(
+                  fontSize: 110,
+                  fontWeight: FontWeight.w400,
+                  color: AtelierColors.primary,
                   height: 1,
+                  letterSpacing: -4,
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                AppStrings.appName,
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                AppStrings.tagline,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textMuted,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 28),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.cardDark,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const Spacer(flex: 2),
+              
+              // Refining the Art of Self
+              RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: GoogleFonts.notoSerif(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w400,
+                    color: AtelierColors.onSurface,
+                    height: 1.25,
+                  ),
                   children: [
-                    Text(
-                      _headlineFor(bootstrapState, authFlowState),
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                    const TextSpan(text: 'Refining the '),
+                    TextSpan(
+                      text: 'Art',
+                      style: GoogleFonts.notoSerif(
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      message,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        height: 1.5,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    if (showProgress)
-                      const LinearProgressIndicator(
-                        color: AppColors.limeGreen,
-                        backgroundColor: AppColors.border,
-                        minHeight: 4,
-                      )
-                    else ...[
-                      if (bootstrapState.status ==
-                              AppBootstrapStatus.deletedAccount &&
-                          _canContactSupport)
-                        CustomButton(
-                          label: 'CONTACT SUPPORT',
-                          onPressed: () {
-                            Navigator.pushNamed(context, AppRoutes.helpSupport);
-                          },
-                        ),
-                      if (bootstrapState.status ==
-                              AppBootstrapStatus.backendError ||
-                          bootstrapState.status ==
-                              AppBootstrapStatus.configError)
-                        CustomButton(
-                          label: 'RETRY',
-                          onPressed: () {
-                            ref
-                                .read(appBootstrapControllerProvider.notifier)
-                                .load();
-                          },
-                        ),
-                      if (authFlowState.status == AuthFlowStatus.failure)
-                        CustomButton(
-                          label: 'BACK TO LOGIN',
-                          onPressed: () {
-                            ref
-                                .read(authFlowControllerProvider.notifier)
-                                .clearOutcome();
-                            _navigateTo(AppRoutes.login);
-                          },
-                        ),
-                    ],
+                    const TextSpan(text: ' of\nSelf'),
                   ],
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 38),
+              
+              // Categories
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'FITNESS',
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2.5,
+                      color: AtelierColors.onSurfaceVariant,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Text(
+                      '•',
+                      style: GoogleFonts.manrope(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: AtelierColors.primary,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'TAIYO',
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2.5,
+                      color: AtelierColors.onSurfaceVariant,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Text(
+                      '•',
+                      style: GoogleFonts.manrope(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: AtelierColors.primary,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'COMMUNITY',
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2.5,
+                      color: AtelierColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 48),
+
+              // Progress bar or Error Handling
+              if (showProgress)
+                Column(
+                  children: [
+                    SizedBox(
+                      width: 240,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          color: AtelierColors.primary,
+                          backgroundColor: AtelierColors.surfaceContainer,
+                          minHeight: 2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'SYNCHRONIZING SANCTUARY',
+                      style: GoogleFonts.manrope(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2.4,
+                        color: AtelierColors.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                )
+              else ...[
+                if (bootstrapState.status == AppBootstrapStatus.deletedAccount && _canContactSupport)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: CustomButton(
+                      label: 'CONTACT SUPPORT',
+                      onPressed: () {
+                        Navigator.pushNamed(context, AppRoutes.helpSupport);
+                      },
+                    ),
+                  ),
+                if (bootstrapState.status == AppBootstrapStatus.backendError ||
+                    bootstrapState.status == AppBootstrapStatus.configError)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: CustomButton(
+                      label: 'RETRY',
+                      onPressed: () {
+                        ref.read(appBootstrapControllerProvider.notifier).load();
+                      },
+                    ),
+                  ),
+                if (authFlowState.status == AuthFlowStatus.failure)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: CustomButton(
+                      label: 'BACK TO LOGIN',
+                      onPressed: () {
+                        ref.read(authFlowControllerProvider.notifier).clearOutcome();
+                        _navigateTo(AppRoutes.login);
+                      },
+                    ),
+                  ),
+              ],
+              
+              const Spacer(flex: 3),
+              
+              // Quote
               Text(
-                'Environment: ${AppConfig.current.environment.value.toUpperCase()}',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
+                '"Harmony is the highest form of discipline."',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.notoSerif(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  fontStyle: FontStyle.italic,
+                  color: AtelierColors.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -215,32 +263,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final config = AppConfig.current;
     return config.supportUrl.trim().isNotEmpty ||
         config.supportEmail.trim().isNotEmpty;
-  }
-
-  String _headlineFor(
-    AppBootstrapState bootstrapState,
-    AuthFlowState authFlowState,
-  ) {
-    if (authFlowState.status == AuthFlowStatus.failure) {
-      return authFlowState.activeProvider == null
-          ? 'Password Recovery'
-          : '${authFlowState.activeProvider!.label} Sign-In';
-    }
-
-    switch (bootstrapState.status) {
-      case AppBootstrapStatus.loading:
-        return 'Starting up';
-      case AppBootstrapStatus.authenticated:
-        return 'Restoring your session';
-      case AppBootstrapStatus.unauthenticated:
-        return 'Opening GymUnity';
-      case AppBootstrapStatus.configError:
-        return 'Configuration required';
-      case AppBootstrapStatus.backendError:
-        return 'Unable to finish startup';
-      case AppBootstrapStatus.deletedAccount:
-        return 'Account unavailable';
-    }
   }
 
   void _handleBootstrapState(AppBootstrapState next) {

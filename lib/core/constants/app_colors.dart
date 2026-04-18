@@ -1,57 +1,61 @@
 import 'package:flutter/material.dart';
 
+import 'atelier_colors.dart';
+
+/// Legacy AppColors mapped directly to the new Ethereal Atelier DNA.
+/// This ensures the entire app inherits the Ivory/Sand & Rust aesthetic instantly!
 class AppColors {
   AppColors._();
 
-  // Primary backgrounds
-  static const Color backgroundTop = Color(0xFF0B1621);
-  static const Color background = Color(0xFF070B10);
-  static const Color backgroundBottom = Color(0xFF04070C);
-  static const Color surface = Color(0xFF0F151D);
-  static const Color cardDark = Color(0xFF141C25);
-  static const Color cardSoft = Color(0xFF17212C);
-  static const Color surfaceRaised = Color(0xFF192330);
-  static const Color surfacePanel = Color(0xFF1B2633);
-  static const Color fieldFill = Color(0xFF111A23);
-  static const Color glass = Color(0xCC121A24);
+  // Primary backgrounds (Now Ivory/Sand instead of Dark/Black)
+  static const Color backgroundTop = AtelierColors.surfaceContainerLowest; // #FFFFFF
+  static const Color background = AtelierColors.surfaceContainerLowest; // #FFFFFF
+  static const Color backgroundBottom = AtelierColors.surfaceContainerLowest; // #FFFFFF
+  static const Color surface = AtelierColors.surfaceContainerLowest; // #FFFFFF
+  static const Color cardDark = AtelierColors.surfaceContainerLow; // #F4F3F1
+  static const Color cardSoft = AtelierColors.surfaceContainer; // #EEEDEB
+  static const Color surfaceRaised = AtelierColors.surfaceContainer; // #EEEDEB
+  static const Color surfacePanel = AtelierColors.surfaceContainerLow; // #F4F3F1
+  static const Color fieldFill = AtelierColors.white;
+  static const Color glass = AtelierColors.glass; // Ivory @ 80%
 
-  // Accent
-  static const Color limeGreen = Color(0xFFC8FF00);
-  static const Color limeGreenSoft = Color(0xFFD8FF52);
-  static const Color orange = Color(0xFFE8622A);
-  static const Color orangeLight = Color(0xFFFF8A57);
-  static const Color electricBlue = Color(0xFF79D8FF);
-  static const Color aqua = Color(0xFF4AD7D1);
-  static const Color glowBlue = Color(0x4431B5E8);
-  static const Color glowLime = Color(0x33C8FF00);
-  static const Color glowOrange = Color(0x33E8622A);
+  // Accent (Neon Green -> Atelier Rust Primary)
+  static const Color limeGreen = AtelierColors.primary;
+  static const Color limeGreenSoft = AtelierColors.primaryContainer;
+  static const Color orange = AtelierColors.primary;
+  static const Color orangeLight = AtelierColors.primaryContainer;
+  static const Color electricBlue = AtelierColors.primary; // Re-mapping generic colors to brand
+  static const Color aqua = AtelierColors.primary;
+  static const Color glowBlue = AtelierColors.transparent; // Remove neon glows
+  static const Color glowLime = AtelierColors.transparent;
+  static const Color glowOrange = AtelierColors.transparent;
 
-  // Text
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFBBC5D1);
-  static const Color textMuted = Color(0xFF7B8794);
-  static const Color textDark = Color(0xFF1A1A1A);
+  // Text (Inverted logic: White Text -> Dark Text)
+  static const Color textPrimary = AtelierColors.onSurface; // #1A1C1A
+  static const Color textSecondary = AtelierColors.onSurfaceVariant; // #6B6B6B
+  static const Color textMuted = AtelierColors.textMuted; // #999999
+  static const Color textDark = AtelierColors.onSurface;
 
   // Borders
-  static const Color border = Color(0xFF26313E);
-  static const Color borderLight = Color(0xFF334154);
-  static const Color borderSoft = Color(0xFF425469);
+  static const Color border = AtelierColors.outlineVariant;
+  static const Color borderLight = AtelierColors.ghostBorder;
+  static const Color borderSoft = AtelierColors.outlineVariant;
 
   // Status
-  static const Color success = Color(0xFF4CAF50);
-  static const Color error = Color(0xFFEF5350);
+  static const Color success = AtelierColors.success;
+  static const Color error = AtelierColors.error;
   static const Color warning = Color(0xFFFF9800);
   static const Color info = Color(0xFF2196F3);
 
   // Misc
-  static const Color shimmer = Color(0xFF2A2A2A);
-  static const Color overlay = Color(0x99000000);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color black = Color(0xFF000000);
-  static const Color transparent = Color(0x00000000);
+  static const Color shimmer = AtelierColors.surfaceDim;
+  static const Color overlay = Color(0x33000000); // Lighter overlay for light mode
+  static const Color white = AtelierColors.white;
+  static const Color black = AtelierColors.onSurface;
+  static const Color transparent = AtelierColors.transparent;
 
-  // Light theme variant (for role selection / onboarding)
-  static const Color lightBackground = Color(0xFFF8F6F3);
-  static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightCard = Color(0xFFFAFAFA);
+  // Light theme variants (Already matching main flow now)
+  static const Color lightBackground = AtelierColors.surfaceContainerLowest;
+  static const Color lightSurface = AtelierColors.surfaceContainerLowest;
+  static const Color lightCard = AtelierColors.surfaceContainerLow;
 }

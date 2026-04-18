@@ -52,7 +52,7 @@ class WorkoutPlanScreen extends ConsumerWidget {
           icon: Icons.cloud_off_outlined,
           title: 'Unable to load your plan',
           description:
-              'GymUnity could not fetch the active AI plan details right now.',
+              'GymUnity could not fetch the active TAIYO plan details right now.',
           actionLabel: 'Retry',
           onTap: () => ref.invalidate(planDetailProvider(planId)),
         ),
@@ -60,11 +60,12 @@ class WorkoutPlanScreen extends ConsumerWidget {
           if (plan == null) {
             return _PlanStateCard(
               icon: Icons.event_note_outlined,
-              title: 'No active AI plan',
+              title: 'No active TAIYO plan',
               description:
-                  'Start a planning conversation to generate, review, and activate your first member plan.',
-              actionLabel: 'Open AI planner',
-              onTap: () => Navigator.pushNamed(context, AppRoutes.aiChatHome),
+                  'Start AI Builder to scan your profile, answer guided questions, and review a structured workout plan.',
+              actionLabel: 'Open AI Builder',
+              onTap: () =>
+                  Navigator.pushNamed(context, AppRoutes.aiPlannerBuilder),
             );
           }
 
@@ -130,7 +131,7 @@ class WorkoutPlanScreen extends ConsumerWidget {
                           Text(
                             generatedPlan?.summary.trim().isNotEmpty == true
                                 ? generatedPlan!.summary
-                                : 'Your active AI plan is ready for daily execution.',
+                                : 'Your active TAIYO plan is ready for daily execution.',
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               height: 1.5,
@@ -261,7 +262,7 @@ class WorkoutPlanScreen extends ConsumerWidget {
                         if (todayTasks.isEmpty)
                           const _SurfaceCard(
                             child: Text(
-                              'No AI tasks are scheduled for today. Your plan starts on the next scheduled day.',
+                              'No TAIYO tasks are scheduled for today. Your plan starts on the next scheduled day.',
                             ),
                           )
                         else
@@ -580,8 +581,8 @@ class _PlanReminderCard extends StatelessWidget {
         ? 'Edit'
         : 'Set reminder';
     final helperText = hasReminder
-        ? 'This time is used for your upcoming AI tasks.'
-        : 'Choose a default time for your upcoming AI tasks.';
+        ? 'This time is used for your upcoming TAIYO tasks.'
+        : 'Choose a default time for your upcoming TAIYO tasks.';
     final button = OutlinedButton(
       key: const ValueKey<String>('workout-plan-reminder-button'),
       onPressed: isUpdating ? null : onPressed,

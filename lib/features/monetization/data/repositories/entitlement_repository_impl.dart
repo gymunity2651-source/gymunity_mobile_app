@@ -4,6 +4,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../domain/entities/monetization_entities.dart';
 import '../../domain/repositories/entitlement_repository.dart';
@@ -98,7 +99,9 @@ class EntitlementRepositoryImpl implements EntitlementRepository {
   }
 
   @override
-  Future<CurrentSubscriptionSummary?> syncPurchase(PurchaseDetails purchase) async {
+  Future<CurrentSubscriptionSummary?> syncPurchase(
+    PurchaseDetails purchase,
+  ) async {
     final functionName = _resolveFunctionName(purchase);
     final payload = _purchasePayload(purchase);
     try {
@@ -141,7 +144,8 @@ class EntitlementRepositoryImpl implements EntitlementRepository {
       'purchase_status': purchase.status.name,
       'verification_data': <String, dynamic>{
         'source': purchase.verificationData.source,
-        'local_verification_data': purchase.verificationData.localVerificationData,
+        'local_verification_data':
+            purchase.verificationData.localVerificationData,
         'server_verification_data':
             purchase.verificationData.serverVerificationData,
       },
@@ -162,9 +166,7 @@ class EntitlementRepositoryImpl implements EntitlementRepository {
   }
 
   CurrentSubscriptionSummary _mapSummary(Map<String, dynamic> row) {
-    final lifecycleState = _lifecycleFromRaw(
-      row['lifecycle_state'] as String?,
-    );
+    final lifecycleState = _lifecycleFromRaw(row['lifecycle_state'] as String?);
     final entitlementStatus = _entitlementStatusFromRaw(
       row['entitlement_status'] as String?,
     );
@@ -262,13 +264,13 @@ class EntitlementRepositoryImpl implements EntitlementRepository {
       case SubscriptionLifecycleState.pending:
         return 'Your purchase is still pending store confirmation.';
       case SubscriptionLifecycleState.active:
-        return 'AI Premium is active.';
+        return '${AiBranding.premiumName} is active.';
       case SubscriptionLifecycleState.renewing:
-        return 'AI Premium will renew automatically.';
+        return '${AiBranding.premiumName} will renew automatically.';
       case SubscriptionLifecycleState.cancellationRequestedActiveUntilExpiry:
-        return 'AI Premium stays active until the current term ends.';
+        return '${AiBranding.premiumName} stays active until the current term ends.';
       case SubscriptionLifecycleState.expired:
-        return 'Your AI Premium subscription has expired.';
+        return 'Your ${AiBranding.premiumName} subscription has expired.';
       case SubscriptionLifecycleState.gracePeriod:
         return 'Your billing is in a grace period. Access is still active for now.';
       case SubscriptionLifecycleState.onHoldOrSuspended:

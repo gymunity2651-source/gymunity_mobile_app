@@ -72,12 +72,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('CONTINUE'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Beginner'));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('CONTINUE'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Beginner'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('1-2 days/week'));
       await tester.tap(find.text('1-2 days/week'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('GET STARTED'));
       await tester.tap(find.text('GET STARTED'));
       await tester.pump();
 

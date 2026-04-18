@@ -25,7 +25,7 @@ class CoachDetailsScreen extends ConsumerWidget {
       body: SafeArea(
         child: coachAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stackTrace) => _ErrorState(
+          error: (error, _) => _ErrorState(
             onRetry: () => ref.refresh(coachDetailsProvider(coach!.id)),
           ),
           data: (data) {
@@ -43,7 +43,7 @@ class CoachDetailsScreen extends ConsumerWidget {
                         ),
                         const Spacer(),
                         Text(
-                          'Coach Details',
+                          'Coach Profile',
                           style: GoogleFonts.inter(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -95,21 +95,16 @@ class CoachDetailsScreen extends ConsumerWidget {
                               color: AppColors.textDark,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             alignment: WrapAlignment.center,
                             children: currentCoach.specialties
-                                .map(
-                                  (specialty) => Chip(
-                                    label: Text(specialty),
-                                    backgroundColor: AppColors.lightBackground,
-                                  ),
-                                )
+                                .map((specialty) => _Chip(text: specialty))
                                 .toList(growable: false),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 18),
                           Row(
                             children: [
                               Expanded(
@@ -121,19 +116,19 @@ class CoachDetailsScreen extends ConsumerWidget {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: _StatCard(
-                                  label: 'Rate',
-                                  value: currentCoach.rateLabel,
+                                  label: currentCoach.trialOfferEnabled
+                                      ? 'Trial'
+                                      : 'Starting offer',
+                                  value: currentCoach.trialOfferEnabled
+                                      ? currentCoach.trialLabel
+                                      : currentCoach.discoveryPriceLabel,
                                 ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: _StatCard(
-                                  label: currentCoach.ratingCount == 0
-                                      ? 'Reviews'
-                                      : 'Rating',
-                                  value: currentCoach.ratingCount == 0
-                                      ? 'None'
-                                      : currentCoach.rating,
+                                  label: 'Offers live',
+                                  value: '${currentCoach.activePackageCount}',
                                 ),
                               ),
                             ],
@@ -171,7 +166,7 @@ class CoachDetailsScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _SectionTitle(title: 'Bio'),
+                        _SectionTitle(title: 'About'),
                         const SizedBox(height: 8),
                         Text(
                           currentCoach.bio.trim().isEmpty
@@ -183,25 +178,144 @@ class CoachDetailsScreen extends ConsumerWidget {
                             color: AppColors.textSecondary,
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        _SectionTitle(title: 'Service Model'),
-                        const SizedBox(height: 8),
-                        Text(
-                          currentCoach.deliveryMode?.replaceAll('_', ' ') ??
-                              'Not specified yet',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
                         if (currentCoach.serviceSummary.trim().isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           Text(
                             currentCoach.serviceSummary,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               height: 1.5,
                               color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                        _SectionTitle(title: 'Service Model'),
+                        const SizedBox(height: 8),
+                        Text(
+                          currentCoach.locationLabel,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _Chip(text: currentCoach.verificationBadge),
+                            _Chip(text: currentCoach.responseSlaLabel),
+                            if (currentCoach.languages.isNotEmpty)
+                              _Chip(text: currentCoach.languages.join(' / ')),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        _SectionTitle(title: 'Offer Preview'),
+                        const SizedBox(height: 8),
+                        if (currentCoach.packages.isEmpty)
+                          Text(
+                            'This coach has not published any offers yet.',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: AppColors.textSecondary,
+                            ),
+                          )
+                        else
+                          ...currentCoach.packages
+                              .take(2)
+                              .map(
+                                (package) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.lightSurface,
+                                      borderRadius: BorderRadius.circular(
+                                        AppSizes.radiusLg,
+                                      ),
+                                      border: Border.all(
+                                        color: AppColors.border.withValues(
+                                          alpha: 0.15,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                package.title,
+                                                style: GoogleFonts.inter(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: AppColors.textDark,
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              package.checkoutPriceLabel,
+                                              style: GoogleFonts.inter(
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.orange,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
+                                            _Chip(
+                                              text:
+                                                  '${package.durationWeeks} weeks',
+                                            ),
+                                            _Chip(
+                                              text:
+                                                  '${package.sessionsPerWeek} sessions / week',
+                                            ),
+                                            _Chip(
+                                              text: package.weeklyCheckinType,
+                                            ),
+                                            _Chip(text: package.locationMode),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          package.outcomeSummary.trim().isEmpty
+                                              ? package.description
+                                              : package.outcomeSummary,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            height: 1.45,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        if (currentCoach.packages.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.subscriptionPackages,
+                                  arguments: currentCoach,
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.orange,
+                                foregroundColor: AppColors.white,
+                              ),
+                              child: const Text('View full offers'),
                             ),
                           ),
                         ],
@@ -227,51 +341,6 @@ class CoachDetailsScreen extends ConsumerWidget {
                             ),
                           ),
                         const SizedBox(height: 20),
-                        _SectionTitle(title: 'Packages'),
-                        const SizedBox(height: 8),
-                        if (currentCoach.packages.isEmpty)
-                          Text(
-                            'This coach has not published any packages yet.',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                          )
-                        else
-                          ...currentCoach.packages
-                              .take(2)
-                              .map(
-                                (package) => ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(package.title),
-                                  subtitle: Text(package.description),
-                                  trailing: Text(
-                                    '\$${package.price.toStringAsFixed(0)}',
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.orange,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                        if (currentCoach.packages.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.subscriptionPackages,
-                                arguments: currentCoach,
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.orange,
-                              foregroundColor: AppColors.white,
-                            ),
-                            child: const Text('Request Coaching Package'),
-                          ),
-                        ],
-                        const SizedBox(height: 20),
                         _SectionTitle(title: 'Reviews'),
                         const SizedBox(height: 8),
                         if (currentCoach.reviews.isEmpty)
@@ -296,7 +365,9 @@ class CoachDetailsScreen extends ConsumerWidget {
                                         AppSizes.radiusLg,
                                       ),
                                       border: Border.all(
-                                        color: AppColors.border,
+                                        color: AppColors.border.withValues(
+                                          alpha: 0.15,
+                                        ),
                                       ),
                                     ),
                                     child: Column(
@@ -326,6 +397,31 @@ class CoachDetailsScreen extends ConsumerWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.lightBackground,
+        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textSecondary,
         ),
       ),
     );

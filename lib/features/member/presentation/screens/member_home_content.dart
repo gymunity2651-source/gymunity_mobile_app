@@ -1,602 +1,486 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../app/routes.dart';
-import '../../../../core/config/app_config.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_sizes.dart';
+import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/di/providers.dart';
-import '../../../../core/widgets/app_feedback.dart';
-import '../../../../core/widgets/app_shell_background.dart';
-import '../../../news/domain/entities/news_article.dart';
-import '../../../news/presentation/providers/news_feed_provider.dart';
-import '../../../news/presentation/widgets/news_card.dart';
-import '../../../planner/domain/entities/planner_entities.dart';
-import '../../../planner/presentation/providers/planner_providers.dart';
-import '../../../planner/presentation/route_args.dart';
-import '../../../user/domain/entities/profile_entity.dart';
+import '../../../../core/theme/app_motion.dart';
+import '../../../../core/widgets/app_reveal.dart';
+import '../../../ai_chat/presentation/screens/ai_chat_home_screen.dart';
+import '../../../coaches/presentation/screens/coaches_screen.dart';
+import '../../../news/presentation/screens/news_feed_screen.dart';
+import '../../../store/presentation/screens/store_home_screen.dart';
 import '../providers/member_providers.dart';
 import '../widgets/member_profile_shortcut_button.dart';
+import 'member_checkins_screen.dart';
+import 'member_messages_screen.dart';
+import 'my_subscriptions_screen.dart';
+import 'progress_screen.dart';
 
+/// The editorial "Ethereal Atelier" member home page.
+///
+/// Every section matches the luxury-magazine layout from the design system
+/// document. Depth is achieved via tonal layering (no borders, no shadows),
+/// typography uses Noto Serif for headlines and Manrope for supporting copy.
 class MemberHomeContent extends ConsumerWidget {
   const MemberHomeContent({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(currentUserProfileProvider);
-    final aiPremiumEnabled = AppConfig.current.enableAiPremium;
+    final summaryAsync = ref.watch(memberHomeSummaryProvider);
+    final subscriptionsAsync = ref.watch(memberSubscriptionsProvider);
+
+    const baseDelay = 40;
+    Duration revealDelay(int index) =>
+        Duration(milliseconds: baseDelay + (index * 55));
 
     return SafeArea(
-      child: AppShellBackground(
-        child: RefreshIndicator.adaptive(
-          onRefresh: () async {
-            ref.invalidate(currentUserProfileProvider);
-            ref.invalidate(memberHomeSummaryProvider);
-            ref.invalidate(todayAgendaProvider);
-            ref.invalidate(newsPreviewProvider);
-            await ref.read(plannerReminderBootstrapProvider).sync();
-          },
-          child: profileAsync.when(
-            loading: () => const _HomeStateScaffold(
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.orange),
-              ),
+      child: RefreshIndicator.adaptive(
+        color: AtelierColors.primary,
+        onRefresh: () async {
+          ref.invalidate(currentUserProfileProvider);
+          ref.invalidate(memberHomeSummaryProvider);
+          ref.invalidate(memberSubscriptionsProvider);
+        },
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 120),
+          children: [
+            // ── Top bar: Atelier brand + actions ──
+            AppReveal(
+              delay: revealDelay(0),
+              child: _TopBar(profileAsync: profileAsync),
             ),
-            error: (error, stackTrace) => _HomeStateScaffold(
-              child: _StatusCard(
-                icon: Icons.cloud_off_outlined,
-                title: 'Unable to load your account',
-                description:
-                    'GymUnity could not refresh your account details right now.',
-                actionLabel: 'Retry',
-                onTap: () => ref.refresh(currentUserProfileProvider),
-              ),
-            ),
-            data: (profile) {
-              if (profile == null) {
-                return _HomeStateScaffold(
-                  child: _StatusCard(
-                    icon: Icons.person_search_outlined,
-                    title: 'Finish setting up your account',
-                    description:
-                        'Your GymUnity member profile is signed in, but the in-app profile is not complete yet.',
-                    actionLabel: 'Choose role',
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.roleSelection),
-                  ),
-                );
-              }
+            const SizedBox(height: 28),
 
-              return _MemberHomeLoaded(
-                profile: profile,
-                aiPremiumEnabled: aiPremiumEnabled,
-              );
-            },
-          ),
+            // ── Hero card (greeting + streak pill) ──
+            AppReveal(
+              delay: revealDelay(1),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                decoration: BoxDecoration(
+                  color: AtelierColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  children: [
+                    // Greeting
+                    AnimatedSwitcher(
+                      duration: AppMotion.medium,
+                      switchInCurve: AppMotion.emphasizedCurve,
+                      switchOutCurve: AppMotion.exitCurve,
+                      transitionBuilder: _fadeSlide,
+                      child: profileAsync.when(
+                        loading: () => const KeyedSubtree(
+                          key: ValueKey('hero-loading'),
+                          child: SizedBox(height: 140),
+                        ),
+                        error: (_, _) =>
+                            const SizedBox.shrink(key: ValueKey('hero-error')),
+                        data: (profile) => KeyedSubtree(
+                          key: ValueKey(
+                            'hero-${profile?.fullName ?? 'member'}',
+                          ),
+                          child: _HeroGreeting(
+                            name: profile?.fullName?.trim().isNotEmpty == true
+                                ? profile!.fullName!.trim()
+                                : 'GymUnity Member',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Streak pill
+                    const _StreakPill(),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // ── "What Matters Now" section ──
+            AppReveal(
+              delay: revealDelay(3),
+              child: _SectionHeading(
+                title: 'What Matters Now',
+                subtitle: 'Your immediate status and pending tasks',
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Metric cards + next-step CTA ──
+            AppReveal(
+              delay: revealDelay(4),
+              child: AnimatedSwitcher(
+                duration: AppMotion.medium,
+                switchInCurve: AppMotion.emphasizedCurve,
+                switchOutCurve: AppMotion.exitCurve,
+                transitionBuilder: _fadeSlide,
+                child: summaryAsync.when(
+                  loading: () => const KeyedSubtree(
+                    key: ValueKey('metrics-loading'),
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: CircularProgressIndicator(
+                          color: AtelierColors.primary,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                  error: (_, _) => const KeyedSubtree(
+                    key: ValueKey('metrics-error'),
+                    child: _EmptyStateCard(
+                      message:
+                          'Unable to load your summary right now. Pull to refresh.',
+                    ),
+                  ),
+                  data: (summary) => subscriptionsAsync.when(
+                    loading: () => const KeyedSubtree(
+                      key: ValueKey('subs-loading'),
+                      child: Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: CircularProgressIndicator(
+                            color: AtelierColors.primary,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    error: (_, _) => const KeyedSubtree(
+                      key: ValueKey('subs-error'),
+                      child: _EmptyStateCard(
+                        message:
+                            'Unable to load coaching status. Pull to refresh.',
+                      ),
+                    ),
+                    data: (subscriptions) {
+                      final active = subscriptions
+                          .where((item) => item.isActive)
+                          .toList();
+                      return KeyedSubtree(
+                        key: ValueKey(
+                          'metrics-${active.length}-${summary.activePlan?.id ?? 'none'}',
+                        ),
+                        child: _MetricsBlock(
+                          activeCoaches: active.length,
+                          latestWeightKg:
+                              summary.latestWeightEntry?.weightKg,
+                          hasPlan: summary.activePlan != null,
+                          needsCheckout: active.isEmpty,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 36),
+
+            // ── "Quick Actions" section ──
+            AppReveal(
+              delay: revealDelay(5),
+              child: _SectionHeading(
+                title: 'Quick Actions',
+                subtitle: '',
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Featured TAIYO card ──
+            AppReveal(
+              delay: revealDelay(6),
+              child: const _FeaturedActionCard(
+                title: 'Open TAIYO',
+                subtitle: 'Intelligent wellness insights',
+                icon: Icons.auto_awesome_outlined,
+                destinationBuilder: _buildAiHome,
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // ── Quick-action grid (2 columns) ──
+            AppReveal(
+              delay: revealDelay(7),
+              child: const _QuickActionsGrid(),
+            ),
+            const SizedBox(height: 24),
+
+            // ── Browse store row ──
+            AppReveal(
+              delay: revealDelay(8),
+              child: const _BrowseStoreCard(),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _MemberHomeLoaded extends ConsumerWidget {
-  const _MemberHomeLoaded({
-    required this.profile,
-    required this.aiPremiumEnabled,
-  });
+// ═══════════════════════════════════════════════════════════════════════════
+//  TOP BAR
+// ═══════════════════════════════════════════════════════════════════════════
 
-  final ProfileEntity profile;
-  final bool aiPremiumEnabled;
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.profileAsync});
+
+  final AsyncValue profileAsync;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final fullName = profile.fullName?.trim().isNotEmpty == true
-        ? profile.fullName!.trim()
-        : 'GymUnity Member';
-    final firstName = fullName.split(' ').first;
-    final email = profile.email?.trim().isNotEmpty == true
-        ? profile.email!.trim()
-        : 'No email available';
-
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(AppSizes.screenPadding),
+  Widget build(BuildContext context) {
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Member dashboard',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                  color: AppColors.textMuted,
-                ),
-              ),
+        // Brand mark — circular green avatar
+        Container(
+          width: 40,
+          height: 40,
+          decoration: const BoxDecoration(
+            color: Color(0xFF5C8A6E),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.spa_rounded,
+            color: AtelierColors.white,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Atelier',
+            style: GoogleFonts.notoSerif(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              fontStyle: FontStyle.italic,
+              color: AtelierColors.onSurface,
             ),
-            const MemberProfileShortcutButton(),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Text(
-          'Your member space',
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-            color: AppColors.orangeLight,
           ),
         ),
-        const SizedBox(height: 10),
-        Text(
-          'Your member dashboard now surfaces the active AI plan flow, today’s tasks, and the live GymUnity entry points already backed by the app.',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            height: 1.5,
-            color: AppColors.textSecondary,
+        // Notification bell
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AtelierColors.surfaceContainerLowest,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.notifications_none_rounded,
+            color: AtelierColors.onSurfaceVariant,
+            size: 21,
           ),
         ),
-        const SizedBox(height: 20),
-        _HomeHero(
-          firstName: firstName,
-          fullName: fullName,
-          email: email,
-          onboardingCompleted: profile.onboardingCompleted,
-          aiPremiumEnabled: aiPremiumEnabled,
-        ),
-        const SizedBox(height: 24),
-        const _SectionTitle(
-          title: 'Today',
-          subtitle: 'Your live agenda and the next actions worth doing now.',
-        ),
-        const SizedBox(height: 12),
-        const _TodayTaskCard(),
-        const SizedBox(height: 20),
-        const _SectionTitle(
-          title: 'Recommended Reads',
-          subtitle: 'Relevant articles with clearer summaries and less noise.',
-        ),
-        const SizedBox(height: 12),
-        const _RecommendedReadsSection(),
-        const SizedBox(height: 20),
-        const _SectionTitle(
-          title: 'Quick Actions',
-          subtitle: 'Jump straight into the flows members reach for most.',
-        ),
-        const SizedBox(height: 12),
-        _QuickActionCard(
-          icon: Icons.auto_awesome_outlined,
-          title: aiPremiumEnabled ? 'Open AI Premium' : 'Open AI Assistant',
-          description: aiPremiumEnabled
-              ? 'Start a guided AI plan or continue a verified AI conversation.'
-              : 'Start a guided AI plan or continue a general AI conversation.',
-          onTap: () => Navigator.pushNamed(context, AppRoutes.aiChatHome),
-        ),
-        const SizedBox(height: 12),
-        _QuickActionCard(
-          icon: Icons.event_note_outlined,
-          title: 'Open active plan',
-          description:
-              'Review your activated AI plan, upcoming days, and reminder settings.',
-          onTap: () => Navigator.pushNamed(
-            context,
-            AppRoutes.workoutPlan,
-            arguments: const WorkoutPlanArgs(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        _QuickActionCard(
-          icon: Icons.storefront_outlined,
-          title: 'Browse Store',
-          description:
-              'Review the current product catalog without fake checkout or preview purchases.',
-          onTap: () => Navigator.pushNamed(context, AppRoutes.storeHome),
-        ),
-        const SizedBox(height: 12),
-        _QuickActionCard(
-          icon: Icons.groups_outlined,
-          title: 'Browse Coaches',
-          description:
-              'Compare listed coaches without demo package requests or fake checkout.',
-          onTap: () => Navigator.pushNamed(context, AppRoutes.coaches),
-        ),
-        const SizedBox(height: 12),
-        _QuickActionCard(
-          icon: Icons.settings_outlined,
-          title: 'Account Settings',
-          description:
-              'Manage legal links, notifications, support channels, logout, and account deletion.',
-          onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+        const SizedBox(width: 8),
+        // Profile avatar
+        MemberProfileShortcutButton(
+          backgroundColor: AtelierColors.surfaceContainerLowest,
+          iconColor: AtelierColors.onSurfaceVariant,
+          borderColor: AtelierColors.transparent,
+          size: 40,
         ),
       ],
     );
   }
 }
 
-class _HomeHero extends StatelessWidget {
-  const _HomeHero({
-    required this.firstName,
-    required this.fullName,
-    required this.email,
-    required this.onboardingCompleted,
-    required this.aiPremiumEnabled,
-  });
+// ═══════════════════════════════════════════════════════════════════════════
+//  HERO GREETING
+// ═══════════════════════════════════════════════════════════════════════════
 
-  final String firstName;
-  final String fullName;
-  final String email;
-  final bool onboardingCompleted;
-  final bool aiPremiumEnabled;
+class _HeroGreeting extends StatelessWidget {
+  const _HeroGreeting({required this.name});
+
+  final String name;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.xl),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-        border: Border.all(color: AppColors.borderSoft.withValues(alpha: 0.55)),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.cardDark.withValues(alpha: 0.97),
-            AppColors.surfacePanel.withValues(alpha: 0.96),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          'WELLNESS COLLECTIVE',
+          style: GoogleFonts.manrope(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 2.4,
+            color: AtelierColors.primary,
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.14),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
+        const SizedBox(height: 14),
+        Text(
+          'Welcome back,',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.notoSerif(
+            fontSize: 22,
+            fontWeight: FontWeight.w500,
+            height: 1.2,
+            color: AtelierColors.onSurface,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: AppSizes.sm,
-            runSpacing: AppSizes.sm,
-            children: [
-              _Pill(
-                label: onboardingCompleted ? 'Profile ready' : 'Setup pending',
-                accent: onboardingCompleted
-                    ? AppColors.limeGreen
-                    : AppColors.orange,
-              ),
-              _Pill(
-                label: aiPremiumEnabled ? 'Premium AI' : 'AI assistant',
-                accent: AppColors.electricBlue,
-              ),
-              const _Pill(
-                label: 'Trusted reads',
-                accent: AppColors.orangeLight,
-              ),
-            ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          name,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.notoSerif(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            fontStyle: FontStyle.italic,
+            height: 1.15,
+            color: AtelierColors.onSurface,
           ),
-          const SizedBox(height: AppSizes.lg),
-          Text(
-            'Welcome back, $firstName',
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 30,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: AppSizes.sm),
-          Text(
-            'Your plan, trusted reads, and most useful next actions are arranged here to keep the app calm and quick to scan.',
-            style: GoogleFonts.inter(
-              fontSize: 14,
+        ),
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Your journey toward optimal vitality is curated here. Today is a perfect day for progress.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.manrope(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               height: 1.55,
-              color: AppColors.textSecondary,
+              color: AtelierColors.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: AppSizes.lg),
-          Row(
-            children: [
-              Expanded(
-                child: _HeroStat(
-                  label: 'Account',
-                  value: onboardingCompleted ? 'Ready' : 'Pending',
-                ),
-              ),
-              const SizedBox(width: AppSizes.md),
-              Expanded(
-                child: _HeroStat(
-                  label: 'AI access',
-                  value: aiPremiumEnabled ? 'Premium' : 'Standard',
-                ),
-              ),
-            ],
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STREAK PILL
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _StreakPill extends StatefulWidget {
+  const _StreakPill();
+
+  @override
+  State<_StreakPill> createState() => _StreakPillState();
+}
+
+class _StreakPillState extends State<_StreakPill>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    // "Reverse" enables the seamless yoyo effect (eats toward middle, un-eats back to start)
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _buildTextColumn() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'DAILY STREAK',
+          style: GoogleFonts.manrope(
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.8,
+            color: AtelierColors.onSurfaceVariant,
           ),
-          const SizedBox(height: AppSizes.lg),
-          Container(
-            padding: const EdgeInsets.all(AppSizes.lg),
-            decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.78),
-              borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-              border: Border.all(
-                color: AppColors.borderLight.withValues(alpha: 0.55),
-              ),
-            ),
-            child: Row(
+          maxLines: 1,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '12 Days Active',
+          style: GoogleFonts.manrope(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AtelierColors.onSurface,
+          ),
+          maxLines: 1,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        decoration: BoxDecoration(
+          color: AtelierColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(9999),
+        ),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            // Smooth natural pacing curve
+            final progress = Curves.easeInOut.transform(_controller.value);
+
+            return Stack(
+              alignment: Alignment.centerLeft,
+              clipBehavior: Clip.none,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.orange.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                  ),
-                  child: const Icon(
-                    Icons.verified_user_outlined,
-                    color: AppColors.orangeLight,
-                  ),
-                ),
-                const SizedBox(width: AppSizes.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // 1. Invisible Layout Guide (calculates the pill's static footprint)
+                Opacity(
+                  opacity: 0.0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        fullName,
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: AppSizes.xs),
-                      Text(
-                        email,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
+                      const SizedBox(width: 36), // The exact footprint of the icon
+                      const SizedBox(width: 12),
+                      _buildTextColumn(),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
-class _HeroStat extends StatelessWidget {
-  const _HeroStat({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        border: Border.all(color: AppColors.borderLight.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textMuted,
-            ),
-          ),
-          const SizedBox(height: AppSizes.xs),
-          Text(
-            value,
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TodayTaskCard extends ConsumerWidget {
-  const _TodayTaskCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(memberHomeSummaryProvider);
-    final todayAsync = ref.watch(todayAgendaProvider);
-    final actionState = ref.watch(plannerActionControllerProvider);
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.cardDark,
-            AppColors.surfaceRaised.withValues(alpha: 0.96),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-        border: Border.all(color: AppColors.borderLight.withValues(alpha: 0.8)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.18),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: summaryAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.orange),
-        ),
-        error: (error, stackTrace) => _InlineState(
-          title: 'Unable to load today’s agenda',
-          description: 'GymUnity could not read your member summary right now.',
-        ),
-        data: (homeSummary) => todayAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.orange),
-          ),
-          error: (error, stackTrace) => _InlineState(
-            title: 'Unable to load today’s tasks',
-            description:
-                'Pull to refresh or reopen the member dashboard to retry.',
-          ),
-          data: (tasks) {
-            final activePlan = homeSummary.activePlan;
-            final pendingCount = tasks
-                .where(
-                  (task) =>
-                      task.completionStatus == TaskCompletionStatus.pending,
-                )
-                .length;
-            final completedCount = tasks
-                .where(
-                  (task) =>
-                      task.completionStatus == TaskCompletionStatus.completed ||
-                      task.completionStatus == TaskCompletionStatus.partial,
-                )
-                .length;
-            final missedCount = tasks
-                .where(
-                  (task) =>
-                      task.completionStatus == TaskCompletionStatus.missed,
-                )
-                .length;
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const _TodayCardLabel(label: 'LIVE AGENDA'),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Today’s AI tasks',
-                            style: GoogleFonts.spaceGrotesk(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            tasks.isEmpty
-                                ? 'No AI tasks are scheduled today yet.'
-                                : 'Stay on the current plan with clear actions and one-tap status updates.',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              height: 1.5,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                if (activePlan != null) ...[
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.workoutPlan,
-                        arguments: WorkoutPlanArgs(planId: activePlan.id),
-                      ),
-                      icon: const Icon(Icons.visibility_outlined, size: 18),
-                      label: const Text('Open active plan'),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _MetricPill(label: 'Pending', value: pendingCount),
-                    _MetricPill(label: 'Done', value: completedCount),
-                    _MetricPill(label: 'Missed', value: missedCount),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (tasks.isEmpty)
-                  _EmptyTasksState(activePlan: activePlan != null)
-                else
-                  ...tasks
-                      .take(3)
-                      .map(
-                        (task) => _TaskActionRow(
-                          task: task,
-                          isUpdating: actionState.isUpdatingTask,
-                          onOpen: () => Navigator.pushNamed(
-                            context,
-                            AppRoutes.workoutDetails,
-                            arguments: WorkoutDayArgs(
-                              planId: task.planId,
-                              dayId: task.dayId,
-                            ),
-                          ),
-                          onComplete: () => _updateTask(
-                            context,
-                            ref,
-                            task,
-                            TaskCompletionStatus.completed,
-                            100,
-                          ),
-                          onPartial: () => _updateTask(
-                            context,
-                            ref,
-                            task,
-                            TaskCompletionStatus.partial,
-                            50,
-                          ),
-                          onSkip: () => _updateTask(
-                            context,
-                            ref,
-                            task,
-                            TaskCompletionStatus.skipped,
-                            0,
+                // 2. The Text (Appears to get swallowed into the icon)
+                Positioned.fill(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final double W = constraints.maxWidth;
+                      return ClipRect(
+                        clipper: _SmoothEatingClipper(progress),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Transform.translate(
+                            // Text moves exactly W/2 to the left.
+                            // Icon moves to exactly W/2 from the left.
+                            // They converge in the absolute center pixel-perfectly with 0 gap!
+                            offset: Offset(-progress * (W / 2), 0.0),
+                            child: _buildTextColumn(),
                           ),
                         ),
+                      );
+                    },
+                  ),
+                ),
+
+                // 3. The sliding Icon (Ends exactly at the center of the pill)
+                Positioned.fill(
+                  child: Align(
+                    // -1.0 is Left Edge. 0.0 is Exact Center.
+                    alignment: Alignment(-1.0 + progress, 0.0),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/streak_icon.png',
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.cover,
                       ),
-                if (tasks.length > 3) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.workoutPlan,
-                        arguments: activePlan == null
-                            ? const WorkoutPlanArgs()
-                            : WorkoutPlanArgs(planId: activePlan.id),
-                      ),
-                      child: Text('View all ${tasks.length} tasks'),
                     ),
                   ),
-                ],
+                ),
               ],
             );
           },
@@ -604,75 +488,37 @@ class _TodayTaskCard extends ConsumerWidget {
       ),
     );
   }
-
-  Future<void> _updateTask(
-    BuildContext context,
-    WidgetRef ref,
-    PlanTaskEntity task,
-    TaskCompletionStatus status,
-    int completionPercent,
-  ) async {
-    final updated = await ref
-        .read(plannerActionControllerProvider.notifier)
-        .updateTaskStatus(
-          taskId: task.taskId,
-          status: status,
-          completionPercent: completionPercent,
-        );
-    if (!context.mounted) {
-      return;
-    }
-    if (updated == null) {
-      showAppFeedback(
-        context,
-        ref.read(plannerActionControllerProvider).errorMessage ??
-            'GymUnity could not update this task right now.',
-      );
-      return;
-    }
-    showAppFeedback(context, 'Task marked ${status.label.toLowerCase()}.');
-  }
 }
 
-class _HomeStateScaffold extends StatelessWidget {
-  const _HomeStateScaffold({required this.child});
-
-  final Widget child;
+class _SmoothEatingClipper extends CustomClipper<Rect> {
+  _SmoothEatingClipper(this.progress);
+  final double progress;
 
   @override
-  Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(AppSizes.screenPadding),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Member dashboard',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ),
-            const MemberProfileShortcutButton(),
-          ],
-        ),
-        const SizedBox(height: 16),
-        child,
-      ],
-    );
+  Rect getClip(Size size) {
+    // Determine the exact pixel coordinate of the Icon's dynamic center
+    // Icon aligns from -1.0 (left) to 0.0 (center)
+    final centerOfIconX = ((size.width - 36) / 2) * progress + 18;
+    
+    // Anything to the left of the Icon's center is mathematically clipped (invisible)
+    // Making it seamlessly disappear as the texts dives in.
+    return Rect.fromLTWH(centerOfIconX, 0, size.width - centerOfIconX, size.height);
   }
+
+  @override
+  bool shouldReclip(covariant _SmoothEatingClipper oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
-class _InlineState extends StatelessWidget {
-  const _InlineState({required this.title, required this.description});
+// ═══════════════════════════════════════════════════════════════════════════
+//  SECTION HEADING
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.title, required this.subtitle});
 
   final String title;
-  final String description;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -681,415 +527,672 @@ class _InlineState extends StatelessWidget {
       children: [
         Text(
           title,
-          style: GoogleFonts.inter(
-            fontSize: 16,
+          style: GoogleFonts.notoSerif(
+            fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            color: AtelierColors.onSurface,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          description,
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            height: 1.5,
-            color: AppColors.textSecondary,
+        if (subtitle.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.manrope(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AtelierColors.onSurfaceVariant,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
 }
 
-class _EmptyTasksState extends StatelessWidget {
-  const _EmptyTasksState({required this.activePlan});
+// ═══════════════════════════════════════════════════════════════════════════
+//  METRICS BLOCK
+// ═══════════════════════════════════════════════════════════════════════════
 
-  final bool activePlan;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF14100C),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-      ),
-      child: Text(
-        activePlan
-            ? 'Your plan is active. Today may be a rest or recovery day.'
-            : 'Start a planning chat to generate an AI plan and get daily tasks here.',
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          height: 1.5,
-          color: AppColors.textSecondary,
-        ),
-      ),
-    );
-  }
-}
-
-class _TaskActionRow extends StatelessWidget {
-  const _TaskActionRow({
-    required this.task,
-    required this.isUpdating,
-    required this.onOpen,
-    required this.onComplete,
-    required this.onPartial,
-    required this.onSkip,
+class _MetricsBlock extends StatelessWidget {
+  const _MetricsBlock({
+    required this.activeCoaches,
+    required this.latestWeightKg,
+    required this.hasPlan,
+    required this.needsCheckout,
   });
 
-  final PlanTaskEntity task;
-  final bool isUpdating;
-  final VoidCallback onOpen;
-  final VoidCallback onComplete;
-  final VoidCallback onPartial;
-  final VoidCallback onSkip;
+  final int activeCoaches;
+  final double? latestWeightKg;
+  final bool hasPlan;
+  final bool needsCheckout;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF14100C),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: onOpen,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        task.title,
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        task.reminderTime ?? task.scheduledTime ?? 'Any time',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              _TaskStatusPill(status: task.completionStatus),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: isUpdating ? null : onSkip,
-                  child: const Text('Skip'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: isUpdating ? null : onPartial,
-                  child: const Text('Partial'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: isUpdating ? null : onComplete,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.orange,
-                    foregroundColor: AppColors.white,
-                  ),
-                  child: const Text('Done'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricPill extends StatelessWidget {
-  const _MetricPill({required this.label, required this.value});
-
-  final String label;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 86),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        border: Border.all(
-          color: AppColors.borderLight.withValues(alpha: 0.65),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MetricTile(
+          imageAsset: 'assets/images/coaches_icon.png',
+          label: 'ACTIVE COACHES',
+          value: '$activeCoaches',
+          trailingWidget: const _CoachesRadarGraph(),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textMuted,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '$value',
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TodayCardLabel extends StatelessWidget {
-  const _TodayCardLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.orange.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: AppColors.orangeLight,
+        const SizedBox(height: 12),
+        _MetricTile(
+          icon: Icons.monitor_weight_outlined,
+          label: 'LATEST WEIGHT',
+          value: latestWeightKg == null
+              ? '--'
+              : '${latestWeightKg!.toStringAsFixed(1)} kg',
+          trailingWidget: const _WeightSparkline(),
         ),
-      ),
+        const SizedBox(height: 12),
+        _MetricTile(
+          icon: Icons.event_note_outlined,
+          label: 'CURRENT PLAN',
+          value: hasPlan ? '• Live' : 'None',
+          valueColor: hasPlan ? AtelierColors.success : null,
+          trailingWidget: const _PlanProgressWeek(),
+        ),
+        const SizedBox(height: 14),
+
+        _NextStepCard(needsCheckout: needsCheckout),
+      ],
     );
   }
 }
 
-class _StatusCard extends StatelessWidget {
-  const _StatusCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.actionLabel,
-    required this.onTap,
-  });
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    this.icon,
+    this.imageAsset,
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.trailingWidget,
+  }) : assert(icon != null || imageAsset != null);
 
-  final IconData icon;
-  final String title;
-  final String description;
-  final String actionLabel;
-  final VoidCallback onTap;
+  final IconData? icon;
+  final String? imageAsset;
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final Widget? trailingWidget;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.cardDark.withValues(alpha: 0.97),
-            AppColors.surfacePanel.withValues(alpha: 0.95),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-        border: Border.all(color: AppColors.borderSoft.withValues(alpha: 0.55)),
+        color: AtelierColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
       ),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: AppColors.orange, size: 36),
-          const SizedBox(height: 14),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            description,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              height: 1.45,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 18),
-          ElevatedButton(
-            onPressed: onTap,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orange,
-              foregroundColor: AppColors.white,
-            ),
-            child: Text(actionLabel),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, this.subtitle});
-
-  final String title;
-  final String? subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.spaceGrotesk(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        if (subtitle != null) ...[
-          const SizedBox(height: AppSizes.xs),
-          Text(
-            subtitle!,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              height: 1.45,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _QuickActionCard extends StatelessWidget {
-  const _QuickActionCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        child: Ink(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.cardDark.withValues(alpha: 0.97),
-                AppColors.surfacePanel.withValues(alpha: 0.94),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-            border: Border.all(
-              color: AppColors.borderSoft.withValues(alpha: 0.52),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.black.withValues(alpha: 0.08),
-                blurRadius: 18,
-                offset: const Offset(0, 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AtelierColors.surfaceContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: imageAsset != null
+                    ? Center(
+                        child: Image.asset(
+                          imageAsset!,
+                          width: 24,
+                          height: 24,
+                          fit: BoxFit.contain,
+                        ),
+                      )
+                    : Icon(icon, size: 20, color: AtelierColors.onSurfaceVariant),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                label,
+                style: GoogleFonts.manrope(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                  color: AtelierColors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                style: GoogleFonts.manrope(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: valueColor ?? AtelierColors.onSurface,
+                ),
               ),
             ],
+          ),
+          // Custom trailing animation
+          ?trailingWidget,
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  1. COACHES RADAR GRAPH
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _CoachesRadarGraph extends StatefulWidget {
+  const _CoachesRadarGraph();
+
+  @override
+  State<_CoachesRadarGraph> createState() => _CoachesRadarGraphState();
+}
+
+class _CoachesRadarGraphState extends State<_CoachesRadarGraph>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 50,
+      height: 50,
+      child: RepaintBoundary(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => CustomPaint(
+            painter: _RadarPainter(
+              progress: _controller.value,
+              color: AtelierColors.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RadarPainter extends CustomPainter {
+  _RadarPainter({required this.progress, required this.color});
+
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxRadius = size.width / 2;
+
+    // Expand ripple 1
+    final p1 = (progress + 0.5) % 1.0;
+    canvas.drawCircle(
+      center,
+      maxRadius * p1,
+      Paint()
+        ..color = color.withValues(alpha: (1 - p1) * 0.4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+
+    // Expand ripple 2
+    final p2 = progress;
+    canvas.drawCircle(
+      center,
+      maxRadius * p2,
+      Paint()
+        ..color = color.withValues(alpha: (1 - p2) * 0.4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+
+    // Core dot (you)
+    canvas.drawCircle(center, 3, Paint()..color = color.withValues(alpha: 0.8));
+
+    // Orbital dots (potential coaches)
+    final coach1 = Offset(
+      center.dx + math.cos(progress * math.pi * 2) * maxRadius * 0.5,
+      center.dy + math.sin(progress * math.pi * 2) * maxRadius * 0.5,
+    );
+    final coach2 = Offset(
+      center.dx + math.cos(progress * math.pi * 2 + math.pi) * maxRadius * 0.8,
+      center.dy + math.sin(progress * math.pi * 2 + math.pi) * maxRadius * 0.8,
+    );
+
+    canvas.drawCircle(coach1, 2, Paint()..color = color.withValues(alpha: 0.6));
+    canvas.drawCircle(coach2, 2.5, Paint()..color = color.withValues(alpha: 0.4));
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadarPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  2. WEIGHT TREND SPARKLINE
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _WeightSparkline extends StatefulWidget {
+  const _WeightSparkline();
+
+  @override
+  State<_WeightSparkline> createState() => _WeightSparklineState();
+}
+
+class _WeightSparklineState extends State<_WeightSparkline>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    // Continuous loop for an organic floating effect
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 70,
+      height: 35,
+      child: RepaintBoundary(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => CustomPaint(
+            painter: _SparklinePainter(
+              progress: _controller.value,
+              color: AtelierColors.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SparklinePainter extends CustomPainter {
+  _SparklinePainter({required this.progress, required this.color});
+
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Fake downward trend for weight: mapped 0 to 1 (0 is top of chart, 1 is bottom)
+    final baseValues = [0.2, 0.4, 0.3, 0.6, 0.5, 0.9];
+    
+    // Calculate undulating values using the progress as a phase
+    double getValue(int index) {
+      // Create a smooth floating offset for each point based on the continuous progress
+      final shift = math.sin((progress * math.pi * 2) + (index * 1.5)) * 0.12;
+      return math.max(0.0, math.min(1.0, baseValues[index] + shift));
+    }
+    
+    final path = Path();
+    final step = size.width / (baseValues.length - 1);
+
+    path.moveTo(0, size.height * getValue(0));
+    for (int i = 0; i < baseValues.length - 1; i++) {
+      final x1 = step * i;
+      final y1 = size.height * getValue(i);
+      final x2 = step * (i + 1);
+      final y2 = size.height * getValue(i + 1);
+
+      // Smooth cubic bezier connection
+      path.cubicTo(
+        x1 + step / 2, y1,
+        x1 + step / 2, y2,
+        x2, y2,
+      );
+    }
+
+    final linePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.drawPath(path, linePaint);
+
+    // Area gradient under the curve
+    final areaPath = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          color.withValues(alpha: 0.15),
+          color.withValues(alpha: 0.0),
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawPath(areaPath, fillPaint);
+    
+    // Glowing tip at current data point
+    final tipPos = Offset(size.width, size.height * getValue(baseValues.length - 1));
+    canvas.drawCircle(tipPos, 3, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklinePainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  3. PLAN PROGRESS WEEK
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _PlanProgressWeek extends StatefulWidget {
+  const _PlanProgressWeek();
+
+  @override
+  State<_PlanProgressWeek> createState() => _PlanProgressWeekState();
+}
+
+class _PlanProgressWeekState extends State<_PlanProgressWeek>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 70,
+      height: 30,
+      child: RepaintBoundary(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => CustomPaint(
+            painter: _WeekPainter(
+              pulse: _controller.value,
+              color: AtelierColors.success,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WeekPainter extends CustomPainter {
+  _WeekPainter({required this.pulse, required this.color});
+
+  final double pulse;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const int days = 7;
+    const int currentDay = 4; // 0-indexed: 4th block is today
+    const double radius = 3.0;
+    
+    final double spacing = (size.width - (radius * 2 * days)) / (days - 1);
+    final double y = size.height / 2;
+
+    for (int i = 0; i < days; i++) {
+      final x = (radius * 2 * i) + (spacing * i) + radius;
+
+      if (i < currentDay) {
+        // Completed days: solid dot
+        canvas.drawCircle(Offset(x, y), radius, Paint()..color = color);
+      } else if (i == currentDay) {
+        // Current day: pulsating glow + solid core
+        final glowPaint = Paint()
+          ..color = color.withValues(alpha: 0.2 + (0.4 * pulse));
+        canvas.drawCircle(Offset(x, y), radius + (1.5 + (2.5 * pulse)), glowPaint);
+        canvas.drawCircle(Offset(x, y), radius, Paint()..color = color);
+      } else {
+        // Upcoming days: hollow outline
+        final outlinePaint = Paint()
+          ..color = color.withValues(alpha: 0.4)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0;
+        canvas.drawCircle(Offset(x, y), radius, outlinePaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WeekPainter oldDelegate) =>
+      oldDelegate.pulse != pulse;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  NEXT-STEP CTA
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _NextStepCard extends StatelessWidget {
+  const _NextStepCard({required this.needsCheckout});
+
+  final bool needsCheckout;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = needsCheckout ? 'Complete Checkout' : 'Submit Check-in';
+    final cta = needsCheckout ? 'Checkout Now' : 'Open Check-in';
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AtelierColors.darkCard,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'NEXT STEP',
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.8,
+              color: AtelierColors.white.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: GoogleFonts.manrope(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AtelierColors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Mesh-gradient CTA button
+          Container(
+            width: double.infinity,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AtelierColors.primary, AtelierColors.primaryContainer],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(9999),
+            ),
+            child: Material(
+              color: AtelierColors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(9999),
+                onTap: () {
+                  if (needsCheckout) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CoachesScreen(),
+                      ),
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MemberCheckinsScreen(),
+                      ),
+                    );
+                  }
+                },
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        cta,
+                        style: GoogleFonts.manrope(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AtelierColors.onPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: AtelierColors.onPrimary,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  FEATURED TAIYO CARD
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _FeaturedActionCard extends StatefulWidget {
+  const _FeaturedActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.destinationBuilder,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Widget Function(BuildContext) destinationBuilder;
+
+  @override
+  State<_FeaturedActionCard> createState() => _FeaturedActionCardState();
+}
+
+class _FeaturedActionCardState extends State<_FeaturedActionCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: _pressed ? AppMotion.pressedScale : 1,
+      duration: AppMotion.fast,
+      curve: AppMotion.standardCurve,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: widget.destinationBuilder,
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AtelierColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(24),
           ),
           child: Row(
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.orange.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                  color: AtelierColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppColors.orangeLight),
+                child: Icon(
+                  widget.icon,
+                  color: AtelierColors.primary,
+                  size: 24,
+                ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
-                      style: GoogleFonts.inter(
+                      widget.title,
+                      style: GoogleFonts.manrope(
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                        color: AtelierColors.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 3),
                     Text(
-                      description,
-                      style: GoogleFonts.inter(
+                      widget.subtitle,
+                      style: GoogleFonts.manrope(
                         fontSize: 13,
-                        height: 1.45,
-                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                        color: AtelierColors.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.surface.withValues(alpha: 0.84),
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                ),
-                child: const Icon(
-                  Icons.arrow_outward_rounded,
-                  size: 18,
-                  color: AppColors.textMuted,
-                ),
-              ),
             ],
           ),
         ),
@@ -1098,221 +1201,295 @@ class _QuickActionCard extends StatelessWidget {
   }
 }
 
-class _RecommendedReadsSection extends ConsumerWidget {
-  const _RecommendedReadsSection();
+// ═══════════════════════════════════════════════════════════════════════════
+//  QUICK-ACTIONS GRID (2 COLUMNS)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _QuickActionsGrid extends StatelessWidget {
+  const _QuickActionsGrid();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final previewAsync = ref.watch(newsPreviewProvider);
-
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.lg),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.cardDark.withValues(alpha: 0.97),
-            AppColors.surfacePanel.withValues(alpha: 0.95),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-        border: Border.all(color: AppColors.borderSoft.withValues(alpha: 0.52)),
+  Widget build(BuildContext context) {
+    final actions = <_GridAction>[
+      _GridAction(
+        title: 'Open news\nfeed',
+        icon: Icons.newspaper_outlined,
+        destinationBuilder: _buildNewsFeed,
       ),
-      child: previewAsync.when(
-        loading: () => const SizedBox(
-          height: 140,
-          child: Center(
-            child: CircularProgressIndicator(color: AppColors.orange),
+      _GridAction(
+        title: 'Open my\ncoaching',
+        icon: Icons.workspace_premium_outlined,
+        destinationBuilder: _buildSubscriptions,
+      ),
+      _GridAction(
+        title: 'Weekly\ncheck-ins',
+        icon: Icons.assignment_outlined,
+        destinationBuilder: _buildCheckins,
+      ),
+      _GridAction(
+        title: 'Submit\nprogress',
+        icon: Icons.trending_up_outlined,
+        destinationBuilder: _buildProgress,
+      ),
+      _GridAction(
+        title: 'Browse\ncoaches',
+        icon: Icons.search_rounded,
+        destinationBuilder: _buildCoaches,
+      ),
+      _GridAction(
+        title: 'Open\nmessages',
+        icon: Icons.chat_bubble_outline_rounded,
+        destinationBuilder: _buildMessages,
+      ),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.2,
+      ),
+      itemCount: actions.length,
+      itemBuilder: (context, index) {
+        final action = actions[index];
+        return _GridActionTile(action: action);
+      },
+    );
+  }
+}
+
+class _GridAction {
+  const _GridAction({
+    required this.title,
+    required this.icon,
+    required this.destinationBuilder,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget Function(BuildContext) destinationBuilder;
+}
+
+class _GridActionTile extends StatefulWidget {
+  const _GridActionTile({required this.action});
+
+  final _GridAction action;
+
+  @override
+  State<_GridActionTile> createState() => _GridActionTileState();
+}
+
+class _GridActionTileState extends State<_GridActionTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: _pressed ? AppMotion.pressedScale : 1,
+      duration: AppMotion.fast,
+      curve: AppMotion.standardCurve,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: widget.action.destinationBuilder,
           ),
         ),
-        error: (error, stackTrace) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Trusted health reads are temporarily unavailable.',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: AppSizes.sm),
-            Text(
-              '$error',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                height: 1.5,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSizes.lg),
-            OutlinedButton(
-              onPressed: () => ref.invalidate(newsPreviewProvider),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-        data: (articles) {
-          if (articles.isEmpty) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Your news feed is still warming up.',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppSizes.sm),
-                Text(
-                  'GymUnity will rank trusted reads around your goal, activity, and topics you engage with.',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    height: 1.55,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: AppSizes.lg),
-                FilledButton.icon(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, AppRoutes.newsFeed),
-                  icon: const Icon(Icons.menu_book_outlined),
-                  label: const Text('Open Feed'),
-                ),
-              ],
-            );
-          }
-
-          return Column(
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AtelierColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'For your current goal',
-                          style: GoogleFonts.spaceGrotesk(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: AppSizes.xs),
-                        Text(
-                          'Calm, trustworthy reads that fit where you are right now.',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            height: 1.5,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.newsFeed),
-                    child: const Text('See all'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSizes.md),
-              for (final article in articles.take(2)) ...[
-                NewsCard(
-                  article: article,
-                  compact: true,
-                  showDismiss: false,
-                  onTap: () => _openArticle(context, ref, article),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AtelierColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: AppSizes.md),
-              ],
+                child: Icon(
+                  widget.action.icon,
+                  size: 20,
+                  color: AtelierColors.onSurfaceVariant,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                widget.action.title,
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                  color: AtelierColors.onSurface,
+                ),
+              ),
             ],
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _openArticle(
-    BuildContext context,
-    WidgetRef ref,
-    NewsArticleEntity article,
-  ) async {
-    await ref
-        .read(newsFeedControllerProvider.notifier)
-        .trackOpen(article.id, origin: 'member_home');
-    if (!context.mounted) {
-      return;
-    }
-    await Navigator.pushNamed(
-      context,
-      AppRoutes.newsArticleDetails,
-      arguments: article,
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.accent});
-
-  final String label;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
-        border: Border.all(color: accent.withValues(alpha: 0.2)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: accent,
+          ),
         ),
       ),
     );
   }
 }
 
-class _TaskStatusPill extends StatelessWidget {
-  const _TaskStatusPill({required this.status});
+// ═══════════════════════════════════════════════════════════════════════════
+//  BROWSE STORE
+// ═══════════════════════════════════════════════════════════════════════════
 
-  final TaskCompletionStatus status;
+class _BrowseStoreCard extends StatefulWidget {
+  const _BrowseStoreCard();
+
+  @override
+  State<_BrowseStoreCard> createState() => _BrowseStoreCardState();
+}
+
+class _BrowseStoreCardState extends State<_BrowseStoreCard> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (status) {
-      TaskCompletionStatus.completed => AppColors.limeGreen,
-      TaskCompletionStatus.partial => AppColors.electricBlue,
-      TaskCompletionStatus.skipped => AppColors.orange,
-      TaskCompletionStatus.missed => AppColors.error,
-      TaskCompletionStatus.pending => AppColors.textMuted,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
-      ),
-      child: Text(
-        status.label,
-        style: GoogleFonts.inter(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: color,
+    return AnimatedScale(
+      scale: _pressed ? AppMotion.pressedScale : 1,
+      duration: AppMotion.fast,
+      curve: AppMotion.standardCurve,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const StoreHomeScreen(),
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AtelierColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Browse store',
+                      style: GoogleFonts.notoSerif(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AtelierColors.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Premium essentials for your transformation',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AtelierColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Decorative element
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AtelierColors.primaryContainer.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  color: AtelierColors.primaryContainer,
+                  size: 24,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EMPTY STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _EmptyStateCard extends StatelessWidget {
+  const _EmptyStateCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AtelierColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: GoogleFonts.manrope(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: AtelierColors.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+Widget _fadeSlide(Widget child, Animation<double> animation) {
+  final curved = CurvedAnimation(
+    parent: animation,
+    curve: AppMotion.standardCurve,
+    reverseCurve: AppMotion.exitCurve,
+  );
+  return FadeTransition(
+    opacity: curved,
+    child: SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.035),
+        end: Offset.zero,
+      ).animate(curved),
+      child: child,
+    ),
+  );
+}
+
+Widget _buildAiHome(BuildContext context) => const AiChatHomeScreen();
+
+Widget _buildNewsFeed(BuildContext context) => const NewsFeedScreen();
+
+Widget _buildSubscriptions(BuildContext context) =>
+    const MySubscriptionsScreen();
+
+Widget _buildCheckins(BuildContext context) => const MemberCheckinsScreen();
+
+Widget _buildProgress(BuildContext context) => const ProgressScreen();
+
+Widget _buildCoaches(BuildContext context) => const CoachesScreen();
+
+Widget _buildMessages(BuildContext context) => const MemberMessagesScreen();
+

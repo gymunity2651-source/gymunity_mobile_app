@@ -17,57 +17,51 @@ class MemberOnboardingScreen extends ConsumerStatefulWidget {
 
 class _MemberOnboardingScreenState
     extends ConsumerState<MemberOnboardingScreen> {
-  int _currentStep = 0;
-  final int _totalSteps = 4;
+  static const int _totalSteps = 4;
 
-  int _selectedGoal = 0;
+  final _heightController = TextEditingController(text: '170');
+  final _weightController = TextEditingController(text: '82');
+  final _ageController = TextEditingController(text: '26');
+  final _budgetController = TextEditingController(text: '1500');
+  final _cityController = TextEditingController(text: 'Cairo');
+
   final List<_GoalOption> _goals = const <_GoalOption>[
     _GoalOption(
-      icon: Icons.fitness_center,
-      title: 'Build Muscle',
-      description: 'Hypertrophy and strength focus.',
-    ),
-    _GoalOption(
-      icon: Icons.monitor_weight_outlined,
+      value: 'weight_loss',
       title: 'Lose Weight',
-      description: 'Fat loss and lean physique.',
+      description: 'Fat loss, simpler food habits, and weekly accountability.',
+      icon: Icons.monitor_weight_outlined,
+      accent: AppColors.orange,
     ),
     _GoalOption(
+      value: 'build_muscle',
+      title: 'Build Muscle',
+      description: 'Lean mass, better training structure, and recovery.',
+      icon: Icons.fitness_center,
+      accent: AppColors.limeGreen,
+    ),
+    _GoalOption(
+      value: 'body_recomposition',
+      title: 'Recompose',
+      description: 'Lose fat while improving shape and consistency.',
       icon: Icons.bolt,
-      title: 'Endurance',
-      description: 'High-intensity aerobic capacity.',
+      accent: AppColors.electricBlue,
     ),
     _GoalOption(
-      icon: Icons.self_improvement,
-      title: 'Mobility',
-      description: 'Flexibility and joint health.',
-    ),
-    _GoalOption(
-      icon: Icons.accessibility_new,
-      title: 'Functional',
-      description: 'Real-world movement strength.',
-    ),
-    _GoalOption(
-      icon: Icons.outlined_flag,
-      title: 'Sports',
-      description: 'Agility for specific sports.',
+      value: 'general_fitness',
+      title: 'General Fitness',
+      description: 'Energy, movement, and sustainable habits that stick.',
+      icon: Icons.favorite_outline,
+      accent: AppColors.orangeLight,
     ),
   ];
 
-  final _heightController = TextEditingController(text: '175');
-  final _weightController = TextEditingController(text: '75');
-  final _ageController = TextEditingController(text: '25');
-  String _selectedGender = 'Male';
-
-  int _selectedExperience = -1;
-  final List<String> _experiences = const <String>[
+  final List<String> _experienceLevels = const <String>[
     'Beginner',
     'Intermediate',
     'Advanced',
     'Athlete',
   ];
-
-  int _selectedFrequency = -1;
   final List<String> _frequencies = const <String>[
     '1-2 days/week',
     '3-4 days/week',
@@ -75,23 +69,36 @@ class _MemberOnboardingScreenState
     'Every day',
   ];
 
+  int _currentStep = 0;
+  int _selectedGoal = 0;
+  int _selectedExperience = -1;
+  int _selectedFrequency = -1;
+  String _selectedGender = 'Male';
+  String _selectedCoachingPreference = 'online';
+  String _selectedTrainingPlace = 'home';
+  String _selectedLanguage = 'arabic';
+  String _selectedCoachGender = 'any';
+
   @override
   void dispose() {
     _heightController.dispose();
     _weightController.dispose();
     _ageController.dispose();
+    _budgetController.dispose();
+    _cityController.dispose();
     super.dispose();
   }
 
   Future<void> _nextStep() async {
     if (_currentStep < _totalSteps - 1) {
-      setState(() => _currentStep++);
+      setState(() => _currentStep += 1);
       return;
     }
 
     final age = int.tryParse(_ageController.text.trim());
     final height = double.tryParse(_heightController.text.trim());
     final weight = double.tryParse(_weightController.text.trim());
+    final budget = int.tryParse(_budgetController.text.trim());
     if (age == null || age < 13) {
       _showMessage('Enter a valid age to continue.');
       return;
@@ -104,23 +111,40 @@ class _MemberOnboardingScreenState
       _showMessage('Enter a valid weight in kilograms.');
       return;
     }
+    if (_cityController.text.trim().isEmpty) {
+      _showMessage('Add your city so we can match you with the right coaches.');
+      return;
+    }
+    if (budget == null || budget <= 0) {
+      _showMessage('Add a realistic monthly budget in EGP.');
+      return;
+    }
     if (_selectedExperience < 0 || _selectedFrequency < 0) {
-      _showMessage('Complete all onboarding steps before continuing.');
+      _showMessage('Choose your current level and weekly training frequency.');
       return;
     }
 
     final success = await ref
         .read(onboardingControllerProvider.notifier)
         .completeMemberOnboarding(
-          goal: _goalValue(_goals[_selectedGoal].title),
+          goal: _goals[_selectedGoal].value,
           age: age,
-          gender: _genderValue(_selectedGender),
+          gender: _selectedGender.toLowerCase(),
           heightCm: height,
           currentWeightKg: weight,
           trainingFrequency: _frequencyValue(_frequencies[_selectedFrequency]),
-          experienceLevel: _experienceValue(_experiences[_selectedExperience]),
+          experienceLevel: _experienceLevels[_selectedExperience].toLowerCase(),
+          budgetEgp: budget,
+          city: _cityController.text.trim(),
+          coachingPreference: _selectedCoachingPreference,
+          trainingPlace: _selectedTrainingPlace,
+          preferredLanguage: _selectedLanguage,
+          preferredCoachGender: _selectedCoachGender,
         );
-    if (!mounted) return;
+
+    if (!mounted) {
+      return;
+    }
     if (!success) {
       _showMessage(
         ref.read(onboardingControllerProvider).errorMessage ??
@@ -136,16 +160,12 @@ class _MemberOnboardingScreenState
     );
   }
 
-  String _goalValue(String raw) {
-    return raw.trim().toLowerCase().replaceAll(' ', '_');
-  }
-
-  String _genderValue(String raw) {
-    final value = raw.trim().toLowerCase();
-    if (value == 'other') {
-      return 'prefer_not_to_say';
+  void _previousStep() {
+    if (_currentStep == 0) {
+      Navigator.pop(context);
+      return;
     }
-    return value;
+    setState(() => _currentStep -= 1);
   }
 
   String _frequencyValue(String raw) {
@@ -163,437 +183,483 @@ class _MemberOnboardingScreenState
     }
   }
 
-  String _experienceValue(String raw) {
-    return raw.trim().toLowerCase();
-  }
-
-  void _prevStep() {
-    if (_currentStep > 0) {
-      setState(() => _currentStep--);
-      return;
-    }
-    Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = (_currentStep + 1) / _totalSteps;
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          const _OnboardingBackdrop(),
-          SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSizes.screenPadding,
-                    AppSizes.xl,
-                    AppSizes.screenPadding,
-                    AppSizes.lg,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _BackChip(onTap: _prevStep),
-                      const Spacer(),
-                      _StepProgress(
-                        step: _currentStep + 1,
-                        totalSteps: _totalSteps,
-                        progress: progress,
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 320),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    child: _buildStepContent(),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSizes.screenPadding,
-                    AppSizes.md,
-                    AppSizes.screenPadding,
-                    AppSizes.xl,
-                  ),
-                  child: Column(
-                    children: [
-                      _PrimaryActionButton(
-                        label: _currentStep < _totalSteps - 1
-                            ? 'CONTINUE'
-                            : 'GET STARTED',
-                        onTap: _nextStep,
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        _currentStep == 0
-                            ? 'You can change your goal anytime in settings.'
-                            : 'Your plan will adapt as you progress through the app.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: AppColors.textMuted,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepContent() {
-    switch (_currentStep) {
-      case 0:
-        return _buildGoalStep();
-      case 1:
-        return _buildBodyInfoStep();
-      case 2:
-        return _buildExperienceStep();
-      case 3:
-        return _buildFrequencyStep();
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
-  Widget _buildGoalStep() {
-    return SingleChildScrollView(
-      key: const ValueKey('member-goals-step'),
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.screenPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text: 'What is your\n',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    height: 1.05,
-                    letterSpacing: -0.8,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                TextSpan(
-                  text: 'primary goal?',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    height: 1.05,
-                    letterSpacing: -0.8,
-                    color: AppColors.orange,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Personalize your experience. We\'ll tailor your workouts and nutrition plans based on your choice.',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              height: 1.65,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 28),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _goals.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 0.82,
-            ),
-            itemBuilder: (context, index) {
-              final goal = _goals[index];
-              return _GoalCard(
-                option: goal,
-                selected: _selectedGoal == index,
-                onTap: () => setState(() => _selectedGoal = index),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBodyInfoStep() {
-    return SingleChildScrollView(
-      key: const ValueKey('member-body-step'),
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.screenPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _StepHeading(
-            title: 'Build your',
-            accent: 'baseline.',
-            subtitle:
-                'A few details help us shape smarter training suggestions.',
-          ),
-          const SizedBox(height: 28),
-          Text(
-            'Gender',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textSecondary,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: ['Male', 'Female'].map((gender) {
-              final selected = _selectedGender == gender;
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: gender == 'Male' ? AppSizes.md : 0,
-                  ),
-                  child: _SelectablePanel(
-                    label: gender,
-                    selected: selected,
-                    compact: true,
-                    onTap: () => setState(() => _selectedGender = gender),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: _MetricField(
-                  label: 'Height',
-                  suffix: 'cm',
-                  controller: _heightController,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: _MetricField(
-                  label: 'Weight',
-                  suffix: 'kg',
-                  controller: _weightController,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _MetricField(
-            label: 'Age',
-            suffix: 'years',
-            controller: _ageController,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExperienceStep() {
-    return SingleChildScrollView(
-      key: const ValueKey('member-experience-step'),
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.screenPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _StepHeading(
-            title: 'What is your',
-            accent: 'fitness level?',
-            subtitle:
-                'We will shape the intensity and ramp-up to match your experience.',
-          ),
-          const SizedBox(height: 28),
-          ...List.generate(_experiences.length, (index) {
-            final selected = _selectedExperience == index;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: _SelectablePanel(
-                label: _experiences[index],
-                selected: selected,
-                helper: _experienceHelper(index),
-                onTap: () => setState(() => _selectedExperience = index),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFrequencyStep() {
-    return SingleChildScrollView(
-      key: const ValueKey('member-frequency-step'),
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.screenPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _StepHeading(
-            title: 'How often will',
-            accent: 'you train?',
-            subtitle:
-                'Your weekly rhythm helps us calibrate recovery, volume, and progression.',
-          ),
-          const SizedBox(height: 28),
-          ...List.generate(_frequencies.length, (index) {
-            final selected = _selectedFrequency == index;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: _SelectablePanel(
-                label: _frequencies[index],
-                selected: selected,
-                helper: _frequencyHelper(index),
-                onTap: () => setState(() => _selectedFrequency = index),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  String _experienceHelper(int index) {
-    switch (index) {
-      case 0:
-        return 'New to structured training and building consistency.';
-      case 1:
-        return 'Comfortable with gym basics and steady progression.';
-      case 2:
-        return 'Can handle higher volume, intensity, and focused blocks.';
-      case 3:
-        return 'Competitive mindset with performance-led programming.';
-      default:
-        return '';
-    }
-  }
-
-  String _frequencyHelper(int index) {
-    switch (index) {
-      case 0:
-        return 'Light weekly commitment with room to build momentum.';
-      case 1:
-        return 'Balanced routine for visible progress and recovery.';
-      case 2:
-        return 'High-consistency plan with progressive overload.';
-      case 3:
-        return 'Daily schedule with recovery management built in.';
-      default:
-        return '';
-    }
-  }
-
   void _showMessage(String message) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(onboardingControllerProvider);
+    final progress = (_currentStep + 1) / _totalSteps;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[Color(0xFF05070A), Color(0xFF111722)],
+            ),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSizes.screenPadding,
+                  AppSizes.xl,
+                  AppSizes.screenPadding,
+                  AppSizes.lg,
+                ),
+                child: Row(
+                  children: [
+                    _IconCircleButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: _previousStep,
+                    ),
+                    const Spacer(),
+                    _ProgressPill(
+                      step: _currentStep + 1,
+                      totalSteps: _totalSteps,
+                      progress: progress,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.screenPadding,
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSizes.xl),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
+                      border: Border.all(
+                        color: AppColors.borderSoft.withValues(alpha: 0.5),
+                      ),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.cardDark.withValues(alpha: 0.97),
+                          AppColors.surfacePanel.withValues(alpha: 0.95),
+                        ],
+                      ),
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 240),
+                      child: _buildStep(),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSizes.screenPadding,
+                  AppSizes.md,
+                  AppSizes.screenPadding,
+                  AppSizes.xl,
+                ),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: state.isLoading ? null : _nextStep,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.orange,
+                          foregroundColor: AppColors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                        ),
+                        child: state.isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.white,
+                                ),
+                              )
+                            : Text(
+                                _currentStep == _totalSteps - 1
+                                    ? 'GET STARTED'
+                                    : 'CONTINUE',
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      _footerNote(),
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStep() {
+    switch (_currentStep) {
+      case 0:
+        return Column(
+          key: const ValueKey<String>('goal-step'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _StepHeader(
+              eyebrow: 'Egypt-first setup',
+              title: 'What result do you want first?',
+              subtitle:
+                  'We bias the app toward coaches, offers, and check-ins that actually move this goal.',
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: GridView.builder(
+                itemCount: _goals.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 0.9,
+                ),
+                itemBuilder: (context, index) => _GoalCard(
+                  option: _goals[index],
+                  selected: index == _selectedGoal,
+                  onTap: () => setState(() => _selectedGoal = index),
+                ),
+              ),
+            ),
+          ],
+        );
+      case 1:
+        return SingleChildScrollView(
+          key: const ValueKey<String>('baseline-step'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _StepHeader(
+                eyebrow: 'Baseline',
+                title: 'Tell us where you are now',
+                subtitle:
+                    'This shapes progress tracking, coach recommendations, and your first check-in baseline.',
+              ),
+              const SizedBox(height: 18),
+              const _SectionLabel(text: 'Gender'),
+              const SizedBox(height: 10),
+              Row(
+                children: ['Male', 'Female']
+                    .map((gender) {
+                      final selected = _selectedGender == gender;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: gender == 'Male' ? AppSizes.sm : 0,
+                          ),
+                          child: _ChoiceTile(
+                            label: gender,
+                            selected: selected,
+                            onTap: () =>
+                                setState(() => _selectedGender = gender),
+                          ),
+                        ),
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _MetricField(
+                      label: 'Height',
+                      suffix: 'cm',
+                      controller: _heightController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _MetricField(
+                      label: 'Weight',
+                      suffix: 'kg',
+                      controller: _weightController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _MetricField(
+                      label: 'Age',
+                      suffix: 'years',
+                      controller: _ageController,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _MetricField(
+                      label: 'City',
+                      controller: _cityController,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      case 2:
+        return SingleChildScrollView(
+          key: const ValueKey<String>('match-step'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _StepHeader(
+                eyebrow: 'Coach match',
+                title: 'What kind of coaching fits your life?',
+                subtitle:
+                    'These inputs tune pricing, language, and delivery filters in the marketplace.',
+              ),
+              const SizedBox(height: 18),
+              _MetricField(
+                label: 'Monthly budget',
+                suffix: 'EGP',
+                controller: _budgetController,
+              ),
+              const SizedBox(height: 16),
+              const _SectionLabel(text: 'Coaching mode'),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _ChoicePill(
+                    label: 'Online',
+                    selected: _selectedCoachingPreference == 'online',
+                    onTap: () =>
+                        setState(() => _selectedCoachingPreference = 'online'),
+                  ),
+                  _ChoicePill(
+                    label: 'In person',
+                    selected: _selectedCoachingPreference == 'in_person',
+                    onTap: () => setState(
+                      () => _selectedCoachingPreference = 'in_person',
+                    ),
+                  ),
+                  _ChoicePill(
+                    label: 'Hybrid',
+                    selected: _selectedCoachingPreference == 'hybrid',
+                    onTap: () =>
+                        setState(() => _selectedCoachingPreference = 'hybrid'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const _SectionLabel(text: 'Training place'),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _ChoicePill(
+                    label: 'Home',
+                    selected: _selectedTrainingPlace == 'home',
+                    onTap: () =>
+                        setState(() => _selectedTrainingPlace = 'home'),
+                  ),
+                  _ChoicePill(
+                    label: 'Gym',
+                    selected: _selectedTrainingPlace == 'gym',
+                    onTap: () => setState(() => _selectedTrainingPlace = 'gym'),
+                  ),
+                  _ChoicePill(
+                    label: 'Both',
+                    selected: _selectedTrainingPlace == 'both',
+                    onTap: () =>
+                        setState(() => _selectedTrainingPlace = 'both'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const _SectionLabel(text: 'Preferred language'),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ChoiceTile(
+                      label: 'Arabic',
+                      selected: _selectedLanguage == 'arabic',
+                      onTap: () => setState(() => _selectedLanguage = 'arabic'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _ChoiceTile(
+                      label: 'English',
+                      selected: _selectedLanguage == 'english',
+                      onTap: () =>
+                          setState(() => _selectedLanguage = 'english'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const _SectionLabel(text: 'Preferred coach gender'),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _ChoicePill(
+                    label: 'Any',
+                    selected: _selectedCoachGender == 'any',
+                    onTap: () => setState(() => _selectedCoachGender = 'any'),
+                  ),
+                  _ChoicePill(
+                    label: 'Male',
+                    selected: _selectedCoachGender == 'male',
+                    onTap: () => setState(() => _selectedCoachGender = 'male'),
+                  ),
+                  _ChoicePill(
+                    label: 'Female',
+                    selected: _selectedCoachGender == 'female',
+                    onTap: () =>
+                        setState(() => _selectedCoachGender = 'female'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      default:
+        return SingleChildScrollView(
+          key: const ValueKey<String>('training-step'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _StepHeader(
+                eyebrow: 'Training rhythm',
+                title: 'How ready are you to commit each week?',
+                subtitle:
+                    'We use this to set realistic accountability and starter plan expectations.',
+              ),
+              const SizedBox(height: 18),
+              const _SectionLabel(text: 'Experience level'),
+              const SizedBox(height: 10),
+              ...List.generate(_experienceLevels.length, (index) {
+                final label = _experienceLevels[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _ChoiceTile(
+                    label: label,
+                    helper: _experienceHelper(label),
+                    selected: _selectedExperience == index,
+                    onTap: () => setState(() => _selectedExperience = index),
+                  ),
+                );
+              }),
+              const SizedBox(height: 10),
+              const _SectionLabel(text: 'Weekly frequency'),
+              const SizedBox(height: 10),
+              ...List.generate(_frequencies.length, (index) {
+                final label = _frequencies[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _ChoiceTile(
+                    label: label,
+                    helper: _frequencyHelper(label),
+                    selected: _selectedFrequency == index,
+                    onTap: () => setState(() => _selectedFrequency = index),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+    }
+  }
+
+  String _experienceHelper(String label) {
+    switch (label) {
+      case 'Beginner':
+        return 'You need simple instructions and closer follow-up.';
+      case 'Intermediate':
+        return 'You train already, but want better structure and feedback.';
+      case 'Advanced':
+        return 'You can handle more load, volume, and tighter planning.';
+      case 'Athlete':
+        return 'Performance-first training with serious consistency.';
+      default:
+        return '';
+    }
+  }
+
+  String _frequencyHelper(String label) {
+    switch (label) {
+      case '1-2 days/week':
+        return 'Low-friction routine focused on momentum.';
+      case '3-4 days/week':
+        return 'Balanced pace for visible progress and recovery.';
+      case '5-6 days/week':
+        return 'High-consistency track with structured recovery.';
+      case 'Every day':
+        return 'Best for very committed routines with coach oversight.';
+      default:
+        return '';
+    }
+  }
+
+  String _footerNote() {
+    switch (_currentStep) {
+      case 0:
+        return 'Lose Weight is the default because this version is optimized for first-time members in Egypt.';
+      case 1:
+        return 'Your baseline drives weight, waist, and progress check-ins later.';
+      case 2:
+        return 'These preferences directly shape the coach marketplace filters and pricing shown first.';
+      default:
+        return 'You can update these choices later from your profile and settings.';
+    }
+  }
 }
 
 class _GoalOption {
   const _GoalOption({
-    required this.icon,
+    required this.value,
     required this.title,
     required this.description,
+    required this.icon,
+    required this.accent,
   });
 
-  final IconData icon;
+  final String value;
   final String title;
   final String description;
+  final IconData icon;
+  final Color accent;
 }
 
-class _BackChip extends StatelessWidget {
-  const _BackChip({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 52,
-        height: 52,
-        decoration: BoxDecoration(
-          color: AppColors.white.withValues(alpha: 0.06),
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.borderLight),
-        ),
-        child: const Icon(Icons.arrow_back, color: AppColors.white, size: 26),
-      ),
-    );
-  }
-}
-
-class _StepProgress extends StatelessWidget {
-  const _StepProgress({
-    required this.step,
-    required this.totalSteps,
-    required this.progress,
-  });
-
-  final int step;
-  final int totalSteps;
-  final double progress;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(
-          'STEP $step OF $totalSteps',
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textMuted,
-            letterSpacing: 1.4,
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: 124,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppSizes.radiusFull),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 7,
-              backgroundColor: AppColors.white.withValues(alpha: 0.10),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.orange),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StepHeading extends StatelessWidget {
-  const _StepHeading({
+class _StepHeader extends StatelessWidget {
+  const _StepHeader({
+    required this.eyebrow,
     required this.title,
-    required this.accent,
     required this.subtitle,
   });
 
+  final String eyebrow;
   final String title;
-  final String accent;
   final String subtitle;
 
   @override
@@ -601,38 +667,31 @@ class _StepHeading extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: '$title\n',
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w700,
-                  height: 1.08,
-                  letterSpacing: -0.7,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              TextSpan(
-                text: accent,
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w700,
-                  height: 1.08,
-                  letterSpacing: -0.7,
-                  color: AppColors.orange,
-                ),
-              ),
-            ],
+        Text(
+          eyebrow.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.0,
+            color: AppColors.orangeLight,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
+        Text(
+          title,
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 30,
+            fontWeight: FontWeight.w700,
+            height: 1.05,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 10),
         Text(
           subtitle,
           style: GoogleFonts.inter(
             fontSize: 14,
-            height: 1.65,
+            height: 1.5,
             color: AppColors.textSecondary,
           ),
         ),
@@ -654,172 +713,53 @@ class _GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0B1016),
-          borderRadius: BorderRadius.circular(AppSizes.radiusXl),
-          border: Border.all(
-            color: selected ? AppColors.limeGreen : AppColors.border,
-            width: selected ? 2.2 : 1.1,
+    return Material(
+      color: AppColors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSizes.radiusXl),
+        child: Ink(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F141D),
+            borderRadius: BorderRadius.circular(AppSizes.radiusXl),
+            border: Border.all(
+              color: selected ? option.accent : AppColors.border,
+              width: selected ? 2 : 1,
+            ),
           ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: AppColors.limeGreen.withValues(alpha: 0.22),
-                    blurRadius: 26,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 12),
-                  ),
-                ]
-              : null,
-        ),
-        child: Stack(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 62,
-                  height: 62,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1F3210),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Icon(
-                    option.icon,
-                    color: AppColors.limeGreen,
-                    size: 30,
-                  ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: option.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
                 ),
-                const Spacer(),
-                Text(
-                  option.title,
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                    height: 1.18,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  option.description,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.textMuted,
-                    height: 1.55,
-                  ),
-                ),
-              ],
-            ),
-            if (selected)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: const BoxDecoration(
-                    color: AppColors.limeGreen,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    color: AppColors.black,
-                    size: 20,
-                  ),
+                child: Icon(option.icon, color: option.accent),
+              ),
+              const Spacer(),
+              Text(
+                option.title,
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectablePanel extends StatelessWidget {
-  const _SelectablePanel({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.helper,
-    this.compact = false,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final String? helper;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: compact ? 16 : 18,
-        ),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.surfaceRaised : const Color(0xFF0B1016),
-          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-          border: Border.all(
-            color: selected ? AppColors.orange : AppColors.border,
-            width: selected ? 1.6 : 1.0,
+              const SizedBox(height: 8),
+              Text(
+                option.description,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
           ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.inter(
-                      fontSize: compact ? 15 : 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  if ((helper?.isNotEmpty ?? false) && !compact) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      helper!,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        height: 1.45,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 14),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.orange : AppColors.transparent,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected ? AppColors.orange : AppColors.borderLight,
-                ),
-              ),
-              child: selected
-                  ? const Icon(Icons.check, color: AppColors.white, size: 16)
-                  : null,
-            ),
-          ],
         ),
       ),
     );
@@ -829,109 +769,95 @@ class _SelectablePanel extends StatelessWidget {
 class _MetricField extends StatelessWidget {
   const _MetricField({
     required this.label,
-    required this.suffix,
     required this.controller,
+    this.suffix,
   });
 
   final String label;
-  final String suffix;
   final TextEditingController controller;
+  final String? suffix;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textSecondary,
-            letterSpacing: 0.4,
-          ),
+    return TextField(
+      controller: controller,
+      keyboardType: suffix == null
+          ? TextInputType.text
+          : const TextInputType.numberWithOptions(decimal: true),
+      style: GoogleFonts.inter(color: AppColors.textPrimary),
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: suffix,
+        filled: true,
+        fillColor: AppColors.fieldFill,
+        labelStyle: GoogleFonts.inter(color: AppColors.textMuted),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
-        const SizedBox(height: 10),
-        TextFormField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          style: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.fieldFill,
-            suffixText: suffix,
-            suffixStyle: GoogleFonts.inter(
-              color: AppColors.textMuted,
-              fontWeight: FontWeight.w600,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 18,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-              borderSide: const BorderSide(color: AppColors.orange, width: 1.5),
-            ),
-          ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+          borderSide: const BorderSide(color: AppColors.orange),
         ),
-      ],
+      ),
     );
   }
 }
 
-class _PrimaryActionButton extends StatelessWidget {
-  const _PrimaryActionButton({required this.label, required this.onTap});
+class _ChoiceTile extends StatelessWidget {
+  const _ChoiceTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.helper,
+  });
 
   final String label;
+  final String? helper;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 74,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [Color(0xFFF97A18), Color(0xFFF13A1C)],
-          ),
-          borderRadius: BorderRadius.circular(26),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.orange.withValues(alpha: 0.34),
-              blurRadius: 28,
-              offset: const Offset(0, 16),
-            ),
-          ],
-        ),
-        child: ElevatedButton(
-          onPressed: onTap,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.transparent,
-            shadowColor: AppColors.transparent,
-            surfaceTintColor: AppColors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(26),
+    return Material(
+      color: AppColors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.orange.withValues(alpha: 0.12)
+                : AppColors.fieldFill,
+            borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+            border: Border.all(
+              color: selected ? AppColors.orange : AppColors.border,
             ),
           ),
-          child: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.4,
-              color: AppColors.white,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              if (helper != null && helper!.trim().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  helper!,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    height: 1.45,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -939,63 +865,126 @@ class _PrimaryActionButton extends StatelessWidget {
   }
 }
 
-class _OnboardingBackdrop extends StatelessWidget {
-  const _OnboardingBackdrop();
+class _ChoicePill extends StatelessWidget {
+  const _ChoicePill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF040608),
-                  Color(0xFF06090D),
-                  Color(0xFF040608),
-                ],
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      selectedColor: AppColors.orange.withValues(alpha: 0.18),
+      backgroundColor: AppColors.fieldFill,
+      side: BorderSide(color: selected ? AppColors.orange : AppColors.border),
+      labelStyle: GoogleFonts.inter(
+        fontWeight: FontWeight.w700,
+        color: selected ? AppColors.orangeLight : AppColors.textSecondary,
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: GoogleFonts.inter(
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.4,
+        color: AppColors.textMuted,
+      ),
+    );
+  }
+}
+
+class _ProgressPill extends StatelessWidget {
+  const _ProgressPill({
+    required this.step,
+    required this.totalSteps,
+    required this.progress,
+  });
+
+  final int step;
+  final int totalSteps;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            'STEP $step OF $totalSteps',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 120,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 6,
+                backgroundColor: AppColors.white.withValues(alpha: 0.08),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  AppColors.orange,
+                ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IconCircleButton extends StatelessWidget {
+  const _IconCircleButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(26),
+      child: Ink(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.white.withValues(alpha: 0.06),
+          border: Border.all(color: AppColors.borderLight),
         ),
-        Positioned(
-          top: -120,
-          left: -90,
-          child: Container(
-            width: 280,
-            height: 280,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  AppColors.orange.withValues(alpha: 0.12),
-                  AppColors.transparent,
-                ],
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -160,
-          right: -60,
-          child: Container(
-            width: 320,
-            height: 320,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  AppColors.limeGreen.withValues(alpha: 0.09),
-                  AppColors.transparent,
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
+        child: Icon(icon, color: AppColors.textPrimary),
+      ),
     );
   }
 }

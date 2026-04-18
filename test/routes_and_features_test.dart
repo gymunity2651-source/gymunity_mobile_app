@@ -9,8 +9,13 @@ import 'package:my_app/features/ai_chat/presentation/screens/ai_conversation_scr
 import 'package:my_app/features/ai_chat/presentation/screens/ai_chat_home_screen.dart';
 import 'package:my_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:my_app/features/auth/presentation/screens/auth_callback_screen.dart';
+import 'package:my_app/features/coach/domain/entities/coach_entity.dart';
+import 'package:my_app/features/coach/domain/entities/subscription_entity.dart';
 import 'package:my_app/features/coach/presentation/screens/coach_dashboard_screen.dart';
+import 'package:my_app/features/coach/presentation/screens/coach_package_editor_screen.dart';
+import 'package:my_app/features/coaches/presentation/screens/subscription_packages_screen.dart';
 import 'package:my_app/features/member/presentation/screens/edit_profile_screen.dart';
+import 'package:my_app/features/planner/presentation/screens/planner_builder_screen.dart';
 import 'package:my_app/features/seller/presentation/screens/seller_dashboard_screen.dart';
 import 'package:my_app/features/seller/presentation/screens/seller_product_editor_screen.dart';
 import 'package:my_app/features/store/presentation/screens/cart_screen.dart';
@@ -18,6 +23,7 @@ import 'package:my_app/features/store/domain/entities/product_entity.dart';
 import 'package:my_app/features/store/presentation/screens/store_home_screen.dart';
 import 'package:my_app/features/planner/domain/entities/planner_entities.dart';
 import 'package:my_app/features/user/domain/entities/profile_entity.dart';
+import 'package:my_app/features/user/domain/entities/user_entity.dart';
 
 import 'test_doubles.dart';
 
@@ -100,13 +106,156 @@ void main() {
     testWidgets('coach dashboard quick action opens create package screen', (
       tester,
     ) async {
-      await _pumpScreen(tester, const CoachDashboardScreen());
+      final userRepository = FakeUserRepository()
+        ..currentUser = const UserEntity(
+          id: 'coach-1',
+          email: 'coach@gymunity.com',
+        );
+      final coachRepository = FakeCoachRepository()
+        ..coaches = const <CoachEntity>[
+          CoachEntity(
+            id: 'coach-1',
+            name: 'Coach Alex',
+            specialties: <String>['Strength'],
+          ),
+        ];
+
+      await _pumpScreen(
+        tester,
+        const CoachDashboardScreen(),
+        userRepository: userRepository,
+        coachRepository: coachRepository,
+      );
 
       await tester.ensureVisible(find.text('Create Package'));
       await tester.tap(find.text('Create Package'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('coaching packages'), findsOneWidget);
+      expect(find.byType(CoachPackageEditorScreen), findsOneWidget);
+      expect(find.text('Create coaching offer'), findsOneWidget);
+    });
+
+    testWidgets('member request dialog submits structured intake', (
+      tester,
+    ) async {
+      final package = CoachPackageEntity(
+        id: 'package-1',
+        coachId: 'coach-1',
+        title: 'Starter coaching offer',
+        description: 'A hands-on coaching relationship.',
+        billingCycle: 'monthly',
+        price: 199,
+        subtitle: 'Accountability-first remote coaching',
+        outcomeSummary: 'Build momentum and consistency.',
+        durationWeeks: 8,
+        sessionsPerWeek: 3,
+        includedFeatures: const <String>['Weekly check-ins'],
+        checkInFrequency: 'Weekly',
+        planPreviewJson: const <String, dynamic>{
+          'title': 'Starter Plan',
+          'summary': 'A coach-led starter plan.',
+          'duration_weeks': 8,
+          'level': 'beginner',
+          'weekly_structure': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'week_number': 1,
+              'days': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'week_number': 1,
+                  'day_number': 1,
+                  'label': 'Session 1',
+                  'focus': 'Strength',
+                  'tasks': <Map<String, dynamic>>[],
+                },
+              ],
+            },
+          ],
+        },
+        visibilityStatus: 'published',
+        isActive: true,
+      );
+      final coach = CoachEntity(
+        id: 'coach-1',
+        name: 'Coach Alex',
+        pricingCurrency: 'USD',
+        packages: <CoachPackageEntity>[package],
+      );
+      final coachRepository = FakeCoachRepository()
+        ..coaches = <CoachEntity>[coach]
+        ..packages = <CoachPackageEntity>[package];
+
+      await _pumpScreen(
+        tester,
+        SubscriptionPackagesScreen(coach: coach),
+        coachRepository: coachRepository,
+      );
+
+      await tester.tap(find.text('Start paid checkout'));
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'Lose fat');
+      await tester.enterText(fields.at(1), '4');
+      await tester.enterText(fields.at(2), '50');
+      await tester.enterText(fields.at(3), '1800');
+      await tester.enterText(fields.at(4), 'Cairo');
+      await tester.enterText(fields.at(5), 'Dumbbells, bands');
+      await tester.enterText(fields.at(6), 'Knee discomfort');
+      await tester.enterText(fields.at(7), 'I need accountability.');
+
+      await tester.tap(find.text('Submit request'));
+      await tester.pumpAndSettle();
+
+      final requested = coachRepository.lastRequestedSubscription;
+      expect(requested, isNotNull);
+      expect(requested!.intakeSnapshot.goal, 'Lose fat');
+      expect(requested.intakeSnapshot.daysPerWeek, 4);
+      expect(requested.intakeSnapshot.sessionMinutes, 50);
+      expect(requested.intakeSnapshot.budgetEgp, 1800);
+      expect(requested.intakeSnapshot.city, 'Cairo');
+      expect(requested.intakeSnapshot.equipment, contains('Dumbbells'));
+      expect(requested.memberNote, 'I need accountability.');
+    });
+
+    testWidgets('coach clients screen approves pending starter plan request', (
+      tester,
+    ) async {
+      final coachRepository = FakeCoachRepository()
+        ..subscriptions = const <SubscriptionEntity>[
+          SubscriptionEntity(
+            id: 'subscription-1',
+            memberId: 'member-1',
+            coachId: 'coach-1',
+            packageId: 'package-1',
+            packageTitle: 'Starter coaching offer',
+            memberName: 'Member One',
+            memberNote: 'Please help me restart.',
+            intakeSnapshot: CoachSubscriptionIntakeEntity(
+              goal: 'Build consistency',
+              experienceLevel: 'beginner',
+              daysPerWeek: 3,
+              sessionMinutes: 45,
+            ),
+            status: 'pending_payment',
+            amount: 199,
+            planName: 'Starter coaching offer',
+          ),
+        ];
+
+      await _pumpNamedRoute(
+        tester,
+        AppRoutes.clients,
+        coachRepository: coachRepository,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Assign starter plan'), findsOneWidget);
+
+      await tester.tap(find.text('Assign starter plan'));
+      await tester.pumpAndSettle();
+
+      expect(coachRepository.lastActivatedSubscription?.status, 'active');
+      expect(coachRepository.plans, isNotEmpty);
     });
 
     testWidgets('seller dashboard quick action opens add product screen', (
@@ -168,7 +317,9 @@ void main() {
       );
     });
 
-    testWidgets('AI home quick chip opens conversation flow', (tester) async {
+    testWidgets('AI home planner quick chip opens guided builder', (
+      tester,
+    ) async {
       final chatRepository = FakeChatRepository();
 
       await _pumpScreen(
@@ -180,6 +331,24 @@ void main() {
       await tester.tap(find.text('Strength plan'));
       await tester.pumpAndSettle();
 
+      expect(find.byType(PlannerBuilderScreen), findsOneWidget);
+      expect(chatRepository.sessions, isEmpty);
+    });
+
+    testWidgets('AI home general quick chip still opens conversation flow', (
+      tester,
+    ) async {
+      final chatRepository = FakeChatRepository();
+
+      await _pumpScreen(
+        tester,
+        const AiChatHomeScreen(),
+        chatRepository: chatRepository,
+      );
+
+      await tester.tap(find.text('Nutrition tips'));
+      await tester.pumpAndSettle();
+
       expect(find.byType(AiConversationScreen), findsOneWidget);
       expect(chatRepository.sessions, hasLength(1));
       expect(
@@ -188,7 +357,7 @@ void main() {
       );
     });
 
-    testWidgets('planner missing-field helpers prefill the composer', (
+    testWidgets('AI home planner session row opens guided builder', (
       tester,
     ) async {
       final chatRepository = FakeChatRepository();
@@ -196,50 +365,24 @@ void main() {
         ChatSessionEntity(
           id: 'planner-session',
           userId: 'user-1',
-          title: 'AI Planner',
+          title: 'TAIYO Planner',
           updatedAt: DateTime(2026, 3, 8),
           type: ChatSessionType.planner,
           plannerStatus: 'collecting_info',
         ),
       );
 
-      final plannerRepository = FakePlannerRepository()
-        ..latestDraft = PlannerDraftEntity(
-          id: 'draft-1',
-          userId: 'user-1',
-          sessionId: 'planner-session',
-          status: 'collecting_info',
-          assistantMessage: 'Need a few details before building the plan.',
-          missingFields: const <String>[
-            'days_per_week',
-            'session_minutes',
-            'equipment',
-          ],
-          createdAt: DateTime(2026, 3, 8),
-          updatedAt: DateTime(2026, 3, 8),
-        );
-
       await _pumpScreen(
         tester,
-        const AiConversationScreen(sessionId: 'planner-session'),
+        const AiChatHomeScreen(),
         chatRepository: chatRepository,
-        plannerRepository: plannerRepository,
       );
 
-      expect(find.text('Answer details'), findsOneWidget);
+      await tester.tap(find.text('TAIYO Planner'));
+      await tester.pumpAndSettle();
 
-      await tester.tap(find.text('days per week').first);
-      await tester.pump();
-
-      var textField = tester.widget<TextField>(find.byType(TextField));
-      expect(textField.controller?.text, contains('Days per week: '));
-
-      await tester.tap(find.text('Answer details'));
-      await tester.pump();
-
-      textField = tester.widget<TextField>(find.byType(TextField));
-      expect(textField.controller?.text, contains('Session minutes: '));
-      expect(textField.controller?.text, contains('Equipment available: '));
+      expect(find.byType(PlannerBuilderScreen), findsOneWidget);
+      expect(find.byType(AiConversationScreen), findsNothing);
     });
 
     testWidgets('conversation send shows the streamed AI reply', (
@@ -254,7 +397,7 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), 'Test recovery question');
-      await tester.tap(find.byIcon(Icons.send));
+      await tester.tap(find.byIcon(Icons.north_rounded));
       await tester.pump();
       await tester.pumpAndSettle();
 
@@ -319,13 +462,15 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), 'Need a quick workout');
-      await tester.tap(find.byIcon(Icons.send));
+      await tester.tap(find.byIcon(Icons.north_rounded));
       await tester.pump();
 
-      final sendButton = tester.widget<IconButton>(find.byType(IconButton));
+      final sendButton = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Icons.north_rounded),
+      );
       expect(sendButton.onPressed, isNull);
       expect(chatRepository.createSessionCalls, 1);
-      expect(find.text('AI IS THINKING'), findsOneWidget);
+      expect(find.textContaining('TAIYO IS SCULPTING'), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 250));
       await tester.pump(const Duration(milliseconds: 250));

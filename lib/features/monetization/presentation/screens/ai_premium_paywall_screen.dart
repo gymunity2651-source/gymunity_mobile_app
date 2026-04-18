@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/services/external_link_service.dart';
@@ -36,7 +37,7 @@ class AiPremiumPaywallScreen extends ConsumerWidget {
                 icon: const Icon(Icons.arrow_back),
               )
             : null,
-        title: const Text('AI Premium'),
+        title: const Text(AiBranding.premiumName),
       ),
       body: RefreshIndicator.adaptive(
         onRefresh: () async {
@@ -60,7 +61,7 @@ class AiPremiumPaywallScreen extends ConsumerWidget {
             ],
             const SizedBox(height: 20),
             Text(
-              'Included with AI Premium',
+              'Included with ${AiBranding.premiumName}',
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -70,15 +71,15 @@ class AiPremiumPaywallScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             const _BenefitTile(
               icon: Icons.chat_bubble_outline,
-              title: 'Unlimited AI chat',
+              title: 'Unlimited TAIYO chat',
               description:
-                  'Use GymUnity AI conversations without a local demo or fake fallback.',
+                  'Use TAIYO conversations without a local demo or fake fallback.',
             ),
             const _BenefitTile(
               icon: Icons.auto_graph_outlined,
-              title: 'AI-guided plans',
+              title: 'TAIYO-guided plans',
               description:
-                  'Unlock AI plan-generation surfaces tied to your account entitlement.',
+                  'Unlock TAIYO plan-generation surfaces tied to your account entitlement.',
             ),
             const _BenefitTile(
               icon: Icons.restart_alt_outlined,
@@ -94,7 +95,7 @@ class AiPremiumPaywallScreen extends ConsumerWidget {
               ),
               error: (error, stackTrace) => _ErrorCard(
                 title: 'Unable to load premium access',
-                message: 'GymUnity could not refresh your AI Premium state.',
+                message: 'GymUnity could not refresh your TAIYO Premium state.',
                 actionLabel: 'Retry',
                 onTap: () => ref
                     .read(currentSubscriptionSummaryProvider.notifier)
@@ -119,9 +120,9 @@ class AiPremiumPaywallScreen extends ConsumerWidget {
                   data: (catalog) {
                     if (catalog == null) {
                       return const _InfoCard(
-                        title: 'AI Premium is disabled',
+                        title: '${AiBranding.premiumName} is disabled',
                         message:
-                            'This build does not currently expose AI Premium billing.',
+                            'This build does not currently expose ${AiBranding.premiumName} billing.',
                       );
                     }
 
@@ -180,9 +181,7 @@ class AiPremiumPaywallScreen extends ConsumerWidget {
                   actionState.actionState == PurchaseActionState.restoring
                   ? null
                   : () => ref
-                        .read(
-                          subscriptionManagementControllerProvider.notifier,
-                        )
+                        .read(subscriptionManagementControllerProvider.notifier)
                         .restore(),
               icon: const Icon(Icons.restore),
               label: Text(
@@ -193,14 +192,16 @@ class AiPremiumPaywallScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
-              onPressed: () =>
-                  Navigator.pushNamed(context, AppRoutes.subscriptionManagement),
+              onPressed: () => Navigator.pushNamed(
+                context,
+                AppRoutes.subscriptionManagement,
+              ),
               icon: const Icon(Icons.manage_accounts_outlined),
               label: const Text('Subscription Status'),
             ),
             const SizedBox(height: 12),
             Text(
-              'Physical products in the store and coaching packages use separate non-IAP flows. AI Premium only unlocks GymUnity AI features.',
+              '${AiBranding.premiumName} only unlocks TAIYO features. Physical products in the store and coaching packages use separate non-IAP flows.',
               style: GoogleFonts.inter(
                 fontSize: 12,
                 height: 1.45,
@@ -236,7 +237,7 @@ class _HeroCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'AI Premium',
+            AiBranding.premiumName,
             style: GoogleFonts.spaceGrotesk(
               fontSize: 30,
               fontWeight: FontWeight.w700,
@@ -247,7 +248,7 @@ class _HeroCard extends StatelessWidget {
           Text(
             lockReason?.trim().isNotEmpty == true
                 ? lockReason!
-                : 'Unlock GymUnity AI chat and AI-guided plans with verified store billing.',
+                : 'Unlock TAIYO chat and TAIYO-guided plans with verified store billing.',
             style: GoogleFonts.inter(
               fontSize: 14,
               height: 1.5,
@@ -377,8 +378,8 @@ class _CurrentSubscriptionCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             summary.plan == AiPremiumPlan.annual
-                ? 'Annual AI Premium'
-                : 'Monthly AI Premium',
+                ? 'Annual ${AiBranding.premiumName}'
+                : 'Monthly ${AiBranding.premiumName}',
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w800,
@@ -387,7 +388,8 @@ class _CurrentSubscriptionCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            summary.entitlement.message ?? 'AI Premium is active.',
+            summary.entitlement.message ??
+                '${AiBranding.premiumName} is active.',
             style: GoogleFonts.inter(
               fontSize: 13,
               height: 1.5,
@@ -420,7 +422,7 @@ class _CurrentSubscriptionCard extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () =>
                       Navigator.pushNamed(context, AppRoutes.aiChatHome),
-                  child: const Text('Open AI'),
+                  child: const Text('Open TAIYO'),
                 ),
               ),
             ],

@@ -44,7 +44,7 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
         backgroundColor: const Color(0xFF130F0B),
         foregroundColor: AppColors.textPrimary,
         title: Text(
-          'Review AI Plan',
+          'Review AI Builder Plan',
           style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700),
         ),
       ),
@@ -56,7 +56,7 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
           icon: Icons.cloud_off_outlined,
           title: 'Unable to load this draft',
           description:
-              'GymUnity could not refresh the AI plan review data right now.',
+              'GymUnity could not refresh the TAIYO plan review data right now.',
           primaryLabel: 'Retry',
           onPrimaryTap: () =>
               ref.invalidate(plannerDraftProvider(widget.draftId)),
@@ -67,12 +67,14 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
               icon: Icons.auto_awesome_outlined,
               title: 'Draft not found',
               description:
-                  'This AI plan draft is no longer available. Open the planner chat to generate a new plan.',
-              primaryLabel: 'Open chat',
+                  'This AI Builder draft is no longer available. Open the guided builder to generate a new plan.',
+              primaryLabel: 'Open AI Builder',
               onPrimaryTap: () => Navigator.pushNamed(
                 context,
-                AppRoutes.aiConversation,
-                arguments: widget.sessionId,
+                AppRoutes.aiPlannerBuilder,
+                arguments: PlannerBuilderArgs(
+                  existingSessionId: widget.sessionId,
+                ),
               ),
             );
           }
@@ -93,13 +95,15 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
               icon: Icons.chat_bubble_outline,
               title: 'Plan still needs more detail',
               description: draft.assistantMessage.isEmpty
-                  ? 'Continue the planning conversation so GymUnity can gather the remaining details.'
+                  ? 'Continue the guided builder so GymUnity can gather the remaining details.'
                   : draft.assistantMessage,
-              primaryLabel: 'Continue chat',
+              primaryLabel: 'Continue builder',
               onPrimaryTap: () => Navigator.pushNamed(
                 context,
-                AppRoutes.aiConversation,
-                arguments: widget.sessionId,
+                AppRoutes.aiPlannerBuilder,
+                arguments: PlannerBuilderArgs(
+                  existingSessionId: widget.sessionId,
+                ),
               ),
             );
           }
@@ -248,8 +252,8 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
                             : _regenerateDraft,
                         child: Text(
                           chatState.isRegenerating
-                              ? 'Updating...'
-                              : 'Regenerate',
+                              ? 'Improving...'
+                              : 'Improve plan',
                         ),
                       ),
                     ),
@@ -258,10 +262,12 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
                       child: OutlinedButton(
                         onPressed: () => Navigator.pushNamed(
                           context,
-                          AppRoutes.aiConversation,
-                          arguments: widget.sessionId,
+                          AppRoutes.aiPlannerBuilder,
+                          arguments: PlannerBuilderArgs(
+                            existingSessionId: widget.sessionId,
+                          ),
                         ),
-                        child: const Text('Refine in chat'),
+                        child: const Text('Edit builder answers'),
                       ),
                     ),
                   ],
@@ -346,7 +352,7 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
       );
       return;
     }
-    showAppFeedback(context, 'The AI plan draft has been refreshed.');
+    showAppFeedback(context, 'The AI Builder plan draft has been refreshed.');
   }
 
   Future<void> _activateDraft() async {

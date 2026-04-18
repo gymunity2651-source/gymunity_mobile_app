@@ -12,7 +12,7 @@ void main() {
     () async {
       final chatRepository = FakeChatRepository()
         ..sendMessageError = const AuthFailure(
-          message: 'Please sign in again to use GymUnity AI.',
+          message: 'Please sign in again to use TAIYO.',
         );
 
       final container = ProviderContainer(
@@ -31,7 +31,7 @@ void main() {
       expect(result, isNull);
       expect(
         container.read(chatControllerProvider).errorMessage,
-        'Please sign in again to use GymUnity AI.',
+        'Please sign in again to use TAIYO.',
       );
     },
   );

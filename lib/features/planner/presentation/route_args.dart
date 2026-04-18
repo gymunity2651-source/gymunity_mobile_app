@@ -5,6 +5,13 @@ class AiGeneratedPlanArgs {
   final String draftId;
 }
 
+class PlannerBuilderArgs {
+  const PlannerBuilderArgs({this.seedPrompt, this.existingSessionId});
+
+  final String? seedPrompt;
+  final String? existingSessionId;
+}
+
 class WorkoutPlanArgs {
   const WorkoutPlanArgs({this.planId});
 

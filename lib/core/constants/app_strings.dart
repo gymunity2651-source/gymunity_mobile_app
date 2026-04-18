@@ -1,15 +1,17 @@
+import 'ai_branding.dart';
+
 class AppStrings {
   AppStrings._();
 
   // ── App ──
   static const String appName = 'GymUnity';
-  static const String tagline = 'FITNESS. AI. COMMUNITY.';
-  static const String poweredBy = 'POWERED BY NEURALFIT ENGINE';
+  static const String tagline = 'FITNESS. TAIYO. COMMUNITY.';
+  static const String poweredBy = AiBranding.poweredByLabel;
 
   // ── Welcome ──
   static const String welcomeHeadline = 'Your Fitness,\nUnified.';
   static const String welcomeSubtitle =
-      'The all-in-one ecosystem for members,\ncoaches, and sellers powered by AI.';
+      'The all-in-one ecosystem for members,\ncoaches, and sellers powered by TAIYO.';
   static const String getStarted = 'Get Started';
   static const String login = 'Login';
   static const String revolutionizing = 'REVOLUTIONIZING THE FITNESS INDUSTRY';

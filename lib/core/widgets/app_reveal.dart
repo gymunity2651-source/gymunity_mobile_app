@@ -2,14 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../theme/app_motion.dart';
+
 class AppReveal extends StatefulWidget {
   const AppReveal({
     super.key,
     required this.child,
     this.delay = Duration.zero,
-    this.duration = const Duration(milliseconds: 420),
-    this.offset = const Offset(0, 0.035),
-    this.curve = Curves.easeOutCubic,
+    this.duration = AppMotion.slow,
+    this.offset = AppMotion.revealOffset,
+    this.curve = AppMotion.standardCurve,
   });
 
   final Widget child;
@@ -73,7 +75,7 @@ class _AppRevealState extends State<AppReveal> {
         duration: widget.duration,
         curve: widget.curve,
         child: AnimatedScale(
-          scale: _visible ? 1 : 0.985,
+          scale: _visible ? 1 : AppMotion.pressedScale,
           duration: widget.duration,
           curve: widget.curve,
           child: widget.child,

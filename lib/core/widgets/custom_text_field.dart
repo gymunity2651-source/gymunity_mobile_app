@@ -37,11 +37,11 @@ class CustomTextField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.manrope(
             color: AppColors.textSecondary,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.2,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
           ),
         ),
         const SizedBox(height: AppSizes.sm),
@@ -52,7 +52,7 @@ class CustomTextField extends StatelessWidget {
           validator: validator,
           onChanged: onChanged,
           textInputAction: textInputAction,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.manrope(
             color: AppColors.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.w500,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../providers/settings_providers.dart';
@@ -260,7 +261,7 @@ class NotificationsScreen extends ConsumerWidget {
       case NotificationFilter.orders:
         return 'Orders';
       case NotificationFilter.ai:
-        return 'AI';
+        return AiBranding.assistantName;
       case NotificationFilter.system:
         return 'System';
     }

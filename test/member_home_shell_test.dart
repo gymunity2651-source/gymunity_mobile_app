@@ -13,21 +13,21 @@ import 'test_doubles.dart';
 
 void main() {
   group('Member home shell', () {
-    testWidgets('news tab shows the news feed instead of profile content', (
-      tester,
-    ) async {
-      await _pumpMemberShell(tester);
+    testWidgets(
+      'profile tab shows the profile screen instead of home content',
+      (tester) async {
+        await _pumpMemberShell(tester);
 
-      await tester.tap(find.text('News'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Profile'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Recommended Reads'), findsOneWidget);
-      expect(find.text('Recovery basics for consistent training'), findsOneWidget);
-      expect(find.text('My Orders'), findsNothing);
-      expect(find.text('Log Out'), findsNothing);
-    });
+        expect(find.text('member@gymunity.com'), findsOneWidget);
+        expect(find.text('My Coaching'), findsOneWidget);
+        expect(find.text('Open my coaching'), findsNothing);
+      },
+    );
 
-    testWidgets('news tab remains on the news feed after rebuild', (
+    testWidgets('AI tab remains on the TAIYO home after rebuild', (
       tester,
     ) async {
       final widget = _buildShellApp();
@@ -42,20 +42,42 @@ void main() {
       await tester.pumpWidget(widget);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('News'));
+      await tester.tap(find.text('AI'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Recommended Reads'), findsOneWidget);
+      expect(find.text('TAIYO'), findsOneWidget);
 
       await tester.pumpWidget(widget);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.text('Recommended Reads'), findsOneWidget);
-      expect(find.text('My Orders'), findsNothing);
+      expect(find.text('TAIYO'), findsOneWidget);
+      expect(find.text('My Coaching'), findsNothing);
     });
 
-    testWidgets('profile shortcut opens profile from home and news', (
+    testWidgets('news tab opens the recommended reads feed', (tester) async {
+      await _pumpMemberShell(tester);
+
+      await tester.tap(find.text('News'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recommended Reads'), findsOneWidget);
+      expect(
+        find.text('Recovery basics for consistent training'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('home quick action opens the TAIYO screen', (tester) async {
+      await _pumpMemberShell(tester);
+
+      await tester.tap(find.text('Open TAIYO'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TAIYO'), findsOneWidget);
+    });
+
+    testWidgets('profile shortcut opens profile from home and coaches', (
       tester,
     ) async {
       await _pumpMemberShell(tester);
@@ -64,30 +86,27 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('member@gymunity.com'), findsOneWidget);
-      expect(find.text('My Orders'), findsOneWidget);
+      expect(find.text('My Coaching'), findsOneWidget);
 
       tester.state<NavigatorState>(find.byType(Navigator).first).pop();
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('News'));
+      await tester.tap(find.text('Coaches'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('member-profile-shortcut')));
       await tester.pumpAndSettle();
 
       expect(find.text('member@gymunity.com'), findsOneWidget);
-      expect(find.text('My Orders'), findsOneWidget);
+      expect(find.text('My Coaching'), findsOneWidget);
     });
 
     testWidgets('home fallback states still expose the profile shortcut', (
       tester,
     ) async {
-      await _pumpMemberShell(
-        tester,
-        userRepository: FakeUserRepository(),
-      );
+      await _pumpMemberShell(tester, userRepository: FakeUserRepository());
 
       expect(find.byKey(const Key('member-profile-shortcut')), findsOneWidget);
-      expect(find.text('Finish setting up your account'), findsOneWidget);
+      expect(find.text('GymUnity Member'), findsOneWidget);
     });
   });
 }
@@ -158,10 +177,9 @@ Widget _buildShellApp({
       chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
       plannerRepositoryProvider.overrideWithValue(FakePlannerRepository()),
       aiPremiumGateProvider.overrideWith(
-        (ref) =>
-            AsyncValue<AiPremiumGateDecision>.data(
-              AiPremiumGateDecision.freeAccess(),
-            ),
+        (ref) => AsyncValue<AiPremiumGateDecision>.data(
+          AiPremiumGateDecision.freeAccess(),
+        ),
       ),
     ],
     child: MaterialApp(

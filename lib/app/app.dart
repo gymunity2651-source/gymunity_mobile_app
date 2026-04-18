@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +8,7 @@ import '../core/constants/app_strings.dart';
 import '../core/config/app_config.dart';
 import '../features/monetization/presentation/providers/monetization_providers.dart';
 import '../features/planner/presentation/providers/planner_providers.dart';
+import '../features/settings/presentation/providers/settings_providers.dart';
 import 'routes.dart';
 
 class GymUnityApp extends ConsumerStatefulWidget {
@@ -47,6 +49,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
   @override
   Widget build(BuildContext context) {
     final hasValidConfig = AppConfig.current.validationErrorMessage == null;
+    final preferences = ref.watch(resolvedSettingsPreferencesProvider);
     if (hasValidConfig) {
       ref.watch(authAwareMonetizationProvider);
       ref.watch(authAwarePlannerRemindersProvider);
@@ -64,6 +67,9 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
       title: AppStrings.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
+      locale: Locale(preferences.language == AppLanguage.arabic ? 'ar' : 'en'),
+      supportedLocales: const <Locale>[Locale('en'), Locale('ar')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       initialRoute: AppRoutes.splash,
       onGenerateRoute: AppRoutes.onGenerateRoute,
     );

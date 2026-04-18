@@ -4,6 +4,7 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/constants/app_strings.dart';
@@ -28,7 +29,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     {
       'headline': 'Your Fitness,\nUnified.',
       'subtitle':
-          'The all-in-one ecosystem for members,\ncoaches, and sellers powered by AI.',
+          'The all-in-one ecosystem for members,\ncoaches, and sellers powered by TAIYO.',
     },
     {
       'headline': 'AI-Powered\nWorkouts.',
@@ -65,7 +66,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             {
               'headline': 'AI-Guided\nMomentum.',
               'subtitle':
-                  'Use GymUnity AI for workout ideas, habit prompts, and training clarity.',
+                  'Use TAIYO for workout ideas, habit prompts, and training clarity.',
             },
             {
               'headline': 'Browse Trusted\nResources.',
@@ -253,7 +254,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                 ),
                               ),
                               child: Text(
-                                'AI fitness ecosystem',
+                                '${AiBranding.assistantName} fitness ecosystem',
                                 style: GoogleFonts.inter(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,

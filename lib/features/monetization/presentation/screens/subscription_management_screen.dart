@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/services/external_link_service.dart';
@@ -51,7 +52,7 @@ class SubscriptionManagementScreen extends ConsumerWidget {
               error: (error, stackTrace) => _StateCard(
                 title: 'Unable to load subscription',
                 message:
-                    'GymUnity could not refresh your AI Premium subscription state.',
+                    'GymUnity could not refresh your TAIYO Premium subscription state.',
                 actionLabel: 'Retry',
                 onTap: () => ref
                     .read(currentSubscriptionSummaryProvider.notifier)
@@ -60,14 +61,12 @@ class SubscriptionManagementScreen extends ConsumerWidget {
               data: (summary) {
                 if (summary == null) {
                   return _StateCard(
-                    title: 'No active AI Premium subscription',
+                    title: 'No active ${AiBranding.premiumName} subscription',
                     message:
-                        'You do not have a verified AI Premium entitlement on this account yet.',
+                        'You do not have a verified ${AiBranding.premiumName} entitlement on this account yet.',
                     actionLabel: 'Restore Purchases',
                     onTap: () => ref
-                        .read(
-                          subscriptionManagementControllerProvider.notifier,
-                        )
+                        .read(subscriptionManagementControllerProvider.notifier)
                         .restore(),
                   );
                 }
@@ -83,7 +82,7 @@ class SubscriptionManagementScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'AI Premium',
+                        AiBranding.premiumName,
                         style: GoogleFonts.inter(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,

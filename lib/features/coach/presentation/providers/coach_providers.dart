@@ -53,6 +53,12 @@ final coachManagedSubscriptionsProvider =
       return repo.listSubscriptions();
     });
 
+final coachSubscriptionRequestsProvider =
+    FutureProvider<List<SubscriptionEntity>>((ref) async {
+      final repo = ref.watch(coachRepositoryProvider);
+      return repo.listSubscriptionRequests();
+    });
+
 final coachDetailsProvider = FutureProvider.family<CoachEntity?, String>((
   ref,
   coachId,

@@ -14,22 +14,35 @@ import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/auth/presentation/screens/splash_screen.dart';
 import '../features/auth/presentation/screens/welcome_screen.dart';
 import '../features/coach/presentation/screens/coach_dashboard_screen.dart';
+import '../features/coach/presentation/screens/coach_clients_screen.dart';
+import '../features/coach/presentation/screens/coach_package_editor_screen.dart';
+import '../features/coach/presentation/screens/coach_packages_screen.dart';
 import '../features/coaches/presentation/screens/coaches_screen.dart';
 import '../features/coaches/presentation/screens/coach_details_screen.dart';
 import '../features/coaches/presentation/screens/subscription_packages_screen.dart';
 import '../features/member/presentation/screens/member_home_screen.dart';
 import '../features/member/presentation/screens/edit_profile_screen.dart';
 import '../features/member/presentation/screens/member_profile_screen.dart';
+import '../features/member/presentation/screens/member_checkins_screen.dart';
+import '../features/member/presentation/screens/member_messages_screen.dart';
+import '../features/member/presentation/screens/my_subscriptions_screen.dart';
+import '../features/member/presentation/screens/progress_screen.dart';
 import '../features/monetization/presentation/screens/ai_premium_paywall_screen.dart';
 import '../features/monetization/presentation/screens/subscription_management_screen.dart';
 import '../features/news/domain/entities/news_article.dart';
 import '../features/news/presentation/screens/news_article_details_screen.dart';
 import '../features/news/presentation/screens/news_feed_screen.dart';
+import '../features/nutrition/presentation/screens/meal_plan_screen.dart';
+import '../features/nutrition/presentation/screens/nutrition_home_screen.dart';
+import '../features/nutrition/presentation/screens/nutrition_insights_screen.dart';
+import '../features/nutrition/presentation/screens/nutrition_preferences_screen.dart';
+import '../features/nutrition/presentation/screens/nutrition_setup_screen.dart';
 import '../features/onboarding/presentation/screens/coach_onboarding_screen.dart';
 import '../features/onboarding/presentation/screens/member_onboarding_screen.dart';
 import '../features/onboarding/presentation/screens/seller_onboarding_screen.dart';
 import '../features/planner/presentation/route_args.dart';
 import '../features/planner/presentation/screens/ai_generated_plan_screen.dart';
+import '../features/planner/presentation/screens/planner_builder_screen.dart';
 import '../features/planner/presentation/screens/workout_day_details_screen.dart';
 import '../features/planner/presentation/screens/workout_plan_screen.dart';
 import '../features/seller/presentation/screens/seller_dashboard_screen.dart';
@@ -46,6 +59,7 @@ import '../features/store/presentation/screens/product_details_screen.dart';
 import '../features/store/presentation/screens/store_catalog_screen.dart';
 import '../features/store/presentation/screens/store_home_screen.dart';
 import '../features/coach/domain/entities/coach_entity.dart';
+import '../features/member/domain/entities/coaching_engagement_entity.dart';
 import '../features/seller/presentation/screens/seller_orders_screen.dart';
 import '../features/seller/presentation/screens/seller_product_editor_screen.dart';
 import '../features/seller/presentation/screens/seller_product_management_screen.dart';
@@ -76,9 +90,15 @@ class AppRoutes {
 
   static const String aiChatHome = '/ai-chat-home';
   static const String aiConversation = '/ai-conversation';
+  static const String aiPlannerBuilder = '/ai-planner-builder';
   static const String aiGeneratedPlan = '/ai-generated-plan';
   static const String aiPremiumPaywall = '/ai-premium';
   static const String subscriptionManagement = '/subscription-management';
+  static const String nutrition = '/nutrition';
+  static const String nutritionSetup = '/nutrition-setup';
+  static const String nutritionMealPlan = '/nutrition-meal-plan';
+  static const String nutritionPreferences = '/nutrition-preferences';
+  static const String nutritionInsights = '/nutrition-insights';
   static const String newsFeed = '/news-feed';
   static const String newsArticleDetails = '/news-article-details';
 
@@ -94,6 +114,9 @@ class AppRoutes {
   static const String coachDetails = '/coach-details';
   static const String subscriptionPackages = '/subscription-packages';
   static const String mySubscriptions = '/my-subscriptions';
+  static const String memberCheckins = '/member-checkins';
+  static const String memberMessages = '/member-messages';
+  static const String memberThread = '/member-thread';
 
   static const String sellerDashboard = '/seller-dashboard';
   static const String productManagement = '/product-management';
@@ -159,12 +182,7 @@ class AppRoutes {
       case editProfile:
         return _buildRoute(const EditProfileScreen());
       case progress:
-        return _featureRoute(
-          title: 'Progress Tracking',
-          description:
-              'Progress analytics will summarize workouts, streaks, measurements, and milestones after tracking data is connected.',
-          icon: Icons.trending_up,
-        );
+        return _buildRoute(const ProgressScreen());
       case workoutPlan:
         final args = settings.arguments;
         return _buildRoute(
@@ -191,6 +209,16 @@ class AppRoutes {
       case aiConversation:
         final sessionId = settings.arguments as String?;
         return _buildRoute(AiConversationScreen(sessionId: sessionId));
+      case aiPlannerBuilder:
+        final args = settings.arguments;
+        return _buildRoute(
+          PlannerBuilderScreen(
+            seedPrompt: args is PlannerBuilderArgs ? args.seedPrompt : null,
+            existingSessionId: args is PlannerBuilderArgs
+                ? args.existingSessionId
+                : null,
+          ),
+        );
       case aiGeneratedPlan:
         final args = settings.arguments;
         if (args is AiGeneratedPlanArgs) {
@@ -211,6 +239,16 @@ class AppRoutes {
         return _buildRoute(const AiPremiumPaywallScreen());
       case subscriptionManagement:
         return _buildRoute(const SubscriptionManagementScreen());
+      case nutrition:
+        return _buildRoute(const NutritionHomeScreen());
+      case nutritionSetup:
+        return _buildRoute(const NutritionSetupScreen());
+      case nutritionMealPlan:
+        return _buildRoute(const MealPlanScreen());
+      case nutritionPreferences:
+        return _buildRoute(const NutritionPreferencesScreen());
+      case nutritionInsights:
+        return _buildRoute(const NutritionInsightsScreen());
       case newsFeed:
         return _buildRoute(const NewsFeedScreen());
       case newsArticleDetails:
@@ -257,11 +295,20 @@ class AppRoutes {
           ),
         );
       case mySubscriptions:
+        return _buildRoute(const MySubscriptionsScreen());
+      case memberCheckins:
+        return _buildRoute(const MemberCheckinsScreen());
+      case memberMessages:
+        return _buildRoute(const MemberMessagesScreen());
+      case memberThread:
+        final thread = settings.arguments;
+        if (thread is CoachingThreadEntity) {
+          return _buildRoute(MemberThreadScreen(thread: thread));
+        }
         return _featureRoute(
-          title: 'My Subscriptions',
-          description:
-              'Your active and past subscriptions will appear here after the member subscription experience is implemented.',
-          icon: Icons.workspace_premium_outlined,
+          title: 'Messages',
+          description: 'A coaching thread is required to open this screen.',
+          icon: Icons.chat_bubble_outline,
         );
 
       case sellerDashboard:
@@ -290,25 +337,15 @@ class AppRoutes {
       case coachDashboard:
         return _buildRoute(const CoachDashboardScreen());
       case clients:
-        return _featureRoute(
-          title: 'Client Management',
-          description:
-              'Client roster, progress visibility, and coaching actions will appear here after coach flows are connected.',
-          icon: Icons.groups_outlined,
-        );
+        return _buildRoute(const CoachClientsScreen());
       case packages:
-        return _featureRoute(
-          title: 'Coaching Packages',
-          description:
-              'Coach package pricing and plan bundles will be configured here once package persistence is connected.',
-          icon: Icons.inventory_outlined,
-        );
+        return _buildRoute(const CoachPackagesScreen());
       case addPackage:
-        return _featureRoute(
-          title: 'Create Coaching Package',
-          description:
-              'Coaches will create new coaching packages here once package publishing is connected.',
-          icon: Icons.add_circle_outline,
+        final package = settings.arguments;
+        return _buildRoute(
+          CoachPackageEditorScreen(
+            initialPackage: package is CoachPackageEntity ? package : null,
+          ),
         );
       case coachProfile:
         return _featureRoute(

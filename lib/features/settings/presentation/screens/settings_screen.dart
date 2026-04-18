@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -94,7 +95,7 @@ class SettingsScreen extends ConsumerWidget {
               if (showSubscriptionSettings)
                 _ActionTile(
                   icon: Icons.workspace_premium_outlined,
-                  label: 'AI Premium',
+                  label: AiBranding.premiumName,
                   onTap: () => Navigator.pushNamed(
                     context,
                     AppRoutes.subscriptionManagement,
@@ -122,9 +123,9 @@ class SettingsScreen extends ConsumerWidget {
                       value: preferences.aiTipsEnabled,
                       onChanged: (value) =>
                           updatePreference(() => controller.setAiTips(value)),
-                      title: const Text('AI Suggestions'),
+                      title: const Text(AiBranding.suggestionsLabel),
                       subtitle: const Text(
-                        'Highlight new coaching or workout ideas from AI chat.',
+                        'Highlight new coaching or workout ideas from TAIYO.',
                       ),
                       activeThumbColor: AppColors.orange,
                     ),

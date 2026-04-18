@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_sizes.dart';
-import '../../../member/presentation/widgets/member_profile_shortcut_button.dart';
+import '../../../../core/constants/atelier_colors.dart';
+import '../../../../core/theme/atelier_theme.dart';
 import '../../../coach/domain/entities/coach_entity.dart';
+import '../../../member/presentation/widgets/member_profile_shortcut_button.dart';
+import '../../../user/presentation/providers/profile_avatar_provider.dart';
 import '../providers/coaches_providers.dart';
 
 class CoachesScreen extends ConsumerStatefulWidget {
@@ -34,8 +35,13 @@ class _CoachesScreenState extends ConsumerState<CoachesScreen> {
   @override
   Widget build(BuildContext context) {
     final specialties = ref.watch(coachSpecialtiesProvider);
-    final selectedSpecialty = ref.watch(selectedCoachSpecialtyProvider);
+    final selectedSpecialtyIndex = ref.watch(selectedCoachSpecialtyProvider);
+    final selectedSpecialty = specialties[selectedSpecialtyIndex];
     final searchQuery = ref.watch(coachSearchQueryProvider);
+    final city = ref.watch(selectedCoachCityProvider);
+    final language = ref.watch(selectedCoachLanguageProvider);
+    final gender = ref.watch(selectedCoachGenderProvider);
+    final budget = ref.watch(selectedCoachBudgetProvider);
     final coachesAsync = ref.watch(coachListProvider);
     final coaches = ref.watch(filteredCoachListProvider);
 
@@ -46,236 +52,166 @@ class _CoachesScreenState extends ConsumerState<CoachesScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.lightBackground,
-      body: SafeArea(
-        child: RefreshIndicator.adaptive(
-          onRefresh: () => ref.refresh(coachListProvider.future),
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSizes.screenPadding,
-                    vertical: AppSizes.lg,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.groups_outlined,
-                        color: AppColors.textDark,
-                        size: 26,
-                      ),
-                      const Spacer(),
-                      Text(
-                        'Coach Marketplace',
-                        style: GoogleFonts.inter(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const Spacer(),
-                      const MemberProfileShortcutButton(
-                        backgroundColor: AppColors.white,
-                        iconColor: AppColors.textDark,
-                        borderColor: AppColors.borderLight,
-                      ),
-                    ],
-                  ),
+    final featuredCoach = coaches.isNotEmpty ? coaches.first : null;
+    final remainingCoaches = coaches.length > 1
+        ? coaches.sublist(1)
+        : const <CoachEntity>[];
+    final showResetFilters = searchQuery.trim().isNotEmpty ||
+        selectedSpecialtyIndex != 0 ||
+        city != null ||
+        budget != null ||
+        gender != null;
+
+    return Theme(
+      data: AtelierTheme.light,
+      child: Scaffold(
+        backgroundColor: _MarketplacePalette.background,
+        body: SafeArea(
+          bottom: false,
+          child: RefreshIndicator.adaptive(
+            color: _MarketplacePalette.primary,
+            onRefresh: _refreshMarketplace,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 118),
+              children: [
+                _MarketplaceTopBar(
+                  onMenuTap: () => Navigator.pushNamed(context, AppRoutes.settings),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSizes.screenPadding,
-                  ),
-                  child: SearchBar(
-                    controller: _searchController,
-                    hintText: 'Search coaches by name, specialty, or badge',
-                    onChanged: (value) {
-                      ref.read(coachSearchQueryProvider.notifier).state = value;
-                    },
-                    leading: const Icon(
-                      Icons.search,
-                      color: AppColors.textMuted,
-                      size: 22,
-                    ),
-                    trailing: [
-                      if (searchQuery.isNotEmpty)
-                        IconButton(
-                          onPressed: _clearSearch,
-                          icon: const Icon(
-                            Icons.close,
-                            color: AppColors.textMuted,
-                            size: 20,
-                          ),
-                        ),
-                    ],
-                    backgroundColor: const WidgetStatePropertyAll(
-                      AppColors.lightSurface,
-                    ),
-                    surfaceTintColor: const WidgetStatePropertyAll(
-                      AppColors.transparent,
-                    ),
-                    elevation: const WidgetStatePropertyAll(0),
-                    side: const WidgetStatePropertyAll(
-                      BorderSide(color: AppColors.border),
-                    ),
-                    shape: WidgetStatePropertyAll(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                      ),
-                    ),
-                    hintStyle: WidgetStatePropertyAll(
-                      GoogleFonts.inter(
-                        fontSize: 14,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                    textStyle: WidgetStatePropertyAll(
-                      GoogleFonts.inter(
-                        fontSize: 14,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  ),
+                const SizedBox(height: 28),
+                const _MarketplaceHeroCopy(),
+                const SizedBox(height: 28),
+                _MarketplaceSearchField(
+                  controller: _searchController,
+                  onChanged: (value) =>
+                      ref.read(coachSearchQueryProvider.notifier).state = value,
+                  onClear: _clearSearch,
+                  showClear: searchQuery.trim().isNotEmpty,
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 36,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.screenPadding,
-                    ),
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
-                    itemCount: specialties.length,
-                    itemBuilder: (context, index) {
-                      final selected = selectedSpecialty == index;
-                      return GestureDetector(
-                        onTap: () {
-                          ref
-                                  .read(selectedCoachSpecialtyProvider.notifier)
-                                  .state =
-                              index;
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? AppColors.orange
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(
-                              AppSizes.radiusFull,
-                            ),
-                            border: selected
-                                ? null
-                                : Border.all(color: AppColors.border),
-                          ),
-                          child: Text(
-                            specialties[index],
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: selected
-                                  ? AppColors.white
-                                  : AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      );
+                const SizedBox(height: 16),
+                _SpecialtyChipWrap(
+                  labels: specialties,
+                  selectedIndex: selectedSpecialtyIndex,
+                  onSelected: (index) => ref
+                      .read(selectedCoachSpecialtyProvider.notifier)
+                      .state = index,
+                ),
+                const SizedBox(height: 34),
+                if (coachesAsync.isLoading && coaches.isEmpty) ...[
+                  const _FeaturedCoachCardSkeleton(),
+                  const SizedBox(height: 28),
+                  const _TailoredPanelSkeleton(),
+                  const SizedBox(height: 32),
+                  const _CoachEditorialCardSkeleton(),
+                  const SizedBox(height: 32),
+                  const _CoachEditorialCardSkeleton(),
+                ] else if (coachesAsync.hasError && coaches.isEmpty) ...[
+                  _MarketplaceStateCard(
+                    title: 'The marketplace is quiet right now',
+                    message:
+                        'We could not refresh the coach roster. Pull to retry or load the curation again.',
+                    actionLabel: 'Retry Curation',
+                    onAction: () {
+                      _refreshMarketplace();
                     },
                   ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSizes.screenPadding,
-                    18,
-                    AppSizes.screenPadding,
-                    0,
+                ] else if (coaches.isEmpty) ...[
+                  _MarketplaceStateCard(
+                    title: searchQuery.trim().isEmpty
+                        ? 'No coaches matched this curation'
+                        : 'No coaches matched "$searchQuery"',
+                    message:
+                        'Try another specialty or widen the filters to bring more practitioners into view.',
+                    actionLabel: showResetFilters ? 'Reset Filters' : 'Refresh',
+                    onAction: showResetFilters
+                        ? _clearFilters
+                        : () {
+                            _refreshMarketplace();
+                          },
                   ),
-                  child: Text(
-                    _resultsLabel(
-                      coaches.length,
-                      specialties[selectedSpecialty],
-                      searchQuery,
+                ] else ...[
+                  _FeaturedCoachCard(
+                    coach: featuredCoach!,
+                    onViewProfile: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.coachDetails,
+                      arguments: featuredCoach,
                     ),
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+                    onViewOffers: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.subscriptionPackages,
+                      arguments: featuredCoach,
                     ),
                   ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 18)),
-              if (coachesAsync.isLoading && coaches.isEmpty)
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSizes.screenPadding,
+                  const SizedBox(height: 28),
+                  _TailoredPanel(
+                    coaches: coaches,
+                    specialtyLabel: selectedSpecialty,
+                    city: city,
+                    language: language,
+                    budget: budget,
+                    gender: gender,
+                    showResetFilters: showResetFilters,
+                    onCityTap: () => ref
+                            .read(selectedCoachCityProvider.notifier)
+                            .state =
+                        city == null ? 'Cairo' : null,
+                    onLanguageTap: () => ref
+                            .read(selectedCoachLanguageProvider.notifier)
+                            .state =
+                        language == 'arabic' ? 'english' : 'arabic',
+                    onBudgetTap: () => ref
+                            .read(selectedCoachBudgetProvider.notifier)
+                            .state =
+                        budget == null ? 2500 : null,
+                    onGenderTap: () => ref
+                            .read(selectedCoachGenderProvider.notifier)
+                            .state =
+                        gender == null ? 'female' : null,
+                    onResetTap: _clearFilters,
                   ),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => const Padding(
-                        padding: EdgeInsets.only(bottom: 18),
-                        child: _CoachCardSkeleton(),
+                  if (remainingCoaches.isNotEmpty) const SizedBox(height: 34),
+                  for (var index = 0; index < remainingCoaches.length; index++) ...[
+                    _CoachEditorialCard(
+                      coach: remainingCoaches[index],
+                      onViewProfile: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.coachDetails,
+                        arguments: remainingCoaches[index],
                       ),
-                      childCount: 3,
+                      onViewOffers: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.subscriptionPackages,
+                        arguments: remainingCoaches[index],
+                      ),
                     ),
-                  ),
-                )
-              else if (coaches.isEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.screenPadding,
+                    if (index != remainingCoaches.length - 1)
+                      const SizedBox(height: 32),
+                  ],
+                  if (remainingCoaches.isEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'More practitioners will appear here as new profiles publish live coaching offers.',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        height: 1.6,
+                        color: _MarketplacePalette.muted,
+                      ),
                     ),
-                    child: _EmptyCoachState(
-                      onClearFilters: _clearFilters,
-                      searchQuery: searchQuery,
-                    ),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSizes.screenPadding,
-                  ),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final coach = coaches[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 18),
-                        child: _CoachCard(
-                          coach: coach,
-                          onViewProfile: () => Navigator.pushNamed(
-                            context,
-                            AppRoutes.coachDetails,
-                            arguments: coach,
-                          ),
-                          onViewPackages: () => Navigator.pushNamed(
-                            context,
-                            AppRoutes.subscriptionPackages,
-                            arguments: coach,
-                          ),
-                        ),
-                      );
-                    }, childCount: coaches.length),
-                  ),
-                ),
-            ],
+                  ],
+                ],
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _refreshMarketplace() async {
+    ref.invalidate(coachListProvider);
+    await ref.read(coachListProvider.future);
   }
 
   void _clearSearch() {
@@ -286,241 +222,372 @@ class _CoachesScreenState extends ConsumerState<CoachesScreen> {
   void _clearFilters() {
     _clearSearch();
     ref.read(selectedCoachSpecialtyProvider.notifier).state = 0;
-  }
-
-  String _resultsLabel(int count, String specialty, String query) {
-    final buffer = StringBuffer('$count coach');
-    if (count != 1) {
-      buffer.write('es');
-    }
-    if (specialty != 'All') {
-      buffer.write(' in $specialty');
-    }
-    if (query.isNotEmpty) {
-      buffer.write(' for "$query"');
-    }
-    return buffer.toString();
+    ref.read(selectedCoachCityProvider.notifier).state = null;
+    ref.read(selectedCoachLanguageProvider.notifier).state = 'arabic';
+    ref.read(selectedCoachBudgetProvider.notifier).state = null;
+    ref.read(selectedCoachGenderProvider.notifier).state = null;
   }
 }
 
-class _CoachCard extends StatelessWidget {
-  const _CoachCard({
-    required this.coach,
-    required this.onViewProfile,
-    required this.onViewPackages,
-  });
+class _MarketplaceTopBar extends StatelessWidget {
+  const _MarketplaceTopBar({required this.onMenuTap});
 
-  final CoachEntity coach;
-  final VoidCallback onViewProfile;
-  final VoidCallback onViewPackages;
+  final VoidCallback onMenuTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              Container(
-                height: 180,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE8E8E8),
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(AppSizes.radiusLg),
-                  ),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.person,
-                    size: 56,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        coach.rating,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        coach.name,
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Starting from',
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                        Text(
-                          coach.rateLabel,
-                          style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  coach.specialty,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.orange,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    _InfoChip(label: coach.reviewsLabel),
-                    const SizedBox(width: 8),
-                    _InfoChip(label: coach.badge),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: onViewProfile,
-                        child: const Text('View Profile'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: onViewPackages,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.orange,
-                          foregroundColor: AppColors.white,
-                        ),
-                        child: const Text('Coaching Packages'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+    return Row(
+      children: [
+        _RoundGhostButton(
+          icon: Icons.menu_rounded,
+          onTap: onMenuTap,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Curated Wellness',
+            style: GoogleFonts.notoSerif(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
+              color: _MarketplacePalette.primary,
             ),
           ),
-        ],
-      ),
+        ),
+        MemberProfileShortcutButton(
+          size: 36,
+          backgroundColor: _MarketplacePalette.surface,
+          borderColor: _MarketplacePalette.ghostBorder,
+          iconColor: _MarketplacePalette.primary,
+          tooltip: 'Profile',
+        ),
+      ],
     );
   }
 }
 
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.label});
+class _MarketplaceHeroCopy extends StatelessWidget {
+  const _MarketplaceHeroCopy();
 
-  final String label;
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Coach\nMarketplace',
+          style: GoogleFonts.notoSerif(
+            fontSize: 51,
+            height: 0.94,
+            fontWeight: FontWeight.w500,
+            color: _MarketplacePalette.primary,
+          ),
+        ),
+        const SizedBox(height: 18),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 240),
+          child: Text(
+            'A curated selection of world-class mentors. Find the expertise that aligns with your unique path to vitality and balance.',
+            style: GoogleFonts.manrope(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 1.7,
+              color: _MarketplacePalette.muted,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MarketplaceSearchField extends StatelessWidget {
+  const _MarketplaceSearchField({
+    required this.controller,
+    required this.onChanged,
+    required this.onClear,
+    required this.showClear,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  final bool showClear;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+        color: _MarketplacePalette.field,
+        borderRadius: BorderRadius.circular(26),
       ),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: AppColors.textSecondary,
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        style: GoogleFonts.manrope(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: _MarketplacePalette.text,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Search by name, specialty, or city',
+          hintStyle: GoogleFonts.manrope(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: _MarketplacePalette.muted.withValues(alpha: 0.8),
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            size: 18,
+            color: _MarketplacePalette.primary,
+          ),
+          suffixIcon: showClear
+              ? IconButton(
+                  onPressed: onClear,
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: _MarketplacePalette.muted,
+                  ),
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 19,
+          ),
         ),
       ),
     );
   }
 }
 
-class _CoachCardSkeleton extends StatelessWidget {
-  const _CoachCardSkeleton();
+class _SpecialtyChipWrap extends StatelessWidget {
+  const _SpecialtyChipWrap({
+    required this.labels,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final List<String> labels;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: List.generate(labels.length, (index) {
+        final selected = index == selectedIndex;
+        return _SpecialtyChip(
+          label: labels[index],
+          selected: selected,
+          onTap: () => onSelected(index),
+        );
+      }),
+    );
+  }
+}
+
+class _SpecialtyChip extends StatelessWidget {
+  const _SpecialtyChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: selected ? null : _MarketplacePalette.section,
+            gradient: selected
+                ? const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      _MarketplacePalette.primary,
+                      _MarketplacePalette.primarySoft,
+                    ],
+                  )
+                : null,
+            boxShadow: selected
+                ? const [
+                    BoxShadow(
+                      color: _MarketplacePalette.shadow,
+                      blurRadius: 24,
+                      offset: Offset(0, 8),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            label.toUpperCase(),
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+              color: selected
+                  ? _MarketplacePalette.surface
+                  : _MarketplacePalette.muted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FeaturedCoachCard extends StatelessWidget {
+  const _FeaturedCoachCard({
+    required this.coach,
+    required this.onViewProfile,
+    required this.onViewOffers,
+  });
+
+  final CoachEntity coach;
+  final VoidCallback onViewProfile;
+  final VoidCallback onViewOffers;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 400,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        borderRadius: BorderRadius.circular(34),
+        boxShadow: const [
+          BoxShadow(
+            color: _MarketplacePalette.shadow,
+            blurRadius: 38,
+            offset: Offset(0, 12),
+          ),
+        ],
       ),
-      child: Column(
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Container(
-            height: 180,
-            decoration: const BoxDecoration(
-              color: Color(0xFFEAEAEA),
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(AppSizes.radiusLg),
+          _CoachArtwork(coach: coach),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.06),
+                  Colors.black.withValues(alpha: 0.12),
+                  Colors.black.withValues(alpha: 0.84),
+                ],
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
+          Positioned(
+            right: -36,
+            top: -24,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    _MarketplacePalette.primarySoft.withValues(alpha: 0.26),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 18,
+            top: 18,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _MarketplacePalette.primarySoft.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                'Featured Practitioner',
+                style: GoogleFonts.manrope(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: _MarketplacePalette.surface,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 20,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(height: 12, color: const Color(0xFFEAEAEA)),
+                Text(
+                  'Curated\nCoaching',
+                  style: GoogleFonts.notoSerif(
+                    fontSize: 34,
+                    height: 0.96,
+                    fontWeight: FontWeight.w500,
+                    color: _MarketplacePalette.surface,
+                  ),
+                ),
                 const SizedBox(height: 10),
-                Container(height: 12, color: const Color(0xFFEAEAEA)),
+                Text(
+                  _coachFeatureCopy(coach),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.6,
+                    color: _MarketplacePalette.surface.withValues(alpha: 0.9),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'with ${coach.name}',
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _MarketplacePalette.surface.withValues(alpha: 0.74),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _EditorialPrimaryButton(
+                        label: 'Find a coach',
+                        onTap: onViewProfile,
+                        light: true,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _MiniCircleActionButton(
+                      icon: Icons.favorite_border_rounded,
+                      onTap: onViewOffers,
+                      backgroundColor:
+                          _MarketplacePalette.surface.withValues(alpha: 0.16),
+                      foregroundColor: _MarketplacePalette.surface,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -530,59 +597,739 @@ class _CoachCardSkeleton extends StatelessWidget {
   }
 }
 
-class _EmptyCoachState extends StatelessWidget {
-  const _EmptyCoachState({
-    required this.onClearFilters,
-    required this.searchQuery,
+class _TailoredPanel extends StatelessWidget {
+  const _TailoredPanel({
+    required this.coaches,
+    required this.specialtyLabel,
+    required this.city,
+    required this.language,
+    required this.budget,
+    required this.gender,
+    required this.showResetFilters,
+    required this.onCityTap,
+    required this.onLanguageTap,
+    required this.onBudgetTap,
+    required this.onGenderTap,
+    required this.onResetTap,
   });
 
-  final VoidCallback onClearFilters;
-  final String searchQuery;
+  final List<CoachEntity> coaches;
+  final String specialtyLabel;
+  final String? city;
+  final String? language;
+  final double? budget;
+  final String? gender;
+  final bool showResetFilters;
+  final VoidCallback onCityTap;
+  final VoidCallback onLanguageTap;
+  final VoidCallback onBudgetTap;
+  final VoidCallback onGenderTap;
+  final VoidCallback onResetTap;
 
   @override
   Widget build(BuildContext context) {
+    final verifiedCount =
+        coaches
+            .where((coach) => coach.isVerified || coach.verificationStatus == 'verified')
+            .length;
+    final maxYears = coaches.isEmpty
+        ? 0
+        : coaches
+            .map((coach) => coach.yearsExperience)
+            .reduce((value, element) => value > element ? value : element);
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
       decoration: BoxDecoration(
-        color: AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        color: _MarketplacePalette.section,
+        borderRadius: BorderRadius.circular(32),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.search_off_outlined,
-            color: AppColors.textMuted,
-            size: 36,
+          Text(
+            'Tailored To You',
+            style: GoogleFonts.notoSerif(
+              fontSize: 28,
+              fontWeight: FontWeight.w500,
+              fontStyle: FontStyle.italic,
+              color: _MarketplacePalette.primary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _InsightRow(
+            icon: Icons.workspace_premium_rounded,
+            text: verifiedCount > 0
+                ? 'Vetted professionals with up to $maxYears years of practice.'
+                : 'Curated professionals selected for consistency and care.',
           ),
           const SizedBox(height: 12),
+          const _InsightRow(
+            icon: Icons.schedule_rounded,
+            text: 'Flexible sessions that respect your schedule and energy.',
+          ),
+          const SizedBox(height: 12),
+          _InsightRow(
+            icon: Icons.favorite_rounded,
+            text: specialtyLabel == 'All'
+                ? 'Holistic guidance across strength, mobility, and recovery.'
+                : 'A focused lens on $specialtyLabel with sustainable progression.',
+          ),
+          const SizedBox(height: 20),
           Text(
-            searchQuery.isEmpty
-                ? 'No coaches matched this filter yet.'
-                : 'No coaches matched "$searchQuery".',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textDark,
+            'CURRENT FILTERS',
+            style: GoogleFonts.manrope(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+              color: _MarketplacePalette.muted,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Try another specialty or clear the search to widen the marketplace.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              height: 1.45,
-              color: AppColors.textSecondary,
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _FilterTogglePill(
+                label: city ?? 'All cities',
+                selected: city != null,
+                onTap: onCityTap,
+              ),
+              _FilterTogglePill(
+                label: language == 'arabic' ? 'Arabic first' : 'English',
+                selected: true,
+                onTap: onLanguageTap,
+              ),
+              _FilterTogglePill(
+                label: budget == null
+                    ? 'Open budget'
+                    : 'Under EGP ${budget!.toStringAsFixed(0)}',
+                selected: budget != null,
+                onTap: onBudgetTap,
+              ),
+              _FilterTogglePill(
+                label: gender == null ? 'Any coach' : _titleCase(gender!),
+                selected: gender != null,
+                onTap: onGenderTap,
+              ),
+            ],
+          ),
+          if (showResetFilters) ...[
+            const SizedBox(height: 14),
+            TextButton(
+              onPressed: onResetTap,
+              style: TextButton.styleFrom(
+                foregroundColor: _MarketplacePalette.primary,
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Reset filters',
+                style: GoogleFonts.manrope(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  decoration: TextDecoration.underline,
+                  decorationColor:
+                      _MarketplacePalette.primary.withValues(alpha: 0.35),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CoachEditorialCard extends StatelessWidget {
+  const _CoachEditorialCard({
+    required this.coach,
+    required this.onViewProfile,
+    required this.onViewOffers,
+  });
+
+  final CoachEntity coach;
+  final VoidCallback onViewProfile;
+  final VoidCallback onViewOffers;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(34),
+        onTap: onViewProfile,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 334,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(34),
+                    child: _CoachArtwork(coach: coach),
+                  ),
+                  Positioned(
+                    top: 14,
+                    right: 14,
+                    child: _MiniCircleActionButton(
+                      icon: Icons.favorite_rounded,
+                      onTap: onViewOffers,
+                      backgroundColor: _MarketplacePalette.surface,
+                      foregroundColor: _MarketplacePalette.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    coach.name,
+                    style: GoogleFonts.notoSerif(
+                      fontSize: 28,
+                      height: 1.02,
+                      fontWeight: FontWeight.w500,
+                      color: _MarketplacePalette.text,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    coach.discoveryPriceLabel,
+                    textAlign: TextAlign.end,
+                    style: GoogleFonts.manrope(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                      color: _MarketplacePalette.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _coachRoleLine(coach),
+              style: GoogleFonts.manrope(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: _MarketplacePalette.muted,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(
+                  Icons.star_rounded,
+                  size: 14,
+                  color: _MarketplacePalette.primarySoft,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _coachReviewLine(coach),
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _MarketplacePalette.primary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoachArtwork extends ConsumerWidget {
+  const _CoachArtwork({required this.coach});
+
+  final CoachEntity coach;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final avatarPath = coach.avatarPath?.trim();
+    if (avatarPath == null || avatarPath.isEmpty) {
+      return _CoachArtworkFallback(coach: coach);
+    }
+
+    final imageUrlAsync = ref.watch(profileAvatarUrlProvider(avatarPath));
+    return imageUrlAsync.when(
+      loading: () => _CoachArtworkFallback(coach: coach),
+      error: (_, _) => _CoachArtworkFallback(coach: coach),
+      data: (imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty) {
+          return _CoachArtworkFallback(coach: coach);
+        }
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _CoachArtworkFallback(coach: coach),
+            ),
+            Container(
+              color: _MarketplacePalette.halo.withValues(alpha: 0.1),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.14),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CoachArtworkFallback extends StatelessWidget {
+  const _CoachArtworkFallback({required this.coach});
+
+  final CoachEntity coach;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = coach.name.trim().isNotEmpty
+        ? coach.name.trim().substring(0, 1).toUpperCase()
+        : 'C';
+    final isFemale = coach.coachGender == 'female';
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isFemale
+              ? const [Color(0xFF6F8ED0), Color(0xFF2E477E)]
+              : const [Color(0xFF343434), Color(0xFF0E0E0E)],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            left: -24,
+            top: 28,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    _MarketplacePalette.halo.withValues(alpha: 0.36),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 14),
-          OutlinedButton(
-            onPressed: onClearFilters,
-            child: const Text('Clear filters'),
+          Positioned(
+            right: -20,
+            bottom: -20,
+            child: Container(
+              width: 166,
+              height: 166,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    _MarketplacePalette.primarySoft.withValues(alpha: 0.24),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: Text(
+              initial,
+              style: GoogleFonts.notoSerif(
+                fontSize: 132,
+                fontWeight: FontWeight.w600,
+                color: _MarketplacePalette.surface.withValues(alpha: 0.9),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+class _EditorialPrimaryButton extends StatelessWidget {
+  const _EditorialPrimaryButton({
+    required this.label,
+    required this.onTap,
+    this.light = false,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final bool light;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = light
+        ? _MarketplacePalette.primary
+        : _MarketplacePalette.surface;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: light ? _MarketplacePalette.surface : null,
+            gradient: light
+                ? null
+                : const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      _MarketplacePalette.primary,
+                      _MarketplacePalette.primarySoft,
+                    ],
+                  ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: foreground,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniCircleActionButton extends StatelessWidget {
+  const _MiniCircleActionButton({
+    required this.icon,
+    required this.onTap,
+    required this.backgroundColor,
+    required this.foregroundColor,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color backgroundColor;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: backgroundColor,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 42,
+          height: 42,
+          child: Icon(icon, size: 20, color: foregroundColor),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundGhostButton extends StatelessWidget {
+  const _RoundGhostButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _MarketplacePalette.surface,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(icon, size: 18, color: _MarketplacePalette.primary),
+        ),
+      ),
+    );
+  }
+}
+
+class _InsightRow extends StatelessWidget {
+  const _InsightRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(icon, size: 15, color: _MarketplacePalette.primary),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.manrope(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              height: 1.6,
+              color: _MarketplacePalette.muted,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterTogglePill extends StatelessWidget {
+  const _FilterTogglePill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected
+                ? _MarketplacePalette.surface
+                : _MarketplacePalette.field.withValues(alpha: 0.86),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: selected
+                  ? _MarketplacePalette.primary
+                  : _MarketplacePalette.muted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MarketplaceStateCard extends StatelessWidget {
+  const _MarketplaceStateCard({
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      decoration: BoxDecoration(
+        color: _MarketplacePalette.section,
+        borderRadius: BorderRadius.circular(32),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.notoSerif(
+              fontSize: 28,
+              height: 1.05,
+              fontWeight: FontWeight.w500,
+              color: _MarketplacePalette.primary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            message,
+            style: GoogleFonts.manrope(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              height: 1.7,
+              color: _MarketplacePalette.muted,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _EditorialPrimaryButton(label: actionLabel, onTap: onAction),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeaturedCoachCardSkeleton extends StatelessWidget {
+  const _FeaturedCoachCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 400,
+      decoration: BoxDecoration(
+        color: _MarketplacePalette.section,
+        borderRadius: BorderRadius.circular(34),
+      ),
+    );
+  }
+}
+
+class _TailoredPanelSkeleton extends StatelessWidget {
+  const _TailoredPanelSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 240,
+      decoration: BoxDecoration(
+        color: _MarketplacePalette.section,
+        borderRadius: BorderRadius.circular(32),
+      ),
+    );
+  }
+}
+
+class _CoachEditorialCardSkeleton extends StatelessWidget {
+  const _CoachEditorialCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 334,
+          decoration: BoxDecoration(
+            color: _MarketplacePalette.section,
+            borderRadius: BorderRadius.circular(34),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          height: 22,
+          width: 180,
+          decoration: BoxDecoration(
+            color: _MarketplacePalette.section,
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          height: 14,
+          width: 150,
+          decoration: BoxDecoration(
+            color: _MarketplacePalette.section,
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MarketplacePalette {
+  static const Color background = AtelierColors.surfaceContainerLowest;
+  static const Color surface = AtelierColors.surfaceContainerLowest;
+  static const Color section = Color(0xFFF4F3F1);
+  static const Color field = Color(0xFFE9E8E5);
+  static const Color halo = Color(0xFFDEC0B6);
+  static const Color primary = Color(0xFF822700);
+  static const Color primarySoft = Color(0xFFFE7E4F);
+  static const Color text = AtelierColors.onSurface;
+  static const Color muted = Color(0xFF6B625D);
+  static const Color ghostBorder = Color(0x26DEC0B6);
+  static const Color shadow = Color(0x0D1A1C1A);
+}
+
+String _coachFeatureCopy(CoachEntity coach) {
+  final source = coach.serviceSummary.trim().isNotEmpty
+      ? coach.serviceSummary.trim()
+      : coach.bio.trim();
+  if (source.isNotEmpty) {
+    return source;
+  }
+
+  final specialties = coach.specialties.isEmpty
+      ? 'strength, longevity, and restorative balance'
+      : coach.specialties.take(2).join(' and ').toLowerCase();
+  return 'Personalized programming designed for sustainable transformation, focused on $specialties with calm, structured progression.';
+}
+
+String _coachRoleLine(CoachEntity coach) {
+  if (coach.specialties.isNotEmpty) {
+    return '${coach.specialties.take(2).join(' & ')} Expert';
+  }
+  if (coach.deliveryMode?.trim().isNotEmpty == true) {
+    return '${_titleCase(coach.deliveryMode!.replaceAll('_', ' '))} Specialist';
+  }
+  return 'Personal Wellness Specialist';
+}
+
+String _coachReviewLine(CoachEntity coach) {
+  if (coach.ratingCount <= 0) {
+    return '${coach.rating} review pending';
+  }
+  return '${coach.rating} (${coach.ratingCount} reviews)';
+}
+
+String _titleCase(String value) {
+  final parts = value
+      .split(RegExp(r'\s+'))
+      .where((part) => part.trim().isNotEmpty)
+      .map((part) {
+        final trimmed = part.trim();
+        return '${trimmed[0].toUpperCase()}${trimmed.substring(1).toLowerCase()}';
+      })
+      .toList();
+  return parts.join(' ');
 }

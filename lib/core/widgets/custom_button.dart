@@ -36,7 +36,7 @@ class CustomButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = borderRadius ?? AppSizes.radiusMd;
     final h = height ?? AppSizes.buttonHeight;
-    final foreground = foregroundColor ?? AppColors.black;
+    final foreground = foregroundColor ?? AppColors.white;
 
     switch (variant) {
       case ButtonVariant.primary:
@@ -45,22 +45,8 @@ class CustomButton extends StatelessWidget {
           height: h,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  backgroundColor ?? AppColors.limeGreen,
-                  AppColors.limeGreenSoft,
-                ],
-              ),
+              color: backgroundColor ?? AppColors.limeGreen,
               borderRadius: BorderRadius.circular(radius),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.limeGreen.withValues(alpha: 0.22),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
-                ),
-              ],
               border: Border.all(
                 color: AppColors.white.withValues(alpha: 0.10),
               ),
@@ -90,11 +76,11 @@ class CustomButton extends StatelessWidget {
           child: OutlinedButton(
             onPressed: isLoading ? null : onPressed,
             style: OutlinedButton.styleFrom(
-              backgroundColor: AppColors.surfaceRaised.withValues(alpha: 0.45),
+              backgroundColor: AppColors.surface.withValues(alpha: 0.05),
               foregroundColor: foregroundColor ?? AppColors.textPrimary,
               side: BorderSide(
                 color: borderColor ?? AppColors.borderLight,
-                width: 1.2,
+                width: 1.0,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(radius),
@@ -125,10 +111,10 @@ class CustomButton extends StatelessWidget {
     }
     return Text(
       label,
-      style: GoogleFonts.inter(
-        fontSize: 15,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.35,
+      style: GoogleFonts.manrope(
+        fontSize: 14,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.8,
       ),
     );
   }

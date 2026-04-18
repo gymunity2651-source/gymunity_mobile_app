@@ -18,6 +18,8 @@ import '../../features/monetization/domain/repositories/billing_repository.dart'
 import '../../features/monetization/domain/repositories/entitlement_repository.dart';
 import '../../features/news/data/repositories/news_repository_impl.dart';
 import '../../features/news/domain/repositories/news_repository.dart';
+import '../../features/nutrition/data/repositories/nutrition_repository_impl.dart';
+import '../../features/nutrition/domain/repositories/nutrition_repository.dart';
 import '../../features/planner/data/repositories/planner_repository_impl.dart';
 import '../../features/planner/domain/repositories/planner_repository.dart';
 import '../../features/seller/data/repositories/seller_repository_impl.dart';
@@ -122,6 +124,11 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
 final newsRepositoryProvider = Provider<NewsRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return NewsRepositoryImpl(client);
+});
+
+final nutritionRepositoryProvider = Provider<NutritionRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return NutritionRepositoryImpl(client);
 });
 
 final authSessionProvider = StreamProvider<AuthSession?>((ref) {

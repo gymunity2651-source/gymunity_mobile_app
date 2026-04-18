@@ -5,6 +5,10 @@ import '../../../coach/domain/entities/coach_entity.dart';
 
 final selectedCoachSpecialtyProvider = StateProvider<int>((ref) => 0);
 final coachSearchQueryProvider = StateProvider<String>((ref) => '');
+final selectedCoachCityProvider = StateProvider<String?>((ref) => null);
+final selectedCoachLanguageProvider = StateProvider<String?>((ref) => 'arabic');
+final selectedCoachGenderProvider = StateProvider<String?>((ref) => null);
+final selectedCoachBudgetProvider = StateProvider<double?>((ref) => 2500);
 
 final coachSpecialtiesProvider = Provider<List<String>>(
   (ref) => <String>['All', 'HIIT', 'Strength', 'Yoga', 'Nutrition', 'Crossfit'],
@@ -14,8 +18,18 @@ final coachListProvider = FutureProvider<List<CoachEntity>>((ref) async {
   final specialties = ref.watch(coachSpecialtiesProvider);
   final selectedIndex = ref.watch(selectedCoachSpecialtyProvider);
   final selected = specialties[selectedIndex];
+  final city = ref.watch(selectedCoachCityProvider);
+  final language = ref.watch(selectedCoachLanguageProvider);
+  final gender = ref.watch(selectedCoachGenderProvider);
+  final budget = ref.watch(selectedCoachBudgetProvider);
   final repo = ref.watch(coachRepositoryProvider);
-  final paged = await repo.listCoaches(specialty: selected);
+  final paged = await repo.listCoaches(
+    specialty: selected == 'All' ? null : selected,
+    city: city,
+    language: language,
+    coachGender: gender,
+    maxBudget: budget,
+  );
   return paged.items;
 });
 

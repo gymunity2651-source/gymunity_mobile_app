@@ -37,7 +37,7 @@ class ChatRepositoryImpl implements ChatRepository {
             return ChatSessionEntity(
               id: map['id'] as String? ?? '',
               userId: map['user_id'] as String? ?? '',
-              title: map['title'] as String? ?? 'New chat',
+              title: map['title'] as String? ?? 'New TAIYO chat',
               updatedAt:
                   DateTime.tryParse(map['updated_at'] as String? ?? '') ??
                   DateTime.now(),
@@ -57,7 +57,7 @@ class ChatRepositoryImpl implements ChatRepository {
       );
     } catch (e, st) {
       throw NetworkFailure(
-        message: 'Unable to load AI chat sessions.',
+        message: 'Unable to load TAIYO chat sessions.',
         cause: e,
         stackTrace: st,
       );
@@ -81,7 +81,9 @@ class ChatRepositoryImpl implements ChatRepository {
             'user_id': user.id,
             'title':
                 title ??
-                (type == ChatSessionType.planner ? 'AI Plan' : 'New chat'),
+                (type == ChatSessionType.planner
+                    ? 'TAIYO Plan'
+                    : 'New TAIYO chat'),
             'session_type': type.name,
             'planner_status': type == ChatSessionType.planner
                 ? 'collecting_info'
@@ -95,7 +97,7 @@ class ChatRepositoryImpl implements ChatRepository {
       return ChatSessionEntity(
         id: row['id'] as String,
         userId: row['user_id'] as String,
-        title: row['title'] as String? ?? 'New chat',
+        title: row['title'] as String? ?? 'New TAIYO chat',
         updatedAt:
             DateTime.tryParse(row['updated_at'] as String? ?? '') ??
             DateTime.now(),
@@ -186,7 +188,7 @@ class ChatRepositoryImpl implements ChatRepository {
         rethrow;
       }
       throw NetworkFailure(
-        message: 'Unable to reach the AI assistant right now.',
+        message: 'Unable to reach TAIYO right now.',
         cause: e,
         stackTrace: st,
       );
@@ -211,14 +213,14 @@ class ChatRepositoryImpl implements ChatRepository {
       throw _mapFunctionException(
         e,
         st,
-        fallbackMessage: 'Unable to regenerate this AI plan.',
+        fallbackMessage: 'Unable to regenerate this TAIYO plan.',
       );
     } catch (e, st) {
       if (e is AppFailure) {
         rethrow;
       }
       throw NetworkFailure(
-        message: 'Unable to regenerate this AI plan right now.',
+        message: 'Unable to regenerate this TAIYO plan right now.',
         cause: e,
         stackTrace: st,
       );
@@ -271,7 +273,7 @@ class ChatRepositoryImpl implements ChatRepository {
       throw _mapFunctionException(
         e,
         st,
-        fallbackMessage: 'Unable to reach the AI assistant.',
+        fallbackMessage: 'Unable to reach TAIYO.',
       );
     }
   }
@@ -374,9 +376,7 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<String> _ensureSessionReady({bool forceRefresh = false}) async {
     Session? session = _client.auth.currentSession;
     if (session == null) {
-      throw const AuthFailure(
-        message: 'Please sign in again to use GymUnity AI.',
-      );
+      throw const AuthFailure(message: 'Please sign in again to use TAIYO.');
     }
 
     if (_tokenBelongsToDifferentProject(session.accessToken)) {
@@ -403,7 +403,7 @@ class ChatRepositoryImpl implements ChatRepository {
         session = refreshed.session ?? _client.auth.currentSession;
       } on AuthException catch (e, st) {
         throw AuthFailure(
-          message: 'Please sign in again to use GymUnity AI.',
+          message: 'Please sign in again to use TAIYO.',
           cause: e,
           stackTrace: st,
         );
@@ -412,9 +412,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
     final accessToken = session?.accessToken.trim() ?? '';
     if (accessToken.isEmpty) {
-      throw const AuthFailure(
-        message: 'Please sign in again to use GymUnity AI.',
-      );
+      throw const AuthFailure(message: 'Please sign in again to use TAIYO.');
     }
     if (_tokenBelongsToDifferentProject(accessToken)) {
       await _clearLocalSession();

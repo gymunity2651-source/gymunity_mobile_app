@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'app_motion.dart';
+
 class AppPageTransitionsBuilder extends PageTransitionsBuilder {
   const AppPageTransitionsBuilder();
 
-  static const Duration _transitionDuration = Duration(milliseconds: 320);
-
   @override
-  Duration get transitionDuration => _transitionDuration;
+  Duration get transitionDuration => AppMotion.medium;
 
   @override
   DelegatedTransitionBuilder? get delegatedTransition => null;
@@ -30,15 +30,15 @@ class AppPageTransitionsBuilder extends PageTransitionsBuilder {
 
     final curved = CurvedAnimation(
       parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: AppMotion.standardCurve,
+      reverseCurve: AppMotion.exitCurve,
     );
 
     return FadeTransition(
       opacity: Tween<double>(begin: 0.0, end: 1.0).animate(curved),
       child: SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(0.035, 0.018),
+          begin: AppMotion.routeOffset,
           end: Offset.zero,
         ).animate(curved),
         child: child,

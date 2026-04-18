@@ -4,6 +4,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 
+import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../domain/entities/monetization_entities.dart';
 import '../../domain/repositories/billing_repository.dart';
@@ -21,12 +22,13 @@ class BillingRepositoryImpl implements BillingRepository {
   Future<BillingCatalog> loadAiPremiumCatalog(MonetizationConfig config) async {
     const benefits = <DigitalOfferingBenefit>[
       DigitalOfferingBenefit(
-        title: 'Unlimited AI chat',
-        description: 'Start and continue GymUnity AI conversations on demand.',
+        title: 'Unlimited TAIYO chat',
+        description: 'Start and continue TAIYO conversations on demand.',
       ),
       DigitalOfferingBenefit(
-        title: 'AI-guided plans',
-        description: 'Generate and revisit AI-driven workout planning flows.',
+        title: 'TAIYO-guided plans',
+        description:
+            'Generate and revisit TAIYO-driven workout planning flows.',
       ),
       DigitalOfferingBenefit(
         title: 'Cross-device restore',
@@ -43,7 +45,7 @@ class BillingRepositoryImpl implements BillingRepository {
         benefits: benefits,
         productsByPlan: <AiPremiumPlan, StoreProductView>{},
         billingAvailable: false,
-        errorMessage: 'AI Premium is disabled in this build.',
+        errorMessage: '${AiBranding.premiumName} is disabled in this build.',
       );
     }
 
@@ -75,7 +77,8 @@ class BillingRepositoryImpl implements BillingRepository {
     final ids = config.productIdsForCurrentPlatform.toSet();
     if (ids.isEmpty) {
       throw const ConfigFailure(
-        message: 'AI Premium product IDs are missing for this platform.',
+        message:
+            '${AiBranding.premiumName} product IDs are missing for this platform.',
       );
     }
 
@@ -122,7 +125,8 @@ class BillingRepositoryImpl implements BillingRepository {
     final product = catalog.plan(plan);
     if (product == null) {
       throw const ConfigFailure(
-        message: 'The selected AI Premium plan is not available.',
+        message:
+            'The selected ${AiBranding.premiumName} plan is not available.',
       );
     }
 
@@ -159,9 +163,8 @@ class BillingRepositoryImpl implements BillingRepository {
       return const <PurchaseDetails>[];
     }
 
-    final addition =
-        _inAppPurchase
-            .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+    final addition = _inAppPurchase
+        .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
     final response = await addition.queryPastPurchases();
     if (response.error != null) {
       throw PaymentFailure(
@@ -186,7 +189,7 @@ class BillingRepositoryImpl implements BillingRepository {
   }) async {
     final mapping = config.mappingForPlan(plan);
     if (mapping == null) {
-      throw const ConfigFailure(message: 'Unknown AI Premium plan mapping.');
+      throw const ConfigFailure(message: 'Unknown TAIYO Premium plan mapping.');
     }
 
     final ids = config.productIdsForCurrentPlatform.toSet();
@@ -205,7 +208,7 @@ class BillingRepositoryImpl implements BillingRepository {
     if (product == null) {
       throw ConfigFailure(
         message:
-            'The ${plan.value} AI Premium plan is missing from store metadata.',
+            'The ${plan.value} ${AiBranding.premiumName} plan is missing from store metadata.',
       );
     }
     return product;
@@ -215,7 +218,10 @@ class BillingRepositoryImpl implements BillingRepository {
     required StoreProductMapping mapping,
     required List<ProductDetails> details,
   }) {
-    final product = _matchNativeProductDetails(mapping: mapping, details: details);
+    final product = _matchNativeProductDetails(
+      mapping: mapping,
+      details: details,
+    );
     if (product == null) {
       return null;
     }

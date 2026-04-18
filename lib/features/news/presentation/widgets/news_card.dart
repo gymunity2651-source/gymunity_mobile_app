@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_sizes.dart';
+import '../../../../core/constants/atelier_colors.dart';
 import '../../domain/entities/news_article.dart';
+
+enum NewsCardVariant { featured, standard, spotlight }
 
 class NewsCard extends StatelessWidget {
   const NewsCard({
@@ -14,6 +15,7 @@ class NewsCard extends StatelessWidget {
     this.onDismissTap,
     this.compact = false,
     this.showDismiss = true,
+    this.variant = NewsCardVariant.standard,
   });
 
   final NewsArticleEntity article;
@@ -22,315 +24,524 @@ class NewsCard extends StatelessWidget {
   final VoidCallback? onDismissTap;
   final bool compact;
   final bool showDismiss;
+  final NewsCardVariant variant;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (variant) {
+      case NewsCardVariant.featured:
+        return _FeaturedNewsCard(
+          article: article,
+          onTap: onTap,
+          onSaveTap: onSaveTap,
+          onDismissTap: showDismiss ? onDismissTap : null,
+        );
+      case NewsCardVariant.spotlight:
+        return _SpotlightNewsCard(
+          article: article,
+          onTap: onTap,
+          onSaveTap: onSaveTap,
+        );
+      case NewsCardVariant.standard:
+        return _StandardNewsCard(
+          article: article,
+          onTap: onTap,
+          onSaveTap: onSaveTap,
+          compact: compact,
+        );
+    }
+  }
+}
+
+class _FeaturedNewsCard extends StatelessWidget {
+  const _FeaturedNewsCard({
+    required this.article,
+    required this.onTap,
+    this.onSaveTap,
+    this.onDismissTap,
+  });
+
+  final NewsArticleEntity article;
+  final VoidCallback onTap;
+  final VoidCallback? onSaveTap;
+  final VoidCallback? onDismissTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.cardDark,
-      borderRadius: BorderRadius.circular(AppSizes.radiusXl),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppSizes.radiusXl),
         onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSizes.radiusXl),
-            border: Border.all(color: AppColors.borderLight),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.cardDark,
-                AppColors.surfaceRaised.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                _EditorialImageFrame(article: article, height: 246, radius: 28),
+                Positioned(
+                  top: 14,
+                  left: 14,
+                  child: Row(
+                    children: [
+                      _OverlayPill(
+                        label: _badgeSource(article.sourceName),
+                        backgroundColor: AtelierColors.primary.withValues(
+                          alpha: 0.92,
+                        ),
+                        textColor: AtelierColors.onPrimary,
+                      ),
+                      const SizedBox(width: 8),
+                      _OverlayPill(
+                        label: _formatOverlayDate(article.publishedAt),
+                        backgroundColor: AtelierColors.onSurface.withValues(
+                          alpha: 0.84,
+                        ),
+                        textColor: AtelierColors.onPrimary,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(compact ? AppSizes.lg : AppSizes.xl),
-            child: compact
-                ? _CompactLayout(article: article, onSaveTap: onSaveTap)
-                : _FullLayout(
-                    article: article,
-                    onSaveTap: onSaveTap,
-                    onDismissTap: onDismissTap,
-                    showDismiss: showDismiss,
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    article.title,
+                    style: GoogleFonts.notoSerif(
+                      fontSize: 23,
+                      height: 1.08,
+                      fontWeight: FontWeight.w500,
+                      color: AtelierColors.onSurface,
+                    ),
                   ),
-          ),
+                ),
+                if (onSaveTap != null || onDismissTap != null) ...[
+                  const SizedBox(width: 16),
+                  Column(
+                    children: [
+                      if (onSaveTap != null)
+                        _ActionOrb(
+                          icon: article.isSaved
+                              ? Icons.bookmark_rounded
+                              : Icons.bookmark_border_rounded,
+                          onTap: onSaveTap!,
+                        ),
+                      if (onSaveTap != null && onDismissTap != null)
+                        const SizedBox(height: 10),
+                      if (onDismissTap != null)
+                        _ActionOrb(
+                          icon: Icons.visibility_off_outlined,
+                          onTap: onDismissTap!,
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              article.summary,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                height: 1.7,
+                fontWeight: FontWeight.w500,
+                color: AtelierColors.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _CompactLayout extends StatelessWidget {
-  const _CompactLayout({required this.article, this.onSaveTap});
-
-  final NewsArticleEntity article;
-  final VoidCallback? onSaveTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final supportingLabel = article.relevanceReason?.trim().isNotEmpty == true
-        ? article.relevanceReason!
-        : ((article.category ?? '').isNotEmpty
-              ? _labelize(article.category!)
-              : article.sourceName);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _NewsCardImage(article: article, compact: true),
-        const SizedBox(width: AppSizes.lg),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _MetaLine(article: article),
-              const SizedBox(height: AppSizes.sm),
-              Text(
-                article.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: AppSizes.sm),
-              Text(
-                article.summary,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  height: 1.45,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: AppSizes.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      supportingLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.electricBlue,
-                      ),
-                    ),
-                  ),
-                  if (onSaveTap != null)
-                    IconButton(
-                      onPressed: onSaveTap,
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(
-                        article.isSaved
-                            ? Icons.bookmark
-                            : Icons.bookmark_border,
-                        color: article.isSaved
-                            ? AppColors.orange
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FullLayout extends StatelessWidget {
-  const _FullLayout({
+class _StandardNewsCard extends StatelessWidget {
+  const _StandardNewsCard({
     required this.article,
+    required this.onTap,
     this.onSaveTap,
-    this.onDismissTap,
-    required this.showDismiss,
+    required this.compact,
   });
 
   final NewsArticleEntity article;
+  final VoidCallback onTap;
   final VoidCallback? onSaveTap;
-  final VoidCallback? onDismissTap;
-  final bool showDismiss;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(child: _MetaLine(article: article)),
-            if (article.isCaution) const _ToneChip(label: 'Use caution'),
-            if (onSaveTap != null)
-              IconButton(
-                onPressed: onSaveTap,
-                icon: Icon(
-                  article.isSaved ? Icons.bookmark : Icons.bookmark_border,
-                  color: article.isSaved
-                      ? AppColors.orange
-                      : AppColors.textMuted,
-                ),
-              ),
-            if (showDismiss && onDismissTap != null)
-              IconButton(
-                onPressed: onDismissTap,
-                icon: const Icon(
-                  Icons.visibility_off_outlined,
-                  color: AppColors.textMuted,
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: AppSizes.md),
-        _NewsCardImage(article: article),
-        const SizedBox(height: AppSizes.lg),
-        Text(
-          article.title,
-          style: GoogleFonts.spaceGrotesk(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-            height: 1.1,
-          ),
-        ),
-        const SizedBox(height: AppSizes.md),
-        Text(
-          article.summary,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            height: 1.55,
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: AppSizes.lg),
-        Wrap(
-          spacing: AppSizes.sm,
-          runSpacing: AppSizes.sm,
-          children: [
-            if ((article.relevanceReason ?? '').isNotEmpty)
-              _ToneChip(label: article.relevanceReason!),
-            if ((article.category ?? '').isNotEmpty)
-              _ToneChip(label: _labelize(article.category!)),
-            if ((article.evidenceLevel ?? '').isNotEmpty)
-              _ToneChip(label: _labelize(article.evidenceLevel!)),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _MetaLine extends StatelessWidget {
-  const _MetaLine({required this.article});
-
-  final NewsArticleEntity article;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      '${article.sourceName}  -  ${_formatDate(article.publishedAt)}',
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textMuted,
-      ),
-    );
-  }
-}
-
-class _NewsCardImage extends StatelessWidget {
-  const _NewsCardImage({required this.article, this.compact = false});
-
-  final NewsArticleEntity article;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final height = compact ? 92.0 : 190.0;
-    final width = compact ? 104.0 : double.infinity;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-      child: SizedBox(
-        height: height,
-        width: width,
-        child: article.hasImage
-            ? Image.network(
-                article.imageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _fallback(),
-              )
-            : _fallback(),
-      ),
-    );
-  }
-
-  Widget _fallback() {
-    return Container(
-      color: AppColors.surfaceRaised,
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.health_and_safety_outlined,
-        color: AppColors.electricBlue,
-        size: AppSizes.iconLg,
-      ),
-    );
-  }
-}
-
-class _ToneChip extends StatelessWidget {
-  const _ToneChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.md,
-        vertical: AppSizes.sm,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                _EditorialImageFrame(
+                  article: article,
+                  height: compact ? 176 : 212,
+                  radius: 24,
+                ),
+                if (onSaveTap != null)
+                  Positioned(
+                    top: 14,
+                    right: 14,
+                    child: _ActionOrb(
+                      icon: article.isSaved
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      onTap: onSaveTap!,
+                      subtle: true,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _eyebrowLabel(article),
+              style: GoogleFonts.manrope(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.6,
+                color: AtelierColors.primaryContainer,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              article.title,
+              maxLines: compact ? 2 : 3,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.notoSerif(
+                fontSize: compact ? 19 : 21,
+                height: 1.12,
+                fontWeight: FontWeight.w500,
+                color: AtelierColors.onSurface,
+              ),
+            ),
+            if (article.summary.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                article.summary,
+                maxLines: compact ? 2 : 3,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  height: 1.6,
+                  fontWeight: FontWeight.w500,
+                  color: AtelierColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
 }
 
-String _formatDate(DateTime dateTime) {
+class _SpotlightNewsCard extends StatelessWidget {
+  const _SpotlightNewsCard({
+    required this.article,
+    required this.onTap,
+    this.onSaveTap,
+  });
+
+  final NewsArticleEntity article;
+  final VoidCallback onTap;
+  final VoidCallback? onSaveTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+          decoration: BoxDecoration(
+            color: AtelierColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _EditorialImageFrame(article: article, height: 196, radius: 22),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _OverlayPill(
+                    label: 'PREMIUM INSIGHT',
+                    backgroundColor: AtelierColors.primaryContainer.withValues(
+                      alpha: 0.16,
+                    ),
+                    textColor: AtelierColors.primary,
+                  ),
+                  const Spacer(),
+                  if (onSaveTap != null)
+                    _ActionOrb(
+                      icon: article.isSaved
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      onTap: onSaveTap!,
+                      subtle: true,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                article.title,
+                style: GoogleFonts.notoSerif(
+                  fontSize: 20,
+                  height: 1.12,
+                  fontWeight: FontWeight.w500,
+                  color: AtelierColors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                article.summary,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  height: 1.7,
+                  fontWeight: FontWeight.w500,
+                  color: AtelierColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 18),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      AtelierColors.primary,
+                      AtelierColors.primaryContainer,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(9999),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: AtelierColors.navShadow,
+                      blurRadius: 28,
+                      offset: Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: onTap,
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: AtelierColors.onPrimary,
+                    shadowColor: Colors.transparent,
+                    surfaceTintColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(9999),
+                    ),
+                  ),
+                  child: Text(
+                    'READ FULL FEATURE',
+                    style: GoogleFonts.manrope(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.6,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorialImageFrame extends StatelessWidget {
+  const _EditorialImageFrame({
+    required this.article,
+    required this.height,
+    required this.radius,
+  });
+
+  final NewsArticleEntity article;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            article.hasImage
+                ? Image.network(
+                    article.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const _FallbackImage(),
+                  )
+                : const _FallbackImage(),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AtelierColors.primaryContainer.withValues(alpha: 0.08),
+                    AtelierColors.transparent,
+                    const Color(0x22F0D2C0),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FallbackImage extends StatelessWidget {
+  const _FallbackImage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AtelierColors.surfaceContainer,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.auto_stories_rounded,
+        color: AtelierColors.primary,
+        size: 32,
+      ),
+    );
+  }
+}
+
+class _ActionOrb extends StatelessWidget {
+  const _ActionOrb({
+    required this.icon,
+    required this.onTap,
+    this.subtle = false,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool subtle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: subtle
+          ? AtelierColors.surfaceContainerLowest.withValues(alpha: 0.88)
+          : AtelierColors.surfaceContainerLowest,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: subtle ? 34 : 36,
+          height: subtle ? 34 : 36,
+          child: Icon(
+            icon,
+            size: subtle ? 18 : 19,
+            color: AtelierColors.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OverlayPill extends StatelessWidget {
+  const _OverlayPill({
+    required this.label,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  final String label;
+  final Color backgroundColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(9999),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.manrope(
+          fontSize: 8.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.2,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+}
+
+String _badgeSource(String sourceName) {
+  final words = sourceName
+      .split(RegExp(r'\s+'))
+      .where((part) => part.trim().isNotEmpty)
+      .take(2)
+      .toList(growable: false);
+  if (words.isEmpty) {
+    return 'EDITORIAL';
+  }
+  final label = words.join(' ').toUpperCase();
+  return label.length > 12 ? '${label.substring(0, 12)}…' : label;
+}
+
+String _formatOverlayDate(DateTime dateTime) {
   const months = <String>[
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC',
   ];
-  return '${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year}';
+  return '${months[dateTime.month - 1]} ${dateTime.day}';
+}
+
+String _eyebrowLabel(NewsArticleEntity article) {
+  if ((article.category ?? '').trim().isNotEmpty) {
+    return _labelize(article.category!);
+  }
+  if ((article.relevanceReason ?? '').trim().isNotEmpty) {
+    return article.relevanceReason!.toUpperCase();
+  }
+  return article.sourceName.toUpperCase();
 }
 
 String _labelize(String raw) {
