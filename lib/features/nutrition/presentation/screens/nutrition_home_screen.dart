@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_shell_background.dart';
 import '../../domain/entities/nutrition_entities.dart';
@@ -12,11 +13,49 @@ import '../controllers/nutrition_day_controller.dart';
 import '../providers/nutrition_providers.dart';
 import '../widgets/nutrition_widgets.dart';
 
-class NutritionHomeScreen extends ConsumerWidget {
-  const NutritionHomeScreen({super.key});
+class NutritionHomeScreen extends ConsumerStatefulWidget {
+  const NutritionHomeScreen({super.key, this.initialHydrationAmountMl});
+
+  final int? initialHydrationAmountMl;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NutritionHomeScreen> createState() =>
+      _NutritionHomeScreenState();
+}
+
+class _NutritionHomeScreenState extends ConsumerState<NutritionHomeScreen> {
+  bool _didApplyInitialHydration = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didApplyInitialHydration) {
+      return;
+    }
+    final amount = widget.initialHydrationAmountMl;
+    if (amount == null || amount <= 0) {
+      return;
+    }
+    _didApplyInitialHydration = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final today = dateOnly(DateTime.now());
+      try {
+        await ref
+            .read(nutritionDayControllerProvider(today).notifier)
+            .addHydration(amount);
+        if (mounted) {
+          showAppFeedback(context, 'Hydration logged: $amount ml.');
+        }
+      } catch (error) {
+        if (mounted) {
+          showAppFeedback(context, error.toString());
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dashboardAsync = ref.watch(nutritionDashboardProvider);
     final today = dateOnly(DateTime.now());
     final dayController = ref.watch(nutritionDayControllerProvider(today));
@@ -28,18 +67,14 @@ class NutritionHomeScreen extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'Insights',
-            onPressed: () => Navigator.pushNamed(
-              context,
-              AppRoutes.nutritionInsights,
-            ),
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.nutritionInsights),
             icon: const Icon(Icons.insights_outlined),
           ),
           IconButton(
             tooltip: 'Preferences',
-            onPressed: () => Navigator.pushNamed(
-              context,
-              AppRoutes.nutritionPreferences,
-            ),
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.nutritionPreferences),
             icon: const Icon(Icons.tune_outlined),
           ),
         ],
@@ -125,10 +160,8 @@ class NutritionHomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    onPressed: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.nutritionSetup,
-                    ),
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.nutritionSetup),
                     icon: const Icon(Icons.refresh_outlined),
                     label: const Text('Recalculate targets'),
                   ),
@@ -162,12 +195,14 @@ class NutritionHomeScreen extends ConsumerWidget {
         ),
       );
       final templates = await repo.listMealTemplates();
-      final generated = ref.read(mealPlanGeneratorProvider).generate(
-        target: updated,
-        profile: profile,
-        templates: templates,
-        startDate: DateTime.now(),
-      );
+      final generated = ref
+          .read(mealPlanGeneratorProvider)
+          .generate(
+            target: updated,
+            profile: profile,
+            templates: templates,
+            startDate: DateTime.now(),
+          );
       await repo.saveGeneratedMealPlan(
         target: updated,
         startDate: generated.startDate,

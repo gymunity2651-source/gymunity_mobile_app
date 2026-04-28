@@ -9,6 +9,7 @@ import 'package:my_app/features/ai_chat/presentation/screens/ai_conversation_scr
 import 'package:my_app/features/ai_chat/presentation/screens/ai_chat_home_screen.dart';
 import 'package:my_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:my_app/features/auth/presentation/screens/auth_callback_screen.dart';
+import 'package:my_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:my_app/features/coach/domain/entities/coach_entity.dart';
 import 'package:my_app/features/coach/domain/entities/subscription_entity.dart';
 import 'package:my_app/features/coach/presentation/screens/coach_dashboard_screen.dart';
@@ -21,7 +22,6 @@ import 'package:my_app/features/seller/presentation/screens/seller_product_edito
 import 'package:my_app/features/store/presentation/screens/cart_screen.dart';
 import 'package:my_app/features/store/domain/entities/product_entity.dart';
 import 'package:my_app/features/store/presentation/screens/store_home_screen.dart';
-import 'package:my_app/features/planner/domain/entities/planner_entities.dart';
 import 'package:my_app/features/user/domain/entities/profile_entity.dart';
 import 'package:my_app/features/user/domain/entities/user_entity.dart';
 
@@ -133,6 +133,44 @@ void main() {
 
       expect(find.byType(CoachPackageEditorScreen), findsOneWidget);
       expect(find.text('Create coaching offer'), findsOneWidget);
+    });
+
+    testWidgets('new coach offers are published by default', (tester) async {
+      final coachRepository = FakeCoachRepository();
+
+      await _pumpScreen(
+        tester,
+        const CoachPackageEditorScreen(),
+        coachRepository: coachRepository,
+      );
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Offer title'),
+        'Strength accountability',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Price'),
+        '250',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Description'),
+        'Weekly strength coaching with practical programming support.',
+      );
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Outcome summary'),
+        'Build stronger training habits with a coach-led weekly plan.',
+      );
+
+      await tester.tap(find.text('Create offer'));
+      await tester.pumpAndSettle();
+
+      expect(
+        coachRepository.lastSavedPackagePayload?['visibilityStatus'],
+        'published',
+      );
+      expect(coachRepository.lastSavedPackagePayload?['isActive'], isTrue);
     });
 
     testWidgets('member request dialog submits structured intake', (
@@ -270,6 +308,25 @@ void main() {
       expect(find.text('Create Product'), findsOneWidget);
     });
 
+    testWidgets('seller dashboard logout returns to login', (tester) async {
+      final authRepository = FakeAuthRepository();
+
+      await _pumpScreen(
+        tester,
+        const SellerDashboardScreen(),
+        authRepository: authRepository,
+      );
+
+      await tester.tap(find.text('Log Out'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Log out'));
+      await tester.pumpAndSettle();
+
+      expect(authRepository.logoutCalls, 1);
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byType(SellerDashboardScreen), findsNothing);
+    });
+
     testWidgets('store product add button shows actionable feedback', (
       tester,
     ) async {
@@ -328,6 +385,7 @@ void main() {
         chatRepository: chatRepository,
       );
 
+      await tester.ensureVisible(find.text('Strength plan'));
       await tester.tap(find.text('Strength plan'));
       await tester.pumpAndSettle();
 
@@ -346,6 +404,9 @@ void main() {
         chatRepository: chatRepository,
       );
 
+      await tester.scrollUntilVisible(find.text('Nutrition tips'), 320);
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -140));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Nutrition tips'));
       await tester.pumpAndSettle();
 
@@ -378,6 +439,7 @@ void main() {
         chatRepository: chatRepository,
       );
 
+      await tester.scrollUntilVisible(find.text('TAIYO Planner'), 320);
       await tester.tap(find.text('TAIYO Planner'));
       await tester.pumpAndSettle();
 
@@ -555,6 +617,7 @@ Future<void> _pumpNamedRoute(
 Future<void> _pumpScreen(
   WidgetTester tester,
   Widget screen, {
+  FakeAuthRepository? authRepository,
   FakeUserRepository? userRepository,
   FakeStoreRepository? storeRepository,
   FakeCoachRepository? coachRepository,
@@ -574,7 +637,9 @@ Future<void> _pumpScreen(
   await tester.pumpWidget(
     ProviderScope(
       overrides: <Override>[
-        authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
+        authRepositoryProvider.overrideWithValue(
+          authRepository ?? FakeAuthRepository(),
+        ),
         userRepositoryProvider.overrideWithValue(
           userRepository ?? FakeUserRepository(),
         ),

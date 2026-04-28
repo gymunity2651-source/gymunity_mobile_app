@@ -65,6 +65,24 @@
                     android:scheme="gymunity-dev"
                     android:host="auth-callback" />
             </intent-filter>
+            <!-- Paymob redirect returns users to the app only so Flutter can
+                 refresh server state; subscription activation remains webhook-only. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="gymunity"
+                    android:host="payment-callback" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="gymunity-dev"
+                    android:host="payment-callback" />
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

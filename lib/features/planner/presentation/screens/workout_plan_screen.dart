@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_sizes.dart';
+import '../../../../core/constants/atelier_colors.dart';
+import '../../../../core/theme/atelier_theme.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_reveal.dart';
 import '../../domain/entities/planner_entities.dart';
@@ -21,324 +22,384 @@ class WorkoutPlanScreen extends ConsumerWidget {
     final planAsync = ref.watch(planDetailProvider(planId));
     final actionState = ref.watch(plannerActionControllerProvider);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF130F0B),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF130F0B),
-        foregroundColor: AppColors.textPrimary,
-        title: Text(
-          'Workout Plan',
-          style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700),
+    return Theme(
+      data: AtelierTheme.light,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+          systemNavigationBarColor: AtelierColors.surfaceContainerLowest,
+          systemNavigationBarIconBrightness: Brightness.dark,
         ),
-        actions: [
-          IconButton(
-            onPressed: () async {
-              await ref
-                  .read(plannerReminderBootstrapProvider)
-                  .sync(requestPermissions: true);
-              if (context.mounted) {
-                showAppFeedback(context, 'Planner reminders have been synced.');
-              }
-            },
-            icon: const Icon(Icons.notifications_active_outlined),
+        child: Scaffold(
+          backgroundColor: AtelierColors.surfaceContainerLowest,
+          appBar: AppBar(
+            backgroundColor: AtelierColors.surfaceContainerLowest,
+            foregroundColor: AtelierColors.onSurface,
+            leadingWidth: 56,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: _IconGlassButton(
+                tooltip: 'Back to home',
+                onPressed: () => _exitWorkoutPlan(context),
+                icon: Icons.arrow_back_rounded,
+              ),
+            ),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Workout Plan',
+                  style: GoogleFonts.manrope(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AtelierColors.onSurface,
+                  ),
+                ),
+                Text(
+                  'Curated weekly structure',
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AtelierColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              _IconGlassButton(
+                tooltip: 'Sync reminders',
+                onPressed: () async {
+                  await ref
+                      .read(plannerReminderBootstrapProvider)
+                      .sync(requestPermissions: true);
+                  if (context.mounted) {
+                    showAppFeedback(
+                      context,
+                      'Planner reminders have been synced.',
+                    );
+                  }
+                },
+                icon: Icons.notifications_active_outlined,
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
-        ],
-      ),
-      body: planAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.orange),
-        ),
-        error: (error, stackTrace) => _PlanStateCard(
-          icon: Icons.cloud_off_outlined,
-          title: 'Unable to load your plan',
-          description:
-              'GymUnity could not fetch the active TAIYO plan details right now.',
-          actionLabel: 'Retry',
-          onTap: () => ref.invalidate(planDetailProvider(planId)),
-        ),
-        data: (plan) {
-          if (plan == null) {
-            return _PlanStateCard(
-              icon: Icons.event_note_outlined,
-              title: 'No active TAIYO plan',
-              description:
-                  'Start AI Builder to scan your profile, answer guided questions, and review a structured workout plan.',
-              actionLabel: 'Open AI Builder',
-              onTap: () =>
-                  Navigator.pushNamed(context, AppRoutes.aiPlannerBuilder),
-            );
-          }
+          body: PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) {
+                return;
+              }
+              _exitWorkoutPlan(context);
+            },
+            child: planAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AtelierColors.primary),
+              ),
+              error: (error, stackTrace) => _PlanStateCard(
+                icon: Icons.cloud_off_outlined,
+                title: 'Unable to load your plan',
+                description:
+                    'GymUnity could not fetch the active TAIYO plan details right now.',
+                actionLabel: 'Retry',
+                onTap: () => ref.invalidate(planDetailProvider(planId)),
+              ),
+              data: (plan) {
+                if (plan == null) {
+                  return _PlanStateCard(
+                    icon: Icons.event_note_outlined,
+                    title: 'No active TAIYO plan',
+                    description:
+                        'Start AI Builder to scan your profile, answer guided questions, and review a structured workout plan.',
+                    actionLabel: 'Open AI Builder',
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.aiPlannerBuilder,
+                    ),
+                  );
+                }
 
-          final generatedPlan = plan.generatedPlan;
-          final allTasks = plan.days.expand((day) => day.tasks).toList();
-          final completedCount = allTasks
-              .where(
-                (task) =>
-                    task.completionStatus == TaskCompletionStatus.completed,
-              )
-              .length;
-          final partialCount = allTasks
-              .where(
-                (task) => task.completionStatus == TaskCompletionStatus.partial,
-              )
-              .length;
-          final skippedCount = allTasks
-              .where(
-                (task) => task.completionStatus == TaskCompletionStatus.skipped,
-              )
-              .length;
-          final missedCount = allTasks
-              .where(
-                (task) => task.completionStatus == TaskCompletionStatus.missed,
-              )
-              .length;
-          final now = DateTime.now();
-          final todayTasks = allTasks
-              .where((task) => _isSameDay(task.scheduledDate, now))
-              .toList(growable: false);
-          final upcomingDays = plan.days
-              .where((day) => !_isBeforeToday(day.scheduledDate, now))
-              .take(10)
-              .toList(growable: false);
-          Duration revealDelay(int index) =>
-              Duration(milliseconds: 40 + (index * 55));
+                final generatedPlan = plan.generatedPlan;
+                final allTasks = plan.days.expand((day) => day.tasks).toList();
+                final completedCount = allTasks
+                    .where(
+                      (task) =>
+                          task.completionStatus ==
+                          TaskCompletionStatus.completed,
+                    )
+                    .length;
+                final partialCount = allTasks
+                    .where(
+                      (task) =>
+                          task.completionStatus == TaskCompletionStatus.partial,
+                    )
+                    .length;
+                final skippedCount = allTasks
+                    .where(
+                      (task) =>
+                          task.completionStatus == TaskCompletionStatus.skipped,
+                    )
+                    .length;
+                final missedCount = allTasks
+                    .where(
+                      (task) =>
+                          task.completionStatus == TaskCompletionStatus.missed,
+                    )
+                    .length;
+                final now = DateTime.now();
+                final todayTasks = allTasks
+                    .where((task) => _isSameDay(task.scheduledDate, now))
+                    .toList(growable: false);
+                final upcomingDays = plan.days
+                    .where((day) => !_isBeforeToday(day.scheduledDate, now))
+                    .take(10)
+                    .toList(growable: false);
+                Duration revealDelay(int index) =>
+                    Duration(milliseconds: 40 + (index * 55));
 
-          return SafeArea(
-            child: RefreshIndicator(
-              color: AppColors.orange,
-              onRefresh: () async {
-                ref.invalidate(planDetailProvider(planId));
-                await ref.read(planDetailProvider(planId).future);
-              },
-              child: ListView(
-                padding: const EdgeInsets.all(AppSizes.screenPadding),
-                children: [
-                  AppReveal(
-                    delay: revealDelay(0),
-                    child: _SurfaceCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            plan.planTitle,
-                            style: GoogleFonts.spaceGrotesk(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            generatedPlan?.summary.trim().isNotEmpty == true
+                return SafeArea(
+                  child: RefreshIndicator.adaptive(
+                    color: AtelierColors.primary,
+                    onRefresh: () async {
+                      ref.invalidate(planDetailProvider(planId));
+                      await ref.read(planDetailProvider(planId).future);
+                    },
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 120),
+                      children: [
+                        AppReveal(
+                          delay: revealDelay(0),
+                          child: _PlanHeroCard(
+                            title: plan.planTitle,
+                            summary:
+                                generatedPlan?.summary.trim().isNotEmpty == true
                                 ? generatedPlan!.summary
                                 : 'Your active TAIYO plan is ready for daily execution.',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              height: 1.5,
-                              color: AppColors.textSecondary,
+                            tags: [
+                              _titleCase(plan.planStatus),
+                              if (generatedPlan != null)
+                                _titleCase(generatedPlan.level),
+                              if (generatedPlan != null)
+                                '${generatedPlan.durationWeeks} weeks',
+                              if ((plan.defaultReminderTime ?? '').isNotEmpty)
+                                'Reminder ${_formatReminderDisplayValue(plan.defaultReminderTime)}',
+                            ],
+                            totalTasks: allTasks.length,
+                            upcomingDays: upcomingDays.length,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        AppReveal(
+                          delay: revealDelay(1),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _MetricCard(
+                                      label: 'Completed',
+                                      value: completedCount.toString(),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _MetricCard(
+                                      label: 'Partial',
+                                      value: partialCount.toString(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _MetricCard(
+                                      label: 'Skipped',
+                                      value: skippedCount.toString(),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _MetricCard(
+                                      label: 'Missed',
+                                      value: missedCount.toString(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (generatedPlan != null &&
+                            generatedPlan.safetyNotes.isNotEmpty) ...[
+                          const SizedBox(height: 32),
+                          AppReveal(
+                            delay: revealDelay(2),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SectionTitle('Safety Notes'),
+                                const SizedBox(height: 14),
+                                _SurfaceCard(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: generatedPlan.safetyNotes
+                                        .map(
+                                          (note) => _GuidanceLine(note: note),
+                                        )
+                                        .toList(),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
+                        ],
+                        if (actionState.errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          AppReveal(
+                            delay: revealDelay(3),
+                            child: _InlineErrorMessage(
+                              message: actionState.errorMessage!,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 32),
+                        AppReveal(
+                          delay: revealDelay(4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _Tag(label: _titleCase(plan.planStatus)),
-                              if (generatedPlan != null)
-                                _Tag(label: _titleCase(generatedPlan.level)),
-                              if (generatedPlan != null)
-                                _Tag(
-                                  label: '${generatedPlan.durationWeeks} weeks',
+                              _SectionTitle('Today'),
+                              const SizedBox(height: 14),
+                              if (todayTasks.isEmpty)
+                                upcomingDays.isEmpty
+                                    ? const _SurfaceCard(
+                                        child: Text(
+                                          'No TAIYO tasks are scheduled for today. Your plan starts on the next scheduled day.',
+                                        ),
+                                      )
+                                    : _NextWorkoutCard(
+                                        day: upcomingDays.first,
+                                        onStart: () => Navigator.pushNamed(
+                                          context,
+                                          AppRoutes.activeWorkoutSession,
+                                          arguments: ActiveWorkoutSessionArgs(
+                                            planId: plan.planId,
+                                            dayId: upcomingDays.first.id,
+                                          ),
+                                        ),
+                                        onReview: () => Navigator.pushNamed(
+                                          context,
+                                          AppRoutes.workoutDetails,
+                                          arguments: WorkoutDayArgs(
+                                            planId: plan.planId,
+                                            dayId: upcomingDays.first.id,
+                                          ),
+                                        ),
+                                      )
+                              else ...[
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: _PrimaryGradientButton(
+                                      onPressed: () => Navigator.pushNamed(
+                                        context,
+                                        AppRoutes.activeWorkoutSession,
+                                        arguments: ActiveWorkoutSessionArgs(
+                                          planId: plan.planId,
+                                          dayId: todayTasks.first.dayId,
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.play_arrow_rounded,
+                                      ),
+                                      label: 'Start guided workout',
+                                    ),
+                                  ),
                                 ),
-                              if ((plan.defaultReminderTime ?? '').isNotEmpty)
-                                _Tag(
-                                  label:
-                                      'Reminder ${plan.defaultReminderTime!}',
+                                ...todayTasks.map(
+                                  (task) => _TaskTile(
+                                    title: task.title,
+                                    subtitle:
+                                        task.reminderTime ??
+                                        task.scheduledTime ??
+                                        'Any time today',
+                                    trailing: task.completionStatus.label,
+                                    onTap: () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.activeWorkoutSession,
+                                      arguments: ActiveWorkoutSessionArgs(
+                                        planId: plan.planId,
+                                        dayId: task.dayId,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        AppReveal(
+                          delay: revealDelay(5),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _SectionTitle('Upcoming Days'),
+                              const SizedBox(height: 14),
+                              if (upcomingDays.isEmpty)
+                                const _SurfaceCard(
+                                  child: Text(
+                                    'No upcoming days were generated for this plan.',
+                                  ),
+                                )
+                              else
+                                ...upcomingDays.map(
+                                  (day) => _TaskTile(
+                                    title: day.label,
+                                    subtitle:
+                                        '${_formatDate(day.scheduledDate)} | ${day.tasks.length} tasks',
+                                    trailing:
+                                        '${day.tasks.where((task) => task.completionStatus == TaskCompletionStatus.completed).length}/${day.tasks.length}',
+                                    onTap: () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.workoutDetails,
+                                      arguments: WorkoutDayArgs(
+                                        planId: plan.planId,
+                                        dayId: day.id,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  AppReveal(
-                    delay: revealDelay(1),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _MetricCard(
-                                label: 'Completed',
-                                value: completedCount.toString(),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _MetricCard(
-                                label: 'Partial',
-                                value: partialCount.toString(),
-                              ),
-                            ),
-                          ],
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _MetricCard(
-                                label: 'Skipped',
-                                value: skippedCount.toString(),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _MetricCard(
-                                label: 'Missed',
-                                value: missedCount.toString(),
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 32),
+                        AppReveal(
+                          delay: revealDelay(6),
+                          child: _PlanReminderCard(
+                            reminderTime: plan.defaultReminderTime,
+                            isUpdating: actionState.isUpdatingReminder,
+                            onPressed: actionState.isUpdatingReminder
+                                ? null
+                                : () => _editReminderTime(context, ref, plan),
+                          ),
                         ),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
-                  if (generatedPlan != null &&
-                      generatedPlan.safetyNotes.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    AppReveal(
-                      delay: revealDelay(2),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _SectionTitle('Safety Notes'),
-                          const SizedBox(height: 10),
-                          _SurfaceCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: generatedPlan.safetyNotes
-                                  .map(
-                                    (note) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Text(
-                                        '- $note',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 13,
-                                          height: 1.5,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (actionState.errorMessage != null) ...[
-                    const SizedBox(height: 16),
-                    AppReveal(
-                      delay: revealDelay(3),
-                      child: Text(
-                        actionState.errorMessage!,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: AppColors.error,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  AppReveal(
-                    delay: revealDelay(4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SectionTitle('Today'),
-                        const SizedBox(height: 10),
-                        if (todayTasks.isEmpty)
-                          const _SurfaceCard(
-                            child: Text(
-                              'No TAIYO tasks are scheduled for today. Your plan starts on the next scheduled day.',
-                            ),
-                          )
-                        else
-                          ...todayTasks.map(
-                            (task) => _TaskTile(
-                              title: task.title,
-                              subtitle:
-                                  task.reminderTime ??
-                                  task.scheduledTime ??
-                                  'Any time today',
-                              trailing: task.completionStatus.label,
-                              onTap: () => Navigator.pushNamed(
-                                context,
-                                AppRoutes.workoutDetails,
-                                arguments: WorkoutDayArgs(
-                                  planId: plan.planId,
-                                  dayId: task.dayId,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  AppReveal(
-                    delay: revealDelay(5),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SectionTitle('Upcoming Days'),
-                        const SizedBox(height: 10),
-                        if (upcomingDays.isEmpty)
-                          const _SurfaceCard(
-                            child: Text(
-                              'No upcoming days were generated for this plan.',
-                            ),
-                          )
-                        else
-                          ...upcomingDays.map(
-                            (day) => _TaskTile(
-                              title: day.label,
-                              subtitle:
-                                  '${_formatDate(day.scheduledDate)} | ${day.tasks.length} tasks',
-                              trailing:
-                                  '${day.tasks.where((task) => task.completionStatus == TaskCompletionStatus.completed).length}/${day.tasks.length}',
-                              onTap: () => Navigator.pushNamed(
-                                context,
-                                AppRoutes.workoutDetails,
-                                arguments: WorkoutDayArgs(
-                                  planId: plan.planId,
-                                  dayId: day.id,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  AppReveal(
-                    delay: revealDelay(6),
-                    child: _PlanReminderCard(
-                      reminderTime: plan.defaultReminderTime,
-                      isUpdating: actionState.isUpdatingReminder,
-                      onPressed: actionState.isUpdatingReminder
-                          ? null
-                          : () => _editReminderTime(context, ref, plan),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -376,6 +437,15 @@ Future<void> _editReminderTime(
     return;
   }
   showAppFeedback(context, 'Daily reminder time updated.');
+}
+
+void _exitWorkoutPlan(BuildContext context) {
+  final navigator = Navigator.of(context);
+  if (navigator.canPop()) {
+    navigator.pop();
+    return;
+  }
+  navigator.pushReplacementNamed(AppRoutes.memberHome);
 }
 
 bool _isBeforeToday(DateTime date, DateTime now) {
@@ -459,6 +529,32 @@ String _titleCase(String value) {
   return normalized[0].toUpperCase() + normalized.substring(1).toLowerCase();
 }
 
+class _IconGlassButton extends StatelessWidget {
+  const _IconGlassButton({
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  final String tooltip;
+  final VoidCallback onPressed;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        backgroundColor: AtelierColors.surfaceContainerLow,
+        foregroundColor: AtelierColors.onSurface,
+        shape: const CircleBorder(),
+      ),
+      icon: Icon(icon),
+    );
+  }
+}
+
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.label);
 
@@ -466,12 +562,161 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: GoogleFonts.inter(
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textPrimary,
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 2,
+              color: AtelierColors.primary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: 38,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AtelierColors.surfaceContainer,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanHeroCard extends StatelessWidget {
+  const _PlanHeroCard({
+    required this.title,
+    required this.summary,
+    required this.tags,
+    required this.totalTasks,
+    required this.upcomingDays,
+  });
+
+  final String title;
+  final String summary;
+  final List<String> tags;
+  final int totalTasks;
+  final int upcomingDays;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+      decoration: BoxDecoration(
+        color: AtelierColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'TAIYO TRAINING ATELIER',
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 2.2,
+              color: AtelierColors.primary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          FractionallySizedBox(
+            widthFactor: 0.92,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              title,
+              style: GoogleFonts.notoSerif(
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+                height: 1.08,
+                color: AtelierColors.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            summary,
+            style: GoogleFonts.manrope(
+              fontSize: 14,
+              height: 1.62,
+              fontWeight: FontWeight.w500,
+              color: AtelierColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: tags.map((tag) => _Tag(label: tag)).toList(),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              Expanded(
+                child: _HeroMiniMetric(
+                  label: 'Tasks',
+                  value: totalTasks.toString(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _HeroMiniMetric(
+                  label: 'Next days',
+                  value: upcomingDays.toString(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroMiniMetric extends StatelessWidget {
+  const _HeroMiniMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AtelierColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+              color: AtelierColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: GoogleFonts.notoSerif(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: AtelierColors.onSurface,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -485,17 +730,17 @@ class _Tag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.orange.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+        color: AtelierColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: GoogleFonts.manrope(
           fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: AppColors.orange,
+          fontWeight: FontWeight.w800,
+          color: AtelierColors.onSurface,
         ),
       ),
     );
@@ -511,20 +756,28 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SurfaceCard(
+      surfaceColor: AtelierColors.surfaceContainerLow,
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
-            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+            label.toUpperCase(),
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+              color: AtelierColors.onSurfaceVariant,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             value,
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 24,
+            style: GoogleFonts.notoSerif(
+              fontSize: 30,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              height: 1,
+              color: AtelierColors.primary,
             ),
           ),
         ],
@@ -534,27 +787,316 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _SurfaceCard extends StatelessWidget {
-  const _SurfaceCard({required this.child});
+  const _SurfaceCard({
+    required this.child,
+    this.surfaceColor = AtelierColors.surfaceContainerLow,
+    this.padding = const EdgeInsets.all(20),
+  });
 
   final Widget child;
+  final Color surfaceColor;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: padding,
       decoration: BoxDecoration(
-        color: AppColors.cardDark,
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        border: Border.all(color: AppColors.border),
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(24),
       ),
       child: DefaultTextStyle(
-        style: GoogleFonts.inter(
+        style: GoogleFonts.manrope(
           fontSize: 13,
-          height: 1.5,
-          color: AppColors.textSecondary,
+          height: 1.55,
+          fontWeight: FontWeight.w500,
+          color: AtelierColors.onSurfaceVariant,
         ),
         child: child,
+      ),
+    );
+  }
+}
+
+class _GuidanceLine extends StatelessWidget {
+  const _GuidanceLine({required this.note});
+
+  final String note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: AtelierColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.spa_outlined,
+              size: 16,
+              color: AtelierColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              note,
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                height: 1.55,
+                fontWeight: FontWeight.w500,
+                color: AtelierColors.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineErrorMessage extends StatelessWidget {
+  const _InlineErrorMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SurfaceCard(
+      surfaceColor: AtelierColors.surfaceContainer,
+      child: Text(
+        message,
+        style: GoogleFonts.manrope(
+          fontSize: 13,
+          height: 1.5,
+          fontWeight: FontWeight.w600,
+          color: AtelierColors.error,
+        ),
+      ),
+    );
+  }
+}
+
+class _NextWorkoutCard extends StatelessWidget {
+  const _NextWorkoutCard({
+    required this.day,
+    required this.onStart,
+    required this.onReview,
+  });
+
+  final PlanDayEntity day;
+  final VoidCallback onStart;
+  final VoidCallback onReview;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SurfaceCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Your plan is active',
+            style: GoogleFonts.notoSerif(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: AtelierColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'First session: ${day.label} on ${_formatDate(day.scheduledDate)}. You can start it now or review the day structure first.',
+            style: GoogleFonts.manrope(
+              fontSize: 13,
+              height: 1.55,
+              fontWeight: FontWeight.w500,
+              color: AtelierColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AtelierColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AtelierColors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.fitness_center_rounded,
+                    color: AtelierColors.primary,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        day.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.manrope(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AtelierColors.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${day.tasks.length} tasks',
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AtelierColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final primary = _PrimaryGradientButton(
+                onPressed: onStart,
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: 'Start next workout',
+              );
+              final secondary = _SecondaryTonalButton(
+                onPressed: onReview,
+                label: 'Review day',
+              );
+
+              if (constraints.maxWidth < 340) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(alignment: Alignment.centerLeft, child: primary),
+                    const SizedBox(height: 10),
+                    secondary,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  primary,
+                  const SizedBox(width: 10),
+                  Expanded(child: secondary),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrimaryGradientButton extends StatelessWidget {
+  const _PrimaryGradientButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+  });
+
+  final VoidCallback onPressed;
+  final Widget icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: AtelierColors.primaryGradient),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(
+              color: AtelierColors.navShadow,
+              blurRadius: 40,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconTheme(
+                  data: const IconThemeData(
+                    color: AtelierColors.onPrimary,
+                    size: 20,
+                  ),
+                  child: icon,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: AtelierColors.onPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondaryTonalButton extends StatelessWidget {
+  const _SecondaryTonalButton({required this.onPressed, required this.label});
+
+  final VoidCallback onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: AtelierColors.onSurface,
+        backgroundColor: AtelierColors.surfaceContainerLowest,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -587,27 +1129,25 @@ class _PlanReminderCard extends StatelessWidget {
       key: const ValueKey<String>('workout-plan-reminder-button'),
       onPressed: isUpdating ? null : onPressed,
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.textPrimary,
-        backgroundColor: AppColors.surface.withValues(alpha: 0.62),
-        side: BorderSide(color: AppColors.borderLight.withValues(alpha: 0.9)),
+        foregroundColor: AtelierColors.onSurface,
+        backgroundColor: AtelierColors.surfaceContainerLowest,
+        disabledForegroundColor: AtelierColors.textMuted,
+        disabledBackgroundColor: AtelierColors.surfaceContainer,
+        side: const BorderSide(color: AtelierColors.transparent),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
       child: Text(
         actionLabel,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
+        style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800),
       ),
     );
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final effectiveWidth =
-            constraints.maxWidth + (AppSizes.screenPadding * 2);
-        final isCompact = effectiveWidth < 380;
+        final isCompact = constraints.maxWidth < 348;
         final content = Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -615,15 +1155,12 @@ class _PlanReminderCard extends StatelessWidget {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: AppColors.orange.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                border: Border.all(
-                  color: AppColors.orange.withValues(alpha: 0.28),
-                ),
+                color: AtelierColors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(16),
               ),
               child: const Icon(
                 Icons.alarm_rounded,
-                color: AppColors.orange,
+                color: AtelierColors.primary,
                 size: 24,
               ),
             ),
@@ -638,18 +1175,18 @@ class _PlanReminderCard extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.orange.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+                      color: AtelierColors.surfaceContainer,
+                      borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
                       'DAILY REMINDER',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.manrope(
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4,
-                        color: AppColors.orangeLight,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                        color: AtelierColors.primary,
                       ),
                     ),
                   ),
@@ -661,26 +1198,21 @@ class _PlanReminderCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: hasReminder
-                          ? AppColors.orange.withValues(alpha: 0.12)
-                          : AppColors.surface.withValues(alpha: 0.88),
-                      borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                      border: Border.all(
-                        color: hasReminder
-                            ? AppColors.orange.withValues(alpha: 0.22)
-                            : AppColors.borderLight.withValues(alpha: 0.75),
-                      ),
+                          ? AtelierColors.surfaceContainerLowest
+                          : AtelierColors.surfaceContainer,
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       _formatReminderDisplayValue(normalizedReminderTime),
                       key: const ValueKey<String>('workout-plan-reminder-time'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.spaceGrotesk(
+                      style: GoogleFonts.notoSerif(
                         fontSize: 28,
                         fontWeight: FontWeight.w700,
                         color: hasReminder
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
+                            ? AtelierColors.onSurface
+                            : AtelierColors.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -689,10 +1221,10 @@ class _PlanReminderCard extends StatelessWidget {
                     helperText,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.manrope(
                       fontSize: 13,
                       height: 1.45,
-                      color: AppColors.textSecondary,
+                      color: AtelierColors.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -703,32 +1235,10 @@ class _PlanReminderCard extends StatelessWidget {
 
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.cardDark,
-                AppColors.surfaceRaised.withValues(alpha: 0.96),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(AppSizes.radiusXl),
-            border: Border.all(
-              color: AppColors.borderLight.withValues(alpha: 0.88),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.black.withValues(alpha: 0.2),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: AppColors.orange.withValues(alpha: 0.05),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            color: AtelierColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(28),
           ),
           child: isCompact
               ? Column(
@@ -775,39 +1285,53 @@ class _TaskTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.cardDark,
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        border: Border.all(color: AppColors.border),
+        color: AtelierColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+          borderRadius: BorderRadius.circular(24),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             child: Row(
               children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AtelierColors.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.fitness_center_rounded,
+                    color: AtelierColors.primary,
+                    size: 19,
+                  ),
+                ),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.manrope(
                           fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w800,
+                          color: AtelierColors.onSurface,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.manrope(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                          color: AtelierColors.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -816,11 +1340,16 @@ class _TaskTile extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(
                   trailing,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.orange,
+                    fontWeight: FontWeight.w800,
+                    color: AtelierColors.primary,
                   ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AtelierColors.onSurfaceVariant,
                 ),
               ],
             ),
@@ -850,40 +1379,38 @@ class _PlanStateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppSizes.screenPadding),
+        padding: const EdgeInsets.all(24),
         child: _SurfaceCard(
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 40, color: AppColors.orange),
+              Icon(icon, size: 40, color: AtelierColors.primary),
               const SizedBox(height: 16),
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.spaceGrotesk(
+                style: GoogleFonts.notoSerif(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: AtelierColors.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 description,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.manrope(
                   fontSize: 14,
                   height: 1.5,
-                  color: AppColors.textSecondary,
+                  color: AtelierColors.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 18),
-              ElevatedButton(
+              _PrimaryGradientButton(
                 onPressed: onTap,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orange,
-                  foregroundColor: AppColors.white,
-                ),
-                child: Text(actionLabel),
+                icon: const Icon(Icons.arrow_forward_rounded),
+                label: actionLabel,
               ),
             ],
           ),

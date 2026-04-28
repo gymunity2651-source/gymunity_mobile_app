@@ -19,6 +19,7 @@ dependencies:
   flutter_riverpod: ^2.5.1
   url_launcher: ^6.3.1
   image_picker: ^1.1.2
+  file_picker: ^8.1.7
   image: ^4.5.4
   fl_chart: ^0.68.0
   in_app_purchase: ^3.2.3
@@ -46,3 +47,4 @@ flutter:
   assets:
     - assets/images/
     - assets/config/
+    - backgrounds/

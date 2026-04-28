@@ -33,14 +33,25 @@ class _CoachPackageEditorScreenState
   final _equipmentController = TextEditingController();
   final _featuresController = TextEditingController();
   final _supportController = TextEditingController();
+  final _summaryForMemberController = TextEditingController();
   late final List<_FaqDraft> _faqDrafts;
 
   late int _durationWeeks;
   late int _sessionsPerWeek;
+  late int _weeklyCheckinsIncluded;
+  late int _feedbackSlaHours;
+  late int _initialPlanSlaHours;
+  late int _sessionCountPerMonth;
   late String _billingCycle;
   late String _difficultyLevel;
   late String _checkInFrequency;
   late String _visibilityStatus;
+  late bool _workoutPlanIncluded;
+  late bool _nutritionGuidanceIncluded;
+  late bool _habitsIncluded;
+  late bool _resourcesIncluded;
+  late bool _sessionsIncluded;
+  late bool _monthlyReviewIncluded;
   bool _isSaving = false;
 
   static const _billingCycles = <String>[
@@ -80,14 +91,25 @@ class _CoachPackageEditorScreenState
     _equipmentController.text = package?.equipmentTags.join(', ') ?? '';
     _featuresController.text = package?.includedFeatures.join('\n') ?? '';
     _supportController.text = package?.supportSummary ?? '';
+    _summaryForMemberController.text = package?.packageSummaryForMember ?? '';
     _durationWeeks = package?.durationWeeks ?? 4;
     _sessionsPerWeek = package?.sessionsPerWeek ?? 3;
+    _weeklyCheckinsIncluded = package?.weeklyCheckinsIncluded ?? 1;
+    _feedbackSlaHours = package?.feedbackSlaHours ?? 24;
+    _initialPlanSlaHours = package?.initialPlanSlaHours ?? 48;
+    _sessionCountPerMonth = package?.sessionCountPerMonth ?? 0;
     _billingCycle = package?.billingCycle ?? 'monthly';
     _difficultyLevel = package?.difficultyLevel ?? 'beginner';
     _checkInFrequency = package?.checkInFrequency.isNotEmpty == true
         ? package!.checkInFrequency
         : 'Weekly';
-    _visibilityStatus = package?.visibilityStatus ?? 'draft';
+    _visibilityStatus = package?.visibilityStatus ?? 'published';
+    _workoutPlanIncluded = package?.workoutPlanIncluded ?? true;
+    _nutritionGuidanceIncluded = package?.nutritionGuidanceIncluded ?? false;
+    _habitsIncluded = package?.habitsIncluded ?? true;
+    _resourcesIncluded = package?.resourcesIncluded ?? true;
+    _sessionsIncluded = package?.sessionsIncluded ?? false;
+    _monthlyReviewIncluded = package?.monthlyReviewIncluded ?? false;
     _faqDrafts = (package?.faqItems ?? const <CoachPackageFaqEntity>[])
         .map((faq) => _FaqDraft(question: faq.question, answer: faq.answer))
         .toList(growable: true);
@@ -123,6 +145,7 @@ class _CoachPackageEditorScreenState
     _equipmentController.dispose();
     _featuresController.dispose();
     _supportController.dispose();
+    _summaryForMemberController.dispose();
     for (final faq in _faqDrafts) {
       faq.dispose();
     }
@@ -323,6 +346,102 @@ class _CoachPackageEditorScreenState
                       label: 'Support summary',
                       hint:
                           'What accountability, adjustments, and ongoing support are included?',
+                      minLines: 3,
+                      maxLines: 5,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSizes.lg),
+                _section(
+                  'Service Contract',
+                  'Set the measurable coaching promises members see before subscribing.',
+                  [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _stepper(
+                            'Weekly check-ins',
+                            _weeklyCheckinsIncluded,
+                            0,
+                            7,
+                            (value) =>
+                                setState(() => _weeklyCheckinsIncluded = value),
+                          ),
+                        ),
+                        const SizedBox(width: AppSizes.md),
+                        Expanded(
+                          child: _stepper(
+                            'Sessions / month',
+                            _sessionCountPerMonth,
+                            0,
+                            20,
+                            (value) => setState(() {
+                              _sessionCountPerMonth = value;
+                              _sessionsIncluded = value > 0;
+                            }),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSizes.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _stepper(
+                            'Feedback SLA (hours)',
+                            _feedbackSlaHours,
+                            1,
+                            168,
+                            (value) =>
+                                setState(() => _feedbackSlaHours = value),
+                          ),
+                        ),
+                        const SizedBox(width: AppSizes.md),
+                        Expanded(
+                          child: _stepper(
+                            'Initial plan SLA',
+                            _initialPlanSlaHours,
+                            1,
+                            168,
+                            (value) =>
+                                setState(() => _initialPlanSlaHours = value),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSizes.md),
+                    _deliverableSwitch(
+                      'Workout plan included',
+                      _workoutPlanIncluded,
+                      (value) => setState(() => _workoutPlanIncluded = value),
+                    ),
+                    _deliverableSwitch(
+                      'Nutrition guidance included',
+                      _nutritionGuidanceIncluded,
+                      (value) =>
+                          setState(() => _nutritionGuidanceIncluded = value),
+                    ),
+                    _deliverableSwitch(
+                      'Coach-assigned habits included',
+                      _habitsIncluded,
+                      (value) => setState(() => _habitsIncluded = value),
+                    ),
+                    _deliverableSwitch(
+                      'Coach resources included',
+                      _resourcesIncluded,
+                      (value) => setState(() => _resourcesIncluded = value),
+                    ),
+                    _deliverableSwitch(
+                      'Monthly review included',
+                      _monthlyReviewIncluded,
+                      (value) => setState(() => _monthlyReviewIncluded = value),
+                    ),
+                    const SizedBox(height: AppSizes.md),
+                    _field(
+                      controller: _summaryForMemberController,
+                      label: 'Member-facing package summary',
+                      hint:
+                          'Weekly plan, habit targets, check-in feedback within 24h, and monthly progress review.',
                       minLines: 3,
                       maxLines: 5,
                     ),
@@ -773,6 +892,27 @@ class _CoachPackageEditorScreenState
     ),
   );
 
+  Widget _deliverableSwitch(
+    String label,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
+    return SwitchListTile.adaptive(
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
+      value: value,
+      activeThumbColor: AppColors.orange,
+      onChanged: onChanged,
+    );
+  }
+
   OutlineInputBorder _border({Color color = AppColors.border}) =>
       OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSizes.radiusLg),
@@ -829,6 +969,17 @@ class _CoachPackageEditorScreenState
             ),
             visibilityStatus: _visibilityStatus,
             isActive: _visibilityStatus == 'published',
+            weeklyCheckinsIncluded: _weeklyCheckinsIncluded,
+            feedbackSlaHours: _feedbackSlaHours,
+            initialPlanSlaHours: _initialPlanSlaHours,
+            workoutPlanIncluded: _workoutPlanIncluded,
+            nutritionGuidanceIncluded: _nutritionGuidanceIncluded,
+            habitsIncluded: _habitsIncluded,
+            resourcesIncluded: _resourcesIncluded,
+            sessionsIncluded: _sessionsIncluded || _sessionCountPerMonth > 0,
+            monthlyReviewIncluded: _monthlyReviewIncluded,
+            sessionCountPerMonth: _sessionCountPerMonth,
+            packageSummaryForMember: _summaryForMemberController.text.trim(),
           );
 
       ref.invalidate(coachPackagesProvider);

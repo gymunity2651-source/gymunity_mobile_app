@@ -1,6 +1,8 @@
 import '../../../coach/domain/entities/subscription_entity.dart';
+import '../../../coach/domain/entities/coach_workspace_entity.dart';
 import '../../../coach/domain/entities/workout_plan_entity.dart';
 import '../../../store/domain/entities/order_entity.dart';
+import '../entities/coach_hub_entity.dart';
 import '../entities/coaching_engagement_entity.dart';
 import '../entities/member_home_summary_entity.dart';
 import '../entities/member_profile_entity.dart';
@@ -79,6 +81,19 @@ abstract class MemberRepository {
     String? paymentReference,
   });
 
+  Future<String> uploadCoachPaymentReceipt({
+    required String subscriptionId,
+    required List<int> bytes,
+    required String fileName,
+  });
+
+  Future<void> submitCoachPaymentReceipt({
+    required String subscriptionId,
+    String? paymentReference,
+    String? receiptStoragePath,
+    double? amount,
+  });
+
   Future<SubscriptionEntity> pauseSubscription({
     required String subscriptionId,
     bool pauseNow = true,
@@ -109,9 +124,110 @@ abstract class MemberRepository {
     String? blockers,
     String? questions,
     List<Map<String, dynamic>> photos = const <Map<String, dynamic>>[],
+    int? workoutsCompleted,
+    int? missedWorkouts,
+    String? missedWorkoutsReason,
+    int? sorenessScore,
+    int? fatigueScore,
+    String? painWarning,
+    int? nutritionAdherenceScore,
+    int? habitAdherenceScore,
+    String? biggestObstacle,
+    String? supportNeeded,
+    Map<String, dynamic> metadata = const <String, dynamic>{},
   });
 
   Future<List<OrderEntity>> listOrders();
 
+  Future<MemberDailyStreakEntity> recordDailyActivity({
+    DateTime? occurredAt,
+    String source = 'app_open',
+  });
+
   Future<MemberHomeSummaryEntity> getHomeSummary();
+
+  Future<MemberCoachHubEntity> getCoachHub({String? subscriptionId});
+
+  Future<List<MemberCoachAgendaItemEntity>> listCoachAgenda({
+    required String subscriptionId,
+    required DateTime dateFrom,
+    required DateTime dateTo,
+  });
+
+  Future<MemberCoachKickoffEntity> submitCoachKickoff({
+    required String subscriptionId,
+    required String primaryGoal,
+    required String trainingLevel,
+    required List<String> preferredTrainingDays,
+    required List<String> availableEquipment,
+    required String injuriesLimitations,
+    required String scheduleConstraints,
+    required String nutritionSituation,
+    required String sleepRecoveryNotes,
+    required String biggestObstacle,
+    required String coachExpectations,
+    String memberNote,
+    bool shareProgressSummary,
+    bool shareNutritionSummary,
+    bool shareAiSummary,
+    bool shareWorkoutAdherence,
+    bool shareProductContext,
+  });
+
+  Future<List<MemberAssignedHabitEntity>> listAssignedHabits({
+    String? subscriptionId,
+    DateTime? date,
+  });
+
+  Future<MemberAssignedHabitEntity?> logAssignedHabit({
+    required String assignmentId,
+    required String completionStatus,
+    DateTime? logDate,
+    double? value,
+    String? note,
+  });
+
+  Future<List<MemberAssignedResourceEntity>> listAssignedResources({
+    String? subscriptionId,
+  });
+
+  Future<MemberAssignedResourceEntity?> markResourceProgress({
+    required String assignmentId,
+    bool markViewed,
+    bool markCompleted,
+    String? memberNote,
+  });
+
+  Future<String> createCoachResourceSignedUrl(String storagePath);
+
+  Future<List<CoachSessionTypeEntity>> listBookableSessionTypes({
+    required String subscriptionId,
+  });
+
+  Future<List<MemberBookableSlotEntity>> listBookableSlots({
+    required String coachId,
+    required String sessionTypeId,
+    required DateTime dateFrom,
+    required DateTime dateTo,
+  });
+
+  Future<List<CoachBookingEntity>> listMemberBookings({
+    required String subscriptionId,
+    DateTime? from,
+    DateTime? to,
+  });
+
+  Future<CoachBookingEntity> createMemberBooking({
+    required String subscriptionId,
+    required String sessionTypeId,
+    required DateTime startsAt,
+    String timezone,
+    String? note,
+  });
+
+  Future<CoachBookingEntity> updateMemberBookingStatus({
+    required String bookingId,
+    required String status,
+    String? reason,
+  });
 }

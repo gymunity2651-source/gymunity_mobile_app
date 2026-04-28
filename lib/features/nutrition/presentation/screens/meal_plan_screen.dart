@@ -11,7 +11,9 @@ import '../providers/nutrition_providers.dart';
 import '../widgets/nutrition_widgets.dart';
 
 class MealPlanScreen extends ConsumerStatefulWidget {
-  const MealPlanScreen({super.key});
+  const MealPlanScreen({super.key, this.openQuickAddOnLaunch = false});
+
+  final bool openQuickAddOnLaunch;
 
   @override
   ConsumerState<MealPlanScreen> createState() => _MealPlanScreenState();
@@ -19,11 +21,28 @@ class MealPlanScreen extends ConsumerStatefulWidget {
 
 class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
   late DateTime _selectedDate = dateOnly(DateTime.now());
+  bool _openedQuickAdd = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_openedQuickAdd || !widget.openQuickAddOnLaunch) {
+      return;
+    }
+    _openedQuickAdd = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _openQuickAddSheet();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final planAsync = ref.watch(activeMealPlanProvider);
-    final summaryAsync = ref.watch(nutritionDayControllerProvider(_selectedDate));
+    final summaryAsync = ref.watch(
+      nutritionDayControllerProvider(_selectedDate),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -31,7 +50,8 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
       body: AppShellBackground(
         child: planAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stackTrace) => _MessageState(message: error.toString()),
+          error: (error, stackTrace) =>
+              _MessageState(message: error.toString()),
           data: (plan) {
             if (plan == null) {
               return const _MessageState(
@@ -49,7 +69,8 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
                       final date = dateOnly(
                         plan.startDate.add(Duration(days: index)),
                       );
-                      final selected = dateWire(date) == dateWire(_selectedDate);
+                      final selected =
+                          dateWire(date) == dateWire(_selectedDate);
                       return ChoiceChip(
                         label: Text(_dayLabel(date)),
                         selected: selected,
@@ -57,12 +78,14 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
                       );
                     },
                     separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemCount: plan.endDate.difference(plan.startDate).inDays + 1,
+                    itemCount:
+                        plan.endDate.difference(plan.startDate).inDays + 1,
                   ),
                 ),
                 Expanded(
                   child: summaryAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
                     error: (error, stackTrace) =>
                         _MessageState(message: error.toString()),
                     data: (summary) => ListView(
@@ -83,8 +106,9 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
                             onToggle: () => _run(
                               ref
                                   .read(
-                                    nutritionDayControllerProvider(_selectedDate)
-                                        .notifier,
+                                    nutritionDayControllerProvider(
+                                      _selectedDate,
+                                    ).notifier,
                                   )
                                   .toggleMeal(meal),
                             ),
@@ -101,8 +125,9 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
                           onAdd: (amount) => _run(
                             ref
                                 .read(
-                                  nutritionDayControllerProvider(_selectedDate)
-                                      .notifier,
+                                  nutritionDayControllerProvider(
+                                    _selectedDate,
+                                  ).notifier,
                                 )
                                 .addHydration(amount),
                           ),
@@ -153,15 +178,40 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Meal name')),
-              TextField(controller: caloriesController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Calories')),
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Meal name'),
+              ),
+              TextField(
+                controller: caloriesController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Calories'),
+              ),
               Row(
                 children: [
-                  Expanded(child: TextField(controller: proteinController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Protein'))),
+                  Expanded(
+                    child: TextField(
+                      controller: proteinController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Protein'),
+                    ),
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: TextField(controller: carbsController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Carbs'))),
+                  Expanded(
+                    child: TextField(
+                      controller: carbsController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Carbs'),
+                    ),
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: TextField(controller: fatsController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Fats'))),
+                  Expanded(
+                    child: TextField(
+                      controller: fatsController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Fats'),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -171,7 +221,9 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
                   _run(
                     ref
                         .read(
-                          nutritionDayControllerProvider(_selectedDate).notifier,
+                          nutritionDayControllerProvider(
+                            _selectedDate,
+                          ).notifier,
                         )
                         .quickAddMeal(
                           title: titleController.text.trim(),
@@ -207,13 +259,17 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
             for (final template in candidates)
               ListTile(
                 title: Text(template.titleEn),
-                subtitle: Text('${template.calories} kcal | P ${template.proteinG}g'),
+                subtitle: Text(
+                  '${template.calories} kcal | P ${template.proteinG}g',
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   _run(
                     ref
                         .read(
-                          nutritionDayControllerProvider(_selectedDate).notifier,
+                          nutritionDayControllerProvider(
+                            _selectedDate,
+                          ).notifier,
                         )
                         .swapMeal(meal: meal, template: template),
                   );

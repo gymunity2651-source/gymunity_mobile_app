@@ -2,25 +2,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
 import '../../../member/domain/entities/member_profile_entity.dart';
-import '../../../member/domain/entities/member_progress_entity.dart';
 import '../../domain/entities/nutrition_entities.dart';
-import '../../domain/repositories/nutrition_repository.dart';
 import '../../domain/services/calorie_engine.dart';
 import '../../domain/services/meal_plan_generator.dart';
 import '../../domain/services/macro_engine.dart';
 import '../../domain/services/nutrition_adaptation_engine.dart';
 import '../../domain/services/nutrition_setup_question_factory.dart';
 
-final nutritionProfileProvider = FutureProvider<NutritionProfileEntity?>((
-  ref,
-) {
+final nutritionProfileProvider = FutureProvider<NutritionProfileEntity?>((ref) {
   return ref.watch(nutritionRepositoryProvider).getProfile();
 });
 
-final activeNutritionTargetProvider =
-    FutureProvider<NutritionTargetEntity?>((ref) {
-      return ref.watch(nutritionRepositoryProvider).getActiveTarget();
-    });
+final activeNutritionTargetProvider = FutureProvider<NutritionTargetEntity?>((
+  ref,
+) {
+  return ref.watch(nutritionRepositoryProvider).getActiveTarget();
+});
 
 final activeMealPlanProvider = FutureProvider<NutritionMealPlanEntity?>((ref) {
   return ref.watch(nutritionRepositoryProvider).getActiveMealPlan();
@@ -36,10 +33,11 @@ final nutritionDaySummaryProvider =
       return ref.watch(nutritionRepositoryProvider).getDaySummary(date);
     });
 
-final nutritionCheckinsProvider =
-    FutureProvider<List<NutritionCheckinEntity>>((ref) {
-      return ref.watch(nutritionRepositoryProvider).listCheckins();
-    });
+final nutritionCheckinsProvider = FutureProvider<List<NutritionCheckinEntity>>((
+  ref,
+) {
+  return ref.watch(nutritionRepositoryProvider).listCheckins();
+});
 
 final calorieEngineProvider = Provider<CalorieEngine>((ref) {
   return const CalorieEngine(macroEngine: MacroEngine());
@@ -49,10 +47,11 @@ final mealPlanGeneratorProvider = Provider<MealPlanGenerator>((ref) {
   return const MealPlanGenerator();
 });
 
-final nutritionAdaptationEngineProvider =
-    Provider<NutritionAdaptationEngine>((ref) {
-      return const NutritionAdaptationEngine();
-    });
+final nutritionAdaptationEngineProvider = Provider<NutritionAdaptationEngine>((
+  ref,
+) {
+  return const NutritionAdaptationEngine();
+});
 
 final nutritionSetupQuestionFactoryProvider =
     Provider<NutritionSetupQuestionFactory>((ref) {
@@ -73,31 +72,36 @@ final nutritionDashboardProvider = FutureProvider<NutritionDashboardState>((
   final sessions = await memberRepository.listWorkoutSessions();
   final plans = await memberRepository.listWorkoutPlans();
   final checkins = await nutritionRepository.listCheckins();
-  final activePlan = plans
-      .where((plan) => plan.status == 'active')
-      .cast<dynamic>()
-      .toList()
-      .isEmpty
+  final activePlan =
+      plans
+          .where((plan) => plan.status == 'active')
+          .cast<dynamic>()
+          .toList()
+          .isEmpty
       ? null
       : plans.firstWhere((plan) => plan.status == 'active');
-  final calculation = ref.read(calorieEngineProvider).calculate(
-    NutritionCalculationContext(
-      memberProfile: memberProfile,
-      nutritionProfile: nutritionProfile,
-      latestWeightKg: weights.isNotEmpty
-          ? weights.last.weightKg
-          : memberProfile?.currentWeightKg,
-      activePlan: activePlan,
-      recentSessions: sessions,
-    ),
-  );
-  final insight = ref.read(nutritionAdaptationEngineProvider).evaluate(
-    goal: memberProfile?.goal ?? target?.goalSnapshot ?? 'maintenance',
-    target: target,
-    weightEntries: weights,
-    checkins: checkins,
-    today: today,
-  );
+  final calculation = ref
+      .read(calorieEngineProvider)
+      .calculate(
+        NutritionCalculationContext(
+          memberProfile: memberProfile,
+          nutritionProfile: nutritionProfile,
+          latestWeightKg: weights.isNotEmpty
+              ? weights.last.weightKg
+              : memberProfile?.currentWeightKg,
+          activePlan: activePlan,
+          recentSessions: sessions,
+        ),
+      );
+  final insight = ref
+      .read(nutritionAdaptationEngineProvider)
+      .evaluate(
+        goal: memberProfile?.goal ?? target?.goalSnapshot ?? 'maintenance',
+        target: target,
+        weightEntries: weights,
+        checkins: checkins,
+        today: today,
+      );
   return NutritionDashboardState(
     memberProfile: memberProfile,
     nutritionProfile: nutritionProfile,

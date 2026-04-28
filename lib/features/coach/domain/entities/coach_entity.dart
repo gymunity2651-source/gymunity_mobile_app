@@ -23,6 +23,12 @@ class CoachEntity {
     this.limitedSpots = false,
     this.testimonials = const <CoachTestimonialEntity>[],
     this.resultMedia = const <CoachResultMediaEntity>[],
+    this.headline = '',
+    this.positioningStatement = '',
+    this.certifications = const <CoachCertificationEntity>[],
+    this.trustBadges = const <CoachTrustBadgeEntity>[],
+    this.faqItems = const <CoachPackageFaqEntity>[],
+    this.responseMetrics = const <String, dynamic>{},
     this.deliveryMode,
     this.serviceSummary = '',
     this.startingPackagePrice,
@@ -56,6 +62,12 @@ class CoachEntity {
   final bool limitedSpots;
   final List<CoachTestimonialEntity> testimonials;
   final List<CoachResultMediaEntity> resultMedia;
+  final String headline;
+  final String positioningStatement;
+  final List<CoachCertificationEntity> certifications;
+  final List<CoachTrustBadgeEntity> trustBadges;
+  final List<CoachPackageFaqEntity> faqItems;
+  final Map<String, dynamic> responseMetrics;
   final String? deliveryMode;
   final String serviceSummary;
   final double? startingPackagePrice;
@@ -101,6 +113,24 @@ class CoachEntity {
   String get responseSlaLabel => responseSlaHours <= 1
       ? 'Replies in about 1 hour'
       : 'Replies in about $responseSlaHours hours';
+
+  String get publicHeadline {
+    if (headline.trim().isNotEmpty) {
+      return headline.trim();
+    }
+    if (positioningStatement.trim().isNotEmpty) {
+      return positioningStatement.trim();
+    }
+    return specialty;
+  }
+
+  String get reliabilityLabel {
+    final responseRate = responseMetrics['response_rate_percent'];
+    if (responseRate is num && responseRate > 0) {
+      return '${responseRate.round()}% response reliability';
+    }
+    return responseSlaLabel;
+  }
 
   String get locationLabel {
     if (remoteOnly) {
@@ -178,6 +208,17 @@ class CoachPackageEntity {
     this.maxSlots = 100,
     this.pauseAllowed = true,
     this.paymentRails = const <String>[],
+    this.weeklyCheckinsIncluded = 1,
+    this.feedbackSlaHours = 24,
+    this.initialPlanSlaHours = 48,
+    this.workoutPlanIncluded = true,
+    this.nutritionGuidanceIncluded = false,
+    this.habitsIncluded = true,
+    this.resourcesIncluded = true,
+    this.sessionsIncluded = false,
+    this.monthlyReviewIncluded = false,
+    this.sessionCountPerMonth = 0,
+    this.packageSummaryForMember = '',
   });
 
   final String id;
@@ -211,6 +252,17 @@ class CoachPackageEntity {
   final int maxSlots;
   final bool pauseAllowed;
   final List<String> paymentRails;
+  final int weeklyCheckinsIncluded;
+  final int feedbackSlaHours;
+  final int initialPlanSlaHours;
+  final bool workoutPlanIncluded;
+  final bool nutritionGuidanceIncluded;
+  final bool habitsIncluded;
+  final bool resourcesIncluded;
+  final bool sessionsIncluded;
+  final bool monthlyReviewIncluded;
+  final int sessionCountPerMonth;
+  final String packageSummaryForMember;
 
   bool get hasPlanPreview => planPreviewJson.isNotEmpty;
 
@@ -219,6 +271,25 @@ class CoachPackageEntity {
   bool get isDraft => visibilityStatus == 'draft';
 
   bool get isArchived => visibilityStatus == 'archived';
+
+  List<String> get deliverableLabels {
+    final labels = <String>[
+      '$weeklyCheckinsIncluded weekly check-in${weeklyCheckinsIncluded == 1 ? '' : 's'}',
+      '${feedbackSlaHours}h feedback SLA',
+      '${initialPlanSlaHours}h initial plan SLA',
+    ];
+    if (workoutPlanIncluded) labels.add('Workout plan');
+    if (nutritionGuidanceIncluded) labels.add('Nutrition guidance');
+    if (habitsIncluded) labels.add('Coach-assigned habits');
+    if (resourcesIncluded) labels.add('Coach resources');
+    if (sessionsIncluded || sessionCountPerMonth > 0) {
+      labels.add(
+        '$sessionCountPerMonth session${sessionCountPerMonth == 1 ? '' : 's'} / month',
+      );
+    }
+    if (monthlyReviewIncluded) labels.add('Monthly review');
+    return labels;
+  }
 
   String get checkoutPriceLabel {
     final value = depositAmountEgp > 0 ? depositAmountEgp : price;
@@ -245,6 +316,62 @@ class CoachPackageFaqEntity {
       answer: map['answer'] as String? ?? '',
     );
   }
+}
+
+class CoachCertificationEntity {
+  const CoachCertificationEntity({
+    required this.title,
+    this.issuer,
+    this.year,
+    this.verificationUrl,
+  });
+
+  final String title;
+  final String? issuer;
+  final int? year;
+  final String? verificationUrl;
+
+  factory CoachCertificationEntity.fromMap(Map<String, dynamic> map) {
+    return CoachCertificationEntity(
+      title: map['title'] as String? ?? '',
+      issuer: map['issuer'] as String?,
+      year: (map['year'] as num?)?.toInt(),
+      verificationUrl: map['verification_url'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+    'title': title,
+    'issuer': issuer,
+    'year': year,
+    'verification_url': verificationUrl,
+  }..removeWhere((key, value) => value == null);
+}
+
+class CoachTrustBadgeEntity {
+  const CoachTrustBadgeEntity({
+    required this.label,
+    this.description,
+    this.iconKey,
+  });
+
+  final String label;
+  final String? description;
+  final String? iconKey;
+
+  factory CoachTrustBadgeEntity.fromMap(Map<String, dynamic> map) {
+    return CoachTrustBadgeEntity(
+      label: map['label'] as String? ?? '',
+      description: map['description'] as String?,
+      iconKey: map['icon_key'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+    'label': label,
+    'description': description,
+    'icon_key': iconKey,
+  }..removeWhere((key, value) => value == null);
 }
 
 class CoachAvailabilitySlotEntity {

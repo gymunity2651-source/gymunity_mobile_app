@@ -68,6 +68,28 @@ void main() {
     expect(find.text('Set reminder'), findsOneWidget);
   });
 
+  testWidgets('active future plan exposes next workout actions', (
+    WidgetTester tester,
+  ) async {
+    await _pumpWorkoutPlanScreen(
+      tester,
+      size: const Size(390, 844),
+      plan: _buildPlan(reminderTime: '07:00:00'),
+      scrollToReminder: false,
+    );
+
+    await tester.dragUntilVisible(
+      find.text('Your plan is active'),
+      find.byType(Scrollable),
+      const Offset(0, -220),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your plan is active'), findsOneWidget);
+    expect(find.text('Start next workout'), findsOneWidget);
+    expect(find.text('Review day'), findsOneWidget);
+  });
+
   testWidgets('reminder card shows saving state with disabled action', (
     WidgetTester tester,
   ) async {
@@ -93,6 +115,7 @@ Future<void> _pumpWorkoutPlanScreen(
   required Size size,
   required PlanDetailEntity plan,
   PlannerActionState actionState = const PlannerActionState(),
+  bool scrollToReminder = true,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -120,12 +143,14 @@ Future<void> _pumpWorkoutPlanScreen(
   );
 
   await tester.pumpAndSettle();
-  await tester.dragUntilVisible(
-    find.byKey(const ValueKey<String>('workout-plan-reminder-button')),
-    find.byType(Scrollable),
-    const Offset(0, -220),
-  );
-  await tester.pumpAndSettle();
+  if (scrollToReminder) {
+    await tester.dragUntilVisible(
+      find.byKey(const ValueKey<String>('workout-plan-reminder-button')),
+      find.byType(Scrollable),
+      const Offset(0, -220),
+    );
+    await tester.pumpAndSettle();
+  }
 }
 
 PlanDetailEntity _buildPlan({required String? reminderTime}) {

@@ -176,8 +176,8 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
           sessionsPerWeek: 3,
           difficultyLevel: 'beginner',
         ),
-        visibilityStatus: 'draft',
-        isActive: false,
+        visibilityStatus: 'published',
+        isActive: true,
       );
       await _coachRepo.saveAvailabilitySlot(
         weekday: availabilityWeekday,

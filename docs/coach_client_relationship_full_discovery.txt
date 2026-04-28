@@ -1,0 +1,1159 @@
+# GymUnity Coach <-> Client Relationship Full Discovery
+
+Generated: 2026-04-26
+Scope: Flutter app, Supabase migrations, Supabase Edge Functions, storage policies, docs present in this repository.
+Live Supabase status: Live not verified. This discovery is based on repo code and migrations only.
+Important security note: a Supabase access token was pasted in chat. It is treated as compromised and must be revoked/rotated before deployment. This document does not use or reproduce that token.
+
+============================================================
+SECTION 1 - EXECUTIVE SUMMARY
+============================================================
+
+1. Intended relationship
+Verified from code and migrations: the intended Coach <-> Client relationship is anchored by a row in public.subscriptions. The subscription links one member/client to one coach and usually one coach package. Operational coaching features should unlock only when the subscription is active. After payment is confirmed, a coach_member_threads row should exist for the subscription, and coach_messages should hold the shared relationship conversation.
+
+2. Current implementation
+Verified from migration:
+- Base roles are member, coach, seller only. Admin is intentionally separate through app_admins.
+- subscriptions exists from the initial schema and is extended by later migrations.
+- coach_packages, coach_availability_slots, coach_reviews, coach_member_threads, coach_messages, weekly_checkins, progress_photos, coach_client_records, coach_client_notes, program templates, habits, resources, bookings, Paymob orders, Paymob transactions, payout accounts, payout batches/items, admin audit events, and admin RPCs exist in repo migrations.
+- Paymob test-mode backend flow exists in repo: create-coach-paymob-checkout Edge Function creates a subscription and coach_payment_orders row, creates a Paymob intention, and returns hosted checkout details. paymob-transaction-callback verifies HMAC and calls process_coach_paymob_callback. Successful verified callbacks activate the subscription, create/reuse the thread, and create/reuse a coach payout item.
+- Legacy/manual receipt flow still exists and is feature-flagged in Flutter.
+
+3. What appears complete
+Verified from code/migration:
+- Relationship anchor: subscriptions.
+- Active-only messaging through send_coaching_message.
+- Active-only member check-ins through submit_weekly_checkin.
+- Coach check-in feedback creates a coach_messages row with message_type = checkin_feedback.
+- Idempotent thread creation via ensure_coach_member_thread.
+- Paymob test-mode tables, webhook processing, payout item creation, and admin settlement RPCs are present in repo.
+- Flutter has member marketplace, coach details, package checkout, My Coaching, messages, check-ins, privacy settings, coach workspace, coach billing, resources, programs, onboarding flows, calendar, and admin dashboard screens/routes.
+
+4. What appears incomplete
+Verified from code search:
+- No dedicated member-facing resources screen was found, even though resource assignment backend and coach UI exist.
+- No dedicated member-facing booking/session screen was found, even though booking backend allows member reads and self-booking hooks.
+- Habit assignment backend exists and coach can assign habits, but a member habit tracking UI for those coach-assigned habits was not found.
+- Progress photo storage bucket was not found; progress_photos table stores storage_path, but no dedicated progress photo bucket/policies were found in migrations.
+- Some admin/Paymob functionality is implemented in repo but not live-verified.
+- Deno Edge Function tests are present for Paymob callback but Deno was not available in prior local verification, so Edge test execution is not confirmed.
+
+5. What appears risky
+Verified from migration:
+- Initial subscriptions RLS allows member or coach updates on subscriptions. Later critical transitions use RPCs, but direct update policies may still be too broad unless later migrations tighten them elsewhere. This is high-risk because subscription status should not be directly mutable by normal clients.
+- Legacy coach approval RPC verify_coach_payment still activates subscriptions for manual flow. Flutter hides it for Paymob rows, but backend still allows coach activation for manual receipts.
+- apply_coach_onboarding_flow calls ensure_coach_member_thread and therefore fails if used on a non-active subscription. Its own pipeline update fallback mentions pending_payment, but thread creation requires active.
+- assign_program_template_to_client and assign_client_habits only verify coach owns the subscription, not that subscription.status = active. This allows assignment to pending/paused/cancelled relationships unless product allows that.
+- coach_bookings can be created for active or paused subscriptions; product decision needed.
+
+6. What is likely to crash at runtime
+Likely/verified risks:
+- If migrations 34/35 are not deployed, Flutter admin dashboard and Paymob payment status providers will call missing RPCs/tables.
+- If PAYMOB_* Edge env vars are missing, create-coach-paymob-checkout and callback processing will fail.
+- If coach-resources or coach-payment-receipts buckets are missing live, upload flows fail.
+- If progress photo upload is added without storage policy/bucket parity, photo upload will fail.
+- If an active subscription lacks a thread, member message route may have no thread; check-in submission can recover by calling ensure_coach_member_thread.
+
+7. What should be fixed first
+Priority:
+1. Tighten subscriptions direct update RLS and force state changes through RPCs/Edge Functions.
+2. Verify/deploy Paymob migrations and Edge Functions, then run an end-to-end test-mode payment.
+3. Ensure active subscription -> thread creation is recoverable and monitored.
+4. Decide and enforce pending/paused/cancelled behavior for programs, habits, resources, bookings, messages, and check-ins.
+5. Add missing member-facing resources, sessions, and habit tracking views or hide coach assignment surfaces until client consumption exists.
+
+8. Production readiness
+Not production-ready yet. The repo has a strong backend design for the core relationship and Paymob test-mode settlement, but live deployment is not verified, some RLS remains broad, legacy/manual payment activation still exists, and several coach tools are backend/coach-side only without complete member-facing consumption.
+
+Status table:
+
+Area | Status | Confidence | Notes
+--- | --- | --- | ---
+Role model | Working | High | AppRole is member/coach/seller; admin is separate in app_admins.
+Subscription anchor | Working | High | subscriptions links member_id, coach_id, package_id.
+Package marketplace | Working | High | list_coach_directory/list_coach_public_packages and Flutter screens exist.
+Legacy manual checkout | Partially working | High | RPCs and UI exist, should remain legacy/flagged.
+Paymob checkout | Implemented in repo only | High | Edge Function and migration exist; live not verified.
+Paymob webhook activation | Implemented in repo only | High | HMAC path calls process_coach_paymob_callback; live not verified.
+Thread creation | Working | High | ensure_coach_member_thread idempotent, active-only.
+Messages | Working | High | send_coaching_message enforces active and role.
+Weekly check-ins | Working | High | submit_weekly_checkin active-only, one per subscription/week.
+Check-in feedback | Working | High | coach feedback requires active and creates message.
+Coach CRM/private notes | Working | Medium | coach-only RLS; not visible to member.
+Programs | Partially working | Medium | coach assignment exists; active-only not enforced.
+Habits | Partially working | Medium | backend/coach assignment exists; member tracking UI not found.
+Resources | Partially working | Medium | backend/coach UI/storage exist; member UI not found.
+Bookings | Partially working | Medium | backend and coach UI exist; member session UI not found.
+Privacy/insights | Partially working | High | consent toggles and coach summaries exist; active-subscription gated.
+Admin settlement | Implemented in repo only | High | Dashboard/RPCs exist; live not verified.
+Payout ledger | Implemented in repo only | High | Created after paid Paymob callback; no automatic transfer.
+Storage parity | Risky | Medium | coach-resources/payment-receipts exist; progress photo bucket not found.
+Notifications | Partially working | High | Many inserts exist; no push delivery verification here.
+Tests | Partially working | Medium | Flutter tests previously passed; Deno not available.
+
+============================================================
+SECTION 2 - ROLE DEFINITIONS
+============================================================
+
+Client/Member
+Verified from code:
+- Uses AppRole.member.
+- Screens/routes: /member-home, /coaches, /coach-details, /subscription-packages, /my-subscriptions, /member-messages, /member-thread, /member-checkins, /member-coach-visibility, /progress, /notifications.
+- Can see public coach profiles/packages/reviews, own subscriptions, own coaching threads/messages, own check-ins, own privacy settings/audit, assigned workout plans, own notifications, own orders/progress.
+- Can create/update member profile, weight entries, body measurements, workout sessions, manual payment receipt submissions, Paymob checkout sessions, weekly check-ins, coaching messages, privacy visibility settings.
+- Can update/delete own profile/progress entries and preferences. Can pause subscription through pause_coach_subscription if that RPC exists/deployed.
+- Must not approve payments, mark Paymob payments paid, read another member relationship, read coach private notes, read admin payout ledger, or write coach CRM data.
+- Backend touched: profiles, member_profiles, member_weight_entries, member_body_measurements, subscriptions via RPC/Edge, coach_payment_orders via safe status read, coach_payment_receipts legacy, coach_member_threads read, coach_messages via send_coaching_message, weekly_checkins via submit_weekly_checkin, coach_member_visibility_settings via upsert_coach_member_visibility, notifications.
+- Notifications: checkout started, payment successful/failed, thread ready, coach feedback, resource assigned, booking created/updated, payout not normally visible.
+
+Coach
+Verified from code:
+- Uses AppRole.coach.
+- Screens/routes: /coach-dashboard, /coach-profile, /packages, /add-package, /clients, /coach-client-workspace, /coach-checkins, /coach-calendar, /coach-billing, /coach-program-library, /coach-onboarding-flows, /coach-resources, /coach-member-insights, /notifications.
+- Can see own coach profile/package data, own active/pending clients/subscriptions, own coaching threads/messages, check-ins from clients, coach-created resources, program templates/exercises, onboarding templates, calendar/bookings, payment queue, payout status, consented member insights.
+- Can create/update coach profile, packages, availability, CRM records, private notes, messages, check-in feedback, program templates, exercise library, habit assignments, onboarding templates, resources, resource assignments, session types/bookings.
+- Can update booking statuses and legacy manual payment receipts. For Paymob rows, Flutter hides approve/fail actions.
+- Must not approve/reject Paymob payments, mark payout paid, see raw Paymob callback payloads, read client private app/health data without consent, read other coaches' clients.
+- Backend touched: coach_profiles, coach_packages, coach_availability_slots, subscriptions read, coach_member_threads/messages, weekly_checkins, coach_client_records, coach_client_notes, coach_automation_events, coach_program_templates, coach_exercise_library, member_habit_assignments, coach_resources, coach_resource_assignments, coach_session_types, coach_bookings, coach_payment_receipts legacy, coach_payment_orders safe read, coach_payouts safe read.
+- Notifications: checkout started, payment proof submitted, Paymob payment confirmed, new active client, check-in submitted, booking created, payout marked paid/on hold.
+
+Admin/GymUnity
+Verified from code/migration:
+- Not an AppRole. Admin access is separate through app_admins.
+- Roles: admin, super_admin, finance_admin, support_admin.
+- Screens/routes: /admin-dashboard direct route through AdminAccessGate.
+- Can see payment orders, payout batches/items, coach balances, subscription health, admin audit events, settings snapshot. Super admin can see raw payload sections in admin details.
+- Can mark payouts ready/on_hold/processing/paid/failed/cancelled depending on permissions, verify payout accounts, add payment notes, mark payment needs review, cancel unpaid checkout, re-run ensure thread, reconcile/mark review.
+- Must not be public-signup selectable. Must not expose secrets. Should not manually mark Paymob payment paid except future emergency process.
+- Backend touched: app_admins, admin_audit_events, admin RPCs, coach_payment_orders, coach_payment_transactions, coach_payouts/items/accounts, subscriptions, notifications.
+- Notifications: admin receives Paymob checkout/payment/failure/reconciliation events; coach/client receive user-visible admin payout actions.
+
+Payment gateway/Paymob
+Verified from Edge Functions:
+- Receives Create Intention API calls from create-coach-paymob-checkout using server-side PAYMOB_SECRET_KEY_TEST.
+- Redirect checkout uses public key + client secret/checkout_url only.
+- Sends callback/webhook to paymob-transaction-callback.
+- Must not be trusted unless HMAC is verified with PAYMOB_HMAC_SECRET_TEST.
+- Does not pay coach directly in MVP. Money goes to GymUnity merchant account.
+
+System/backend jobs/functions
+Verified from code:
+- Supabase Edge Functions create Paymob checkout, handle callbacks, expose redirect UX endpoint, expose admin settings, and stub/reconcile status.
+- Security-definer RPCs enforce critical relationship actions.
+- process_coach_paymob_callback is service_role-only and is the source of truth for Paymob activation.
+- create_pending_coach_payout_for_payment is service_role/admin-only.
+- No automatic payout transfer job exists.
+
+============================================================
+SECTION 3 - FULL RELATIONSHIP LIFECYCLE
+============================================================
+
+1. Coach signs up
+- User-visible action: register/select coach role.
+- Screen/route: role selection/register/onboarding screens.
+- Frontend: Auth and User repositories.
+- Tables: users, profiles(role_id=coach), coach_profiles later.
+- Resulting state: profile exists; onboarding_completed false until profile saved.
+- Missing/risk: admin is not selectable, which is correct.
+
+2. Coach completes onboarding
+- Screen/route: /coach-onboarding, /coach-profile.
+- Button/control: save profile.
+- Repository: CoachRepositoryImpl.upsertCoachProfile.
+- Tables: coach_profiles upsert, profiles.onboarding_completed = true.
+- Resulting state: public coach profile can be listed.
+- Possible errors: missing columns handled by schema-compatible write fallback.
+
+3. Coach creates/edits profile
+- Screen/route: /coach-profile.
+- Backend: direct coach_profiles upsert, profiles update.
+- RLS: coach_profiles_manage_own.
+- Data visibility: coach_profiles are broadly readable; profiles are own-only, so public profile RPC provides name fallback.
+
+4. Coach creates package/offer
+- Screen/route: /packages, /add-package.
+- Button/control: create/edit offer, save offer, publish/draft/archive controls.
+- Repository: saveCoachPackage, deleteCoachPackage.
+- Tables: coach_packages.
+- States: draft, published, archived through visibility_status; is_active mirrors published in UI.
+- Possible errors: package linked to subscriptions is archived instead of deleted.
+
+5. Coach publishes package/offer
+- Screen: CoachPackageEditorScreen or CoachPackagesScreen.
+- Backend: coach_packages.visibility_status='published', is_active=true.
+- Client discoverability: list_coach_public_packages filters active/published.
+
+6. Client discovers coach
+- Screen/route: /coaches.
+- Repository: CoachRepositoryImpl.listCoaches.
+- RPC: list_coach_directory_v2 with fallback to list_coach_directory.
+- Data: public coach profile, starting package price, filters by specialty/city/language/gender/budget.
+- Empty/error states exist in screen.
+
+7. Client views coach details
+- Screen/route: /coach-details.
+- Repository: getCoachDetails.
+- RPCs/tables: get_coach_public_profile, listCoachPackages/list_coach_public_packages, availability, reviews.
+- Button: view packages/start coaching routes to /subscription-packages.
+
+8. Client views packages
+- Screen/route: /subscription-packages.
+- Data: coach packages, package preview, intake/payment controls.
+- Button: Paymob enabled -> "Start secure payment" / "Pay with Paymob"; legacy -> "Start paid checkout" / "Submit request".
+- Config: ENABLE_COACH_PAYMOB_PAYMENTS controls Paymob path; ENABLE_COACH_MANUAL_PAYMENT_PROOFS controls legacy proof UI.
+
+9. Client starts checkout
+- Paymob path:
+  - Frontend method: CoachPaymentRepositoryImpl.createPaymobCheckout.
+  - Edge Function: create-coach-paymob-checkout.
+  - Tables: subscriptions insert with status=checkout_pending, checkout_status=checkout_pending, payment_gateway=paymob; coach_payment_orders insert status=created then pending.
+  - Paymob API: /v1/intention/.
+  - Result: returns payment_order_id, subscription_id, paymob_client_secret, paymob_public_key, checkout_url, amount, currency, mode=test.
+- Legacy path:
+  - Repository: CoachRepositoryImpl.requestSubscription.
+  - RPC: create_coach_checkout.
+  - Tables: subscriptions, coach_checkout_requests.
+
+10. Client pays
+- Paymob path: Flutter opens hosted checkout_url using url_launcher/external link service. Flutter does not activate subscription.
+- Legacy path: client submits manual reference/receipt in My Coaching.
+
+11. Payment succeeds
+- Paymob source of truth:
+  - Function: paymob-transaction-callback.
+  - HMAC: verifyPaymobTransactionHmac.
+  - RPC: process_coach_paymob_callback.
+  - Validation: mode=test, amount, currency, order lookup, subscription existence, duplicate transaction id.
+  - State: coach_payment_orders.status=paid, subscriptions.status=active, checkout_status=paid.
+  - Side effects: ensure_coach_member_thread, create_pending_coach_payout_for_payment, notifications to coach/member/admin.
+- Legacy source:
+  - RPC verify_coach_payment by coach activates subscription and creates thread.
+  - This conflicts with Paymob business model if exposed for Paymob rows.
+
+12. Payment fails
+- Paymob:
+  - order status failed/refunded, subscription checkout_status failed/refunded, status remains checkout_pending unless already paid.
+  - member/admin notification created.
+- Legacy:
+  - coach failPayment updates receipt failed and subscription checkout_status failed.
+
+13. Subscription becomes active
+- Backend: Paymob verified callback or legacy verify_coach_payment.
+- Result: status=active, checkout_status=paid, starts_at/ends_at/current_period values set, thread created.
+- Operational unlock: messages/check-ins active-only enforced in RPCs.
+
+14. Thread is created
+- RPC: ensure_coach_member_thread(subscription_id).
+- Idempotency: unique subscription_id, conflict-safe insert, prevents duplicate system message.
+- Creates coach_member_threads and one system coach_messages row.
+- Missing/risk: no background job found; relies on payment callback/check-in/admin repair.
+
+15. Client sends message
+- Screen/route: /member-messages -> /member-thread.
+- Repository: MemberRepositoryImpl.sendCoachingMessage.
+- RPC: send_coaching_message.
+- Enforcement: member/coach role only, participant thread, active subscription, non-empty content.
+- Tables: coach_messages insert, coach_member_threads last preview update.
+
+16. Coach sends message
+- Screen: coach client workspace message area.
+- Repository: CoachRepositoryImpl.sendCoachMessage.
+- RPC: send_coaching_message.
+- Same enforcement as member.
+
+17. Client submits check-in
+- Screen/route: /member-checkins.
+- Repository: MemberRepositoryImpl.submitWeeklyCheckin.
+- RPC: submit_weekly_checkin.
+- Tables: weekly_checkins upsert, progress_photos replace for checkin, member_weight_entries insert if weight, member_body_measurements insert if waist.
+- Enforcement: member role, owns subscription, status active, one row per subscription/week.
+
+18. Coach reviews check-in
+- Screens: /coach-checkins or /coach-client-workspace.
+- Repository: CoachRepositoryImpl.submitCheckinFeedback.
+- RPC: submit_coach_checkin_feedback.
+- Tables: weekly_checkins.coach_reply, coach_messages checkin_feedback.
+- Enforcement: coach role, active subscription, non-empty feedback.
+
+19. Coach sends feedback
+- Same as step 18.
+- Notification: member receives "Coach feedback received".
+
+20. Coach assigns program
+- Screens: /coach-program-library, /coach-client-workspace.
+- Repository: assignProgramTemplate.
+- RPC: assign_program_template_to_client.
+- Tables: workout_plans, workout_plan_days, workout_plan_tasks.
+- Side effect: archives existing active coach-authored plan for that member/coach.
+- Risk: active subscription is not enforced by the RPC; it only verifies coach owns the subscription.
+
+21. Coach assigns resource
+- Screens: /coach-resources, /coach-client-workspace, onboarding flow.
+- Repository: uploadCoachResource/saveCoachResource/assignResourceToClient.
+- RPCs/tables/storage: coach-resources bucket, coach_resources, coach_resource_assignments.
+- Notification: member receives "New coaching resource".
+- Missing: member-facing assigned resources screen not found.
+
+22. Coach schedules session/booking
+- Screen: /coach-calendar and coach client workspace.
+- Repository: createBooking/updateBookingStatus.
+- RPCs: create_coach_booking, update_coach_booking_status.
+- Tables: coach_session_types, coach_bookings.
+- Eligibility: active or paused subscriptions.
+- Missing: dedicated member booking screen not found.
+
+23. Client manages privacy visibility
+- Screen/route: /member-coach-visibility from My Coaching.
+- Repository: CoachMemberInsightsRepositoryImpl.upsertVisibilitySettings.
+- RPC: upsert_coach_member_visibility.
+- Tables: coach_member_visibility_settings, coach_member_visibility_audit.
+- Result: toggles control coach access to AI plan/adherence/progress/nutrition/product/purchase insights.
+
+24. Coach views allowed insights
+- Screen/route: /coach-member-insights.
+- Repository: getMemberInsight/listClientInsightSummaries.
+- RPCs: get_coach_member_insight, list_coach_member_insight_summaries.
+- Enforcement: active subscription and coach is subscriber coach. No settings row returns header only.
+
+25. Subscription is paused
+- Frontend: MemberRepositoryImpl.pauseSubscription calls pause_coach_subscription.
+- Migration defining pause_coach_subscription was not inspected in the primary relationship migrations; repo search shows Flutter expects it.
+- Behavior found elsewhere: create_coach_booking allows active or paused; messages/check-ins require active only.
+- Current uncertainty: pause/resume full backend state machine not fully verified.
+
+26. Subscription is resumed
+- Not clearly found in inspected code. Unclear/missing.
+
+27. Subscription is completed/cancelled
+- Status values exist. Admin cancel unpaid checkout exists for unpaid Paymob orders. Full member/coach cancellation UX not clearly found.
+
+28. Admin pays coach payout
+- Screen/route: /admin-dashboard, Payouts tab.
+- Repository: AdminRepositoryImpl.markPayoutPaid.
+- RPC: admin_mark_payout_paid.
+- Requirements: permission payouts.mark_paid, external_reference required, status ready/processing.
+- Tables: coach_payouts updated, admin_audit_events inserted, notifications to coach.
+- No money transfer triggered.
+
+29. Refund/dispute/manual correction
+- Paymob transaction status can set refunded/voided and order refunded/failed if not already paid.
+- Full refund/dispute automation not implemented.
+- Admin reconcile currently marks needs_review, not paid.
+
+============================================================
+SECTION 4 - DATA OBJECT MAP
+============================================================
+
+Object/table/model | Purpose | Created by | Updated by | Read by | Key fields | Relationship to subscription | RLS/permission rule | Current status
+--- | --- | --- | --- | --- | --- | --- | --- | ---
+roles | Base public roles | migration | migration | authenticated | id, code | indirect through profiles | read all | Working
+users | Auth-linked app users | auth/profile code | auth/profile code | own/admin/service | id,email,is_active | referenced by payments/admin | own read/upsert | Working
+profiles | User profile and role | auth/onboarding | owner | own, public via RPC fallbacks | user_id,role_id,full_name | member_id/coach_id references | own direct read | Working, public name often via RPC
+member_profiles | Member health/preferences | member onboarding | member | member; coach via consented RPC | goal, age, current_weight, city | member side data | own manage | Working
+coach_profiles | Coach public/business profile | coach onboarding | coach | public/authenticated | bio,specialties,city,rating | coach_id target | public select, owner manage | Working
+coach_packages | Coach offers | coach | coach | public active or coach | price,billing_cycle,visibility_status,is_active | package_id on subscription | public active/own manage | Working
+coach_availability_slots | Coach availability | coach | coach | public active or coach | weekday,start,end,session options | booking availability | public active/own manage | Working
+subscriptions | Relationship anchor | member checkout/Edge/RPC | payment/admin/legacy/member? | member, coach, admin via RPC | member_id,coach_id,package_id,status,checkout_status,payment_order_id | primary anchor | broad member/coach direct update risk | Working but risky
+coach_checkout_requests | Legacy manual checkout request | create_coach_checkout | legacy payment RPCs | member/coach | payment_rail,status | subscription_id | participant read | Legacy
+coach_payment_orders | Internal Paymob order | Edge Function | Edge/RPC/admin | member/coach safe, admin full via RPC | amount cents,status,special_reference,paymob ids | one order for subscription checkout | no direct writes; safe select grant | Implemented repo
+coach_payment_transactions | Paymob callback log | webhook/service | service | member/coach safe, admin full via RPC | raw_payload,hmac_verified,processing_result | links order/subscription | raw_payload not granted to authenticated | Implemented repo
+coach_payment_receipts | Legacy payment proof | member manual proof | coach legacy review | member/coach | receipt_storage_path,status | subscription_id | participant read | Legacy/flagged
+coach_payment_audit_events | Legacy payment audit | manual RPCs | none | participant | old_state,new_state,note | subscription_id | participant read | Legacy
+coach_payout_accounts | Coach payout profile | coach/admin | coach/admin | coach/admin | method,last4/masked,is_verified | coach settlement | coach own/admin | Implemented repo
+coach_payouts | Payout batch/admin settlement | service/admin | admin RPCs | coach/admin | amount_cents,status,method,paid_at,admin_id | can link to one or many payment orders via items | coach read/admin update | Implemented repo
+coach_payout_items | Payout order linkage | service/admin | not normally | coach/admin | payment_order_id unique, coach_net_cents | subscription/payment bridge | coach/admin read | Implemented repo
+coach_member_threads | One relationship thread | ensure RPC | messages/read updates | member/coach/admin repair | subscription_id unique,last preview | one per subscription | participants read | Working
+coach_messages | Relationship messages/events | send RPC/system/feedback | not updated | participants | sender_role,message_type,content | via thread.subscription_id | participants read, insert through RPC | Working
+weekly_checkins | Member weekly reports | member RPC | member same-week, coach feedback | member/coach | week_start, scores, coach_reply | subscription_id | participants read | Working
+progress_photos | Check-in photos | submit_weekly_checkin | replace by member | member/coach | storage_path,angle | checkin -> subscription | participants read | Partially working; bucket not found
+coach_client_records | Coach CRM pipeline | coach RPC | coach RPC | coach | stage,risk,tags,coach_notes | subscription_id primary | coach-only | Working
+coach_client_notes | Coach private notes | coach RPC | coach | coach | note,note_type,is_pinned | subscription_id | coach-only | Working
+coach_automation_events | Coach action items | system/coach future | coach | coach | event_type,severity,status | subscription_id nullable | coach-only | Partially working
+coach_thread_reads | Read state | mark RPC | participants | participants | last_read_at | thread->subscription | participants | Working
+coach_program_templates | Program templates | migration/coach | coach | coach/system | weekly_structure_json,is_system | assigned to subscription | system/own read | Working
+coach_exercise_library | Exercise templates | migration/coach | coach | coach/system | instructions,cues | used in plan tasks | system/own read | Working
+workout_plans | Member plans | AI/coach | member/coach | member/coach | source,status,plan_json | coach_id/member_id, not subscription-specific | member/coach | Working but assignment can overwrite active coach plan
+workout_plan_days | Plan days | AI/coach assign | plan flows | member/coach | scheduled_date | plan -> member | migration-dependent | Working
+workout_plan_tasks | Plan tasks | AI/coach assign | logs/plans | member/coach | task_type,status fields | plan -> member | migration-dependent | Working
+member_habit_assignments | Coach-assigned habits | coach RPC | coach/member? | member/coach | status,target | subscription_id | participants read, coach manage | Backend/coach UI only
+member_habit_logs | Habit tracking | member | member | member/coach | completion_status,value | assignment -> subscription | member manage | Backend only/member UI not found
+coach_resources | Coach files/links | coach | coach | coach | storage_path/external_url | assigned through assignment | coach-own | Working
+coach_resource_assignments | Resource assignment | coach | coach | member/coach | resource_id,subscription_id | subscription_id | participants read, coach manage | Backend/coach UI; member UI not found
+coach_onboarding_templates | Coach onboarding flows | coach | coach | coach | welcome,starter_program,habits,resources | applied to subscription | coach-only | Working
+coach_onboarding_applications | Applied onboarding records | coach flow | coach flow | member/coach | result_json,status | subscription_id | participants read | Working
+coach_session_types | Session definitions | coach/default seed | coach | coach | kind,duration,self_bookable | used for booking | coach manage | Working
+coach_bookings | Coaching bookings | coach/member RPC | participant | member/coach | status,times,session_type | subscription_id | participants | Backend/coach UI; member UI not found
+coach_member_visibility_settings | Consent toggles | member | member | member/coach active | six booleans | subscription_id | member manage, coach active read | Working
+coach_member_visibility_audit | Consent history | visibility RPC | none | member | old/new JSON | settings -> subscription | member read | Working
+member_product_recommendations | Product intelligence | member/system | member | member; coach via consent RPC | product,status | indirect | member manage | Working
+notifications | In-app notifications | RPCs/functions | user marks read | owner | user_id,type,title,data | event-linked | owner read/update | Working
+admin_audit_events | Admin sensitive action log | admin RPCs/service | none | admin | action,target,metadata | payment/subscription/payout targets | admin read | Implemented repo
+app_admins | Separate admin grants | manual SQL | super_admin/service | admin | role,permissions,is_active | none | admins read, super admin update | Implemented repo
+
+============================================================
+SECTION 5 - SCREEN AND BUTTON MAP
+============================================================
+
+Client/member side
+
+Coach marketplace
+- Route: /coaches.
+- Role: member/client.
+- Purpose: discover coaches.
+- Data: listCoaches -> list_coach_directory_v2/list_coach_directory.
+- Actions: View profile -> /coach-details; View offers -> /subscription-packages; filter/search controls.
+- Empty/error: no coaches, retry.
+- Risk: depends on public profile RPC and marketplace columns.
+
+Coach details
+- Route: /coach-details.
+- Role: member/client.
+- Purpose: inspect coach profile, packages, reviews, availability.
+- Data: getCoachDetails, listCoachPackages, reviews.
+- Actions: navigate to packages.
+- Risk: profiles RLS is own-only; repository falls back to get_coach_public_profile for display name.
+
+Subscription packages
+- Route: /subscription-packages.
+- Role: member.
+- Purpose: select coaching offer and begin checkout.
+- Data: packages for coach.
+- Actions/buttons:
+  - Start secure payment / Pay with Paymob when ENABLE_COACH_PAYMOB_PAYMENTS=true.
+  - Start paid checkout / Submit request for legacy flow.
+  - Intake/payment rail controls for legacy.
+- Backend:
+  - Paymob: create-coach-paymob-checkout Edge Function.
+  - Legacy: create_coach_checkout RPC.
+- Risk: Paymob must be enabled/deployed; legacy must remain hidden for Paymob rows.
+
+My Coaching / My Subscriptions
+- Route: /my-subscriptions.
+- Role: member.
+- Purpose: see subscriptions, payment state, actions.
+- Data: list_member_subscriptions_live fallback list_member_subscriptions_detailed.
+- Actions:
+  - Active with thread: open messages.
+  - Active: open check-ins.
+  - Privacy settings: /member-coach-visibility.
+  - Paymob pending/failed: refresh/retry payment status.
+  - Legacy: submit payment proof if manual proofs enabled.
+- Backend: get_coach_payment_order_status, receipt upload/submit, visibility route.
+- Risk: active subscription without thread disables/open issue until repair.
+
+Member messages
+- Route: /member-messages and /member-thread.
+- Role: member.
+- Data: coach_member_threads, coach_messages.
+- Actions: open thread, send message.
+- Backend: send_coaching_message.
+- Disabled/error: no threads until active payment/thread creation.
+- Risk: no thread means no chat route.
+
+Member check-ins
+- Route: /member-checkins.
+- Role: member.
+- Data: active subscriptions and weekly_checkins.
+- Actions: submit weekly check-in.
+- Backend: submit_weekly_checkin.
+- Tables: weekly_checkins, progress_photos, member_weight_entries, member_body_measurements.
+- Risk: progress photo upload storage path support not fully verified.
+
+Member privacy settings
+- Route: /member-coach-visibility.
+- Role: member.
+- Data: get_member_visibility_settings, list_visibility_audit.
+- Actions: save toggles.
+- Backend: upsert_coach_member_visibility.
+- Risk: no settings row means coach gets header only.
+
+Workout plan screen
+- Route: /workout-plan.
+- Role: member.
+- Purpose: shows active workout plan, including coach-assigned plans because workout_plans is shared.
+- Backend: member listWorkoutPlans and planner RPCs.
+- Risk: coach-assigned program can archive existing active coach plan; AI plan coexistence needs product decision.
+
+Notifications screen
+- Route: /notifications.
+- Role: all.
+- Data: notifications table.
+- Actions: mark/read actions in settings provider.
+- Risk: notifications are inserted in many flows but push delivery not verified.
+
+Coach side
+
+Coach dashboard/workspace shell
+- Routes: /coach-dashboard.
+- Role: coach.
+- Data: coach_workspace_summary, list_coach_action_items, bookings.
+- Actions: create package, open clients, billing, calendar, resources, onboarding, settings.
+- Risk: action items are aggregate/query-based; actual automation event production unclear.
+
+Coach profile
+- Route: /coach-profile.
+- Role: coach.
+- Data: coach_profiles/profiles.
+- Actions: save profile, preview public coach details.
+- Backend: upsertCoachProfile.
+
+Coach packages/offers
+- Routes: /packages, /add-package.
+- Role: coach.
+- Data: coach_packages.
+- Actions: create/edit, publish/draft/archive, preview packages.
+- Backend: saveCoachPackage/deleteCoachPackage.
+- Risk: package deletion archives if linked to subscriptions.
+
+Coach clients/pipeline
+- Route: /clients.
+- Role: coach.
+- Data: list_coach_client_pipeline.
+- Actions: open workspace, billing/calendar based on state, filters.
+- Risk: includes pending payment clients; workspace actions may be available before active if not UI-disabled.
+
+Coach client workspace
+- Route: /coach-client-workspace.
+- Role: coach.
+- Data: get_coach_client_workspace including client, notes, threads, checkins, bookings, resources, billing, visibility.
+- Actions/buttons: save CRM record, add note, send message, assign program, assign habits, assign resource, create booking, review check-in, open billing/resources/calendar/insights.
+- Backend: many RPCs listed above.
+- Risks:
+  - Program/habit/resource assignment does not consistently enforce active subscription.
+  - Onboarding flow may fail before active because it creates thread.
+  - Coach private notes are coach-only, which is correct.
+
+Coach billing/payment queue
+- Route: /coach-billing.
+- Role: coach.
+- Data: list_coach_payment_queue.
+- Actions:
+  - Legacy manual: view receipt, approve payment, fail payment if manual proof enabled and not Paymob.
+  - Paymob: shows payment confirmed/payout status, hides approve/fail.
+- Backend: verify_coach_payment/fail_coach_payment legacy; payment order and payout status read.
+- Risk: backend legacy activation remains available even if UI hides Paymob rows.
+
+Coach check-in inbox
+- Route: /coach-checkins.
+- Role: coach.
+- Data: weekly_checkins where coach_id=current.
+- Actions: Review check-in -> submit feedback.
+- Backend: submit_coach_checkin_feedback.
+- Disabled: feedback disabled if thread_id null in UI; backend can create thread if active.
+
+Coach calendar
+- Route: /coach-calendar.
+- Role: coach.
+- Data: list_coach_bookings, list_coach_session_types.
+- Actions: add session type, add availability, create booking, update booking status.
+- Backend: coach_session_types, coach_bookings.
+- Risk: member-facing booking screen not found.
+
+Coach program library
+- Route: /coach-program-library.
+- Role: coach.
+- Data: program templates/exercises.
+- Actions: create/edit program templates, create exercises.
+- Backend: save_coach_program_template, save_coach_exercise.
+
+Coach resources
+- Route: /coach-resources.
+- Role: coach.
+- Data: list_coach_resources, active subscriptions for assignment.
+- Actions: upload file, save link/file resource, assign to client.
+- Backend/storage: coach-resources bucket, save_coach_resource, assign_resource_to_client.
+- Risk: no member resource screen found.
+
+Coach onboarding flows
+- Route: /coach-onboarding-flows.
+- Role: coach.
+- Data: list_coach_onboarding_templates, resources.
+- Actions: create template, apply.
+- Backend: save_coach_onboarding_template, apply_coach_onboarding_flow.
+- Risk: apply requires active subscription through ensure thread.
+
+Admin side
+
+Admin dashboard
+- Route: /admin-dashboard.
+- Role: app_admins only.
+- Data: admin_dashboard_summary, payment orders, payouts, coach balances, subscriptions, audit events, settings Edge Function.
+- Actions: payout ready/hold/release/processing/paid/failed/cancel, reconcile, mark needs review, cancel unpaid checkout, ensure thread, verify payout account.
+- Backend: admin RPCs and admin-payment-settings Edge Function.
+- Risk: repo-only/live not verified.
+
+============================================================
+SECTION 6 - STATE MACHINES
+============================================================
+
+Package visibility/status
+- Flutter states: draft, published, archived.
+- Database: coach_packages.visibility_status in later migrations, is_active boolean.
+- Valid transitions: draft -> published, published -> archived/draft, archived -> draft/published if coach restores.
+- UI labels: package.status chips.
+- Enforcement: public package RPC filters published/is_active.
+- Risk: older code may use is_active only.
+
+Subscription status
+- Found database statuses: checkout_pending, pending_payment, pending_activation, active, paused, completed, cancelled. Initial schema default was active.
+- Paymob create checkout: checkout_pending.
+- Paymob success: active.
+- Paymob failure: status remains checkout_pending unless manually cancelled.
+- Manual legacy: checkout_pending -> active via coach verify; failed changes checkout_status only.
+- Invalid/risky combinations:
+  - active but payment not paid (possible through legacy/manual or direct broad RLS).
+  - paid Paymob order but subscription not active (admin dashboard alert).
+  - active but no thread (admin repair exists).
+
+Checkout/payment status
+- Found checkout_status values: not_started, checkout_pending, payment_pending, submitted, receipt_uploaded, under_verification, paid, failed, refunded.
+- Legacy receipt statuses: awaiting_payment, submitted, receipt_uploaded, under_verification, activated, failed.
+- Paymob order statuses: created, pending, paid, failed, cancelled, refunded, partially_refunded.
+- Mismatch risk: old migration 33 did not include payment_pending; migration 34 adds it.
+
+Paymob payment order status
+- created: order inserted before Paymob intention response.
+- pending: Paymob intention created, checkout open.
+- paid: verified successful callback.
+- failed: callback failure, validation mismatch, intention creation failure.
+- cancelled/refunded/partially_refunded: scaffolded.
+- Backend enforcement: process_coach_paymob_callback validates mode, amount, currency, order, subscription.
+
+Payout status
+- pending, on_hold, ready, processing, paid, failed, cancelled.
+- create_pending_coach_payout_for_payment sets ready if hold_days=0, on_hold if >0.
+- admin_mark_payout_paid requires ready or processing in migration 35.
+- Legacy payout_status values also exist on adapted coach_payouts: eligible, held, paid etc.
+- Risk: two status systems exist (status and payout_status) for backward compatibility.
+
+Thread/message state
+- Thread missing: normal before active/payment.
+- Thread created: one per subscription via unique(subscription_id).
+- Message types: text, checkin_prompt, checkin_feedback, system.
+- send_coaching_message only allows text and active subscription.
+- check-in feedback inserts message_type=checkin_feedback.
+- Risk: direct insert policy for coach_messages was dropped in migration 33; RPC is intended path.
+
+Check-in state
+- Not submitted: no weekly_checkins row.
+- Submitted: row exists with coach_reply null.
+- Reviewed/feedback sent: coach_reply not null and feedback message inserted.
+- Overdue: inferred in action item queries by no recent checkin; no explicit status column.
+- Valid transitions: none -> submitted, submitted -> same-week update, submitted -> feedback.
+- Backend: active-only for submit/feedback.
+
+Booking state
+- Found: scheduled, confirmed, completed, cancelled, rescheduled, no_show.
+- create_coach_booking starts scheduled.
+- update_coach_booking_status can set any allowed status by participant.
+- Risk: state transitions are not strict; any participant can update to completed/no_show/cancelled.
+
+Privacy visibility state
+- No settings row: coach receives header only.
+- All toggles false: settings/audit exist, no insight details.
+- Partial sharing: only selected categories returned.
+- All sharing: all categories returned.
+- Revoked all: audit change_type revoked_all.
+- Backend enforcement: coach insight RPC requires active subscription and checks toggles.
+
+Dangerous combinations found/guarded
+- subscription active but payment not paid: possible via legacy/manual direct flows; Paymob model avoids if used exclusively.
+- payment paid but subscription not active: admin alert/RPC detects.
+- subscription active but no thread: admin repair + ensure in check-in.
+- thread exists for cancelled subscription: possible historically; messaging/check-ins still blocked by active check.
+- payout paid for unpaid order: unique payout item ties paid order creation; admin pay acts on payout, but direct data integrity should be audited.
+- coach approves Paymob payment: UI hides actions for Paymob, but verify_coach_payment legacy remains.
+- client sees messages before activation: send RPC blocks; direct read of preexisting thread possible if thread exists, but thread creation blocks non-active.
+- check-in before activation: submit_weekly_checkin blocks.
+- privacy insights without consent: get_coach_member_insight returns null sections unless toggles set.
+
+============================================================
+SECTION 7 - PAYMENT AND PAYOUT FLOW
+============================================================
+
+A. Old/manual payment proof model
+- Screens: SubscriptionPackagesScreen legacy path, MySubscriptionsScreen proof upload, CoachBillingScreen review queue.
+- Buttons: Start paid checkout, Submit request, Submit payment proof, Approve payment, Mark failed/Needs follow-up.
+- RPCs/functions: create_coach_checkout, submit_coach_payment_receipt, verify_coach_payment, fail_coach_payment, list_coach_payment_queue.
+- Tables: subscriptions, coach_checkout_requests, coach_payment_receipts, coach_payment_audit_events, notifications, coach_member_threads after approval.
+- Status transitions:
+  - checkout_pending/checkout_pending -> submitted/receipt_uploaded -> active/paid on coach verify.
+  - checkout_pending -> failed checkout_status on coach failure.
+- Who approves payment: coach.
+- Who receives money: unclear/manual outside app.
+- Security risk: conflicts with Paymob platform-guarantor model.
+- Current status: still present and feature-flagged; should remain legacy only.
+
+B. Paymob/admin settlement model
+- Screens: SubscriptionPackagesScreen Paymob path, MySubscriptionsScreen Paymob status, CoachBillingScreen status only, AdminDashboard settlement.
+- Buttons: Start secure payment, Pay with Paymob, refresh/retry, admin mark payout paid.
+- Edge Functions: create-coach-paymob-checkout, paymob-transaction-callback, paymob-payment-response, sync-paymob-payment-status, admin-payment-settings.
+- RPCs: process_coach_paymob_callback, create_pending_coach_payout_for_payment, get_coach_payment_order_status, admin_* payment/payout RPCs.
+- Tables: subscriptions, coach_payment_orders, coach_payment_transactions, coach_payouts, coach_payout_items, admin_audit_events, notifications.
+- Status transitions:
+  - subscription checkout_pending + order created/pending.
+  - verified callback success -> order paid, subscription active/paid, thread created, payout item created.
+  - callback failure/mismatch -> order failed, checkout_status failed, no activation.
+- Who approves payment: Paymob verified HMAC callback processed by GymUnity backend.
+- Who receives money: GymUnity Paymob merchant account.
+- Who pays coach: admin manually outside app; app records payout only.
+- Webhook delayed: Flutter shows pending/confirming and refreshes; no activation until callback.
+- Duplicate webhook: unique paymob_transaction_id causes duplicate=true and no duplicate payout item/notifications after first insert.
+- Amount/currency mismatch: order/subscription set failed if not already paid; processing_result records mismatch.
+- User closes checkout: order remains pending; subscription checkout_pending.
+- Existing subscription: create function rejects duplicate open relationship by package or coach, except failed Paymob retry can reuse failed row.
+
+Answers
+1. Which model is currently active?
+Both are implemented. Flutter uses Paymob only when ENABLE_COACH_PAYMOB_PAYMENTS=true; manual proof remains available when ENABLE_COACH_MANUAL_PAYMENT_PROOFS=true and for non-Paymob rows.
+2. Which should remain?
+Paymob/admin settlement should be primary. Manual should remain hidden behind legacy flag only.
+3. Old screens/buttons to hide/deprecate:
+Submit payment proof, approve payment, fail payment, manual payment rail selector for Paymob-enabled packages/orders.
+4. Required changes:
+Deploy/verify Paymob migrations/functions, tighten subscription RLS, disable manual proofs by default for new Paymob rollout, ensure admin settlement works live.
+
+============================================================
+SECTION 8 - COMMUNICATION FLOW
+============================================================
+
+- Thread creation: ensure_coach_member_thread(subscription_id), called after payment activation, weekly check-in submission, coach feedback fallback, admin repair, legacy verify.
+- Who can create thread: member/coach participant for active subscription, admin, or service_role. Earlier migration required authenticated participant; Paymob migration updated to service/admin-compatible.
+- Idempotency: yes, unique subscription_id plus conflict-safe insert. Duplicate system message prevented by content/type existence check.
+- Who can read thread: member_id or coach_id participants.
+- Who can send messages: member or coach only through send_coaching_message.
+- sender_role enforcement: derived from public.current_role(), not trusted from Flutter.
+- Message types: text, checkin_prompt, checkin_feedback, system.
+- Check-in feedback integration: submit_coach_checkin_feedback updates weekly_checkins.coach_reply and inserts coach_messages row with message_type=checkin_feedback.
+- Missing thread: check-in submission can create; message screen cannot open without thread; admin repair exists.
+- Paused/cancelled: send_coaching_message blocks unless subscription.status='active'.
+- Notifications for messages: not clearly found for ordinary send_coaching_message; check-in feedback and payment/thread events notify.
+- Spoofing answers:
+  - Can member send as coach? No through RPC; sender_role from current_role.
+  - Can coach send as member? No through RPC.
+  - Can unrelated user read messages? RLS should block by thread participant.
+  - Can messages exist before active subscription? System/direct historical data possible, but RPC thread creation/message send blocks non-active.
+  - Is one thread per subscription? Yes, unique subscription_id.
+
+============================================================
+SECTION 9 - CHECK-IN FLOW
+============================================================
+
+- Eligibility: member role, owns subscription, subscription.status='active'.
+- Active only or paused? Active only for weekly check-in submission and coach feedback.
+- Fields: week_start, weight_kg, waist_cm, adherence_score, energy_score, sleep_score, wins, blockers, questions, progress photo paths.
+- Weight/body side effects: weight inserts member_weight_entries; waist inserts member_body_measurements.
+- Progress photos: progress_photos rows replaced for the check-in based on input_photo_paths. Storage upload path/bucket not found.
+- Same-week behavior: unique(subscription_id, week_start); submit_weekly_checkin upserts same week.
+- Coach review: coach_checkin_inbox and client workspace call submit_coach_checkin_feedback.
+- Coach feedback: non-empty required, active subscription required, creates checkin_feedback message and member notification.
+- Can check-ins be submitted before payment? No.
+- Can check-ins be submitted while paused? No.
+- Can coach edit client check-ins? Coach can only set coach_reply through feedback RPC.
+- Can client edit after feedback? Same-week upsert can update check-in fields without explicitly preserving/blocking after coach_reply; risk/product decision.
+- Can coach submit empty feedback? No.
+- Does feedback create a message? Yes.
+
+============================================================
+SECTION 10 - PROGRAMS, HABITS, RESOURCES, AND BOOKINGS
+============================================================
+
+A. Program assignment
+- Templates: coach_program_templates, coach_exercise_library, system and coach-owned templates.
+- Assignment flow: CoachClientWorkspace/ProgramLibrary -> assignProgramTemplate -> assign_program_template_to_client.
+- Creates workout_plans, workout_plan_days, workout_plan_tasks.
+- Existing plans: archives existing active coach-authored plan for same member/coach.
+- AI overwrite risk: only coach_id=requester plans are archived. AI plans usually coach_id null, so not archived by this RPC. Product still must decide how member UI resolves active AI + active coach plan.
+- Client visibility: member workout plan screen reads workout_plans for member, so coach plans should appear.
+- Status: Partially working. Active subscription enforcement missing in assignment RPC.
+
+B. Habits
+- Assignment flow: CoachClientWorkspace -> assignHabits -> assign_client_habits.
+- Backend: coach_habit_templates, member_habit_assignments, member_habit_logs.
+- Client tracking: member_habit_logs supports tracking, but member UI for coach-assigned habits was not found.
+- Status: Backend/coach UI partially implemented; member UI missing.
+
+C. Resources
+- Upload/link: CoachResourcesScreen uploads to private coach-resources bucket or stores external_url.
+- Assignment: assign_resource_to_client.
+- Storage: coach-resources bucket private; participants can read assigned objects.
+- Client access: RLS allows member read assigned rows/files, but dedicated member assigned resources screen not found.
+- Signed/public URL: bucket private, so signed URL or authenticated storage read required; direct public URL should not work.
+- Status: Partially implemented.
+
+D. Bookings/sessions
+- Session types: coach_session_types with default seeding.
+- Availability: coach_availability_slots extended with booking fields.
+- Creating bookings: create_coach_booking allows member or coach on active/paused subscription; enforces self-bookable for member.
+- Updating status: update_coach_booking_status lets participant set any valid status.
+- Client visibility: RLS/RPC supports member read; dedicated member sessions screen not found.
+- Cancellation/reschedule: status supports cancelled/rescheduled; strict transition/reschedule creation logic limited.
+- Status: Partially implemented.
+
+============================================================
+SECTION 11 - PRIVACY AND INSIGHTS
+============================================================
+
+Verified privacy model:
+- Client data private by default: member profile details, weight/body measurements, AI plans/adherence, nutrition, product recommendations/purchases are not directly readable by coach except through consented RPCs or relationship-owned data.
+- Coach always sees relationship data: subscription header, member display name/current goal in relationship context, coach-created notes, check-ins submitted to that coach, messages, bookings/resources assigned in relationship.
+- Coach sees private app/health data only with visibility toggles:
+  - share_ai_plan_summary
+  - share_workout_adherence
+  - share_progress_metrics
+  - share_nutrition_summary
+  - share_product_recommendations
+  - share_relevant_purchases
+- Audit: coach_member_visibility_audit records initial_grant, updated, revoked_all with old/new JSON.
+- Active requirement: get_coach_member_insight and list summaries only consider active subscriptions.
+- No settings row: coach gets header only with null insight sections.
+- Revoke all: audit records revoked_all and all insight sections become null.
+- Risk: coach_client_workspace includes visibility row for coach if exists, but detailed private data comes from guarded insights RPC.
+- Distinction respected: coach-created relationship data is visible to coach; client private app data is consent-gated.
+
+============================================================
+SECTION 12 - ADMIN ROLE IN RELATIONSHIP
+============================================================
+
+- Admin currently implemented in repo as separate app_admins table, not AppRole.
+- Flutter admin dashboard exists at /admin-dashboard and is guarded by current_admin RPC.
+- Admin affects relationship by monitoring Paymob payments, reconciliation alerts, payout ledger, payout status updates, payout account verification, unpaid checkout cancellation, and thread repair.
+- Admin should not casually change relationship state. Existing admin actions are mostly payment/payout/support focused.
+- Admin can run admin_ensure_subscription_thread for active subscriptions missing a thread.
+- Admin cannot normally activate Paymob subscriptions manually. admin_reconcile_payment_order marks needs_review/reconciliation_requested until Paymob inquiry is implemented.
+- Sensitive actions audited: migration 35 admin mutations call admin_insert_audit/admin audit rows. Paymob webhook failures/mismatches are transaction logs and some admin notifications; explicit admin_audit rows for every webhook anomaly should be verified/expanded.
+- Admin permissions:
+  - super_admin all.
+  - finance_admin payment/payout management.
+  - support_admin read-only.
+- Dangerous actions requiring confirmation in UI: mark paid, hold, release, fail/cancel payout, cancel unpaid checkout, ensure thread, reconcile.
+
+============================================================
+SECTION 13 - NOTIFICATIONS MAP
+============================================================
+
+Trigger | Recipient | Notification type | Created by | Data payload | Current status | Risk
+--- | --- | --- | --- | --- | --- | ---
+checkout started legacy | coach/member | coaching | create_coach_checkout | subscription_id, package_id, payment_rail | Working | Legacy only
+Paymob checkout started | member/coach/admin | payment/coaching | create-coach-paymob-checkout | subscription_id,payment_order_id,mode | Implemented repo | Live not verified
+manual payment proof submitted | coach | coaching | submit_coach_payment_receipt | subscription_id,receipt_id | Working | Legacy
+manual payment verified | member | coaching | verify_coach_payment | subscription_id,thread_id | Working | Conflicts with Paymob if exposed
+manual payment failed | member | coaching | fail_coach_payment | subscription_id,receipt_id | Working | Legacy
+Paymob payment succeeded | coach/member/admin | coaching/payment | process_coach_paymob_callback | subscription_id,payment_order_id,thread_id,payout_id | Implemented repo | Duplicate spam guarded by tx id
+Paymob payment failed | member/admin | coaching/payment | process_coach_paymob_callback | subscription_id,payment_order_id,status | Implemented repo | Live not verified
+thread created | implicit system message | system message | ensure_coach_member_thread | thread/subscription | Working | No separate notification
+message sent | other participant | Not found for normal text | send_coaching_message | n/a | Missing | Users may not get message notifications
+check-in submitted | coach | coaching | submit_weekly_checkin | subscription_id,checkin_id,thread_id | Working | Could spam on same-week edits
+check-in feedback sent | member | coaching | submit_coach_checkin_feedback | subscription_id,checkin_id,thread_id | Working | Good
+resource assigned | member | coaching | assign_resource_to_client | subscription_id,resource_id | Working | Member UI missing
+booking created | coach/member | coaching | create_coach_booking | booking_id,subscription_id | Working | Update notifications not found
+booking updated | none found | n/a | update_coach_booking_status | n/a | Missing | Users may miss changes
+privacy changed | audit only | n/a | upsert_coach_member_visibility | audit JSON | Audit working | No coach notification found
+payout ready | admin/coach? | Not clearly found | payout/admin RPC | n/a | Partially missing | Notification policy unclear
+payout paid | coach | coaching | admin_mark_payout_paid/admin_record | payout_id,amount_cents | Working | No transfer proof upload
+payout on hold | coach maybe | coaching | admin_hold_payout | payout_id/reason | Implemented in admin plan/RPC likely | Verify notification details
+webhook HMAC failed | admin/payment log | payment transaction/admin alert | process callback | raw payload in transaction | Partially working | Need audit event
+admin action | admin audit | admin_audit_events | admin RPCs | metadata | Working repo | Live not verified
+
+============================================================
+SECTION 14 - PERMISSIONS AND RLS MATRIX
+============================================================
+
+Object/RPC/storage | Member/client | Coach | Admin | System/service role | Anonymous | Notes
+--- | --- | --- | --- | --- | --- | ---
+roles | read | read | read | full | no | authenticated read all
+users | own read/write | own read/write | via service/RPC | full | no | app_admins references users
+profiles | own read/write | own read/write | via service/RPC | full | no | public names often via RPC
+coach_profiles | read | own write | read via admin RPC | full | no | public to authenticated
+member_profiles | own manage | no direct, consent RPC only | service/admin if added | full | no | privacy-sensitive
+coach_packages | read active | own manage | read/admin RPC | full | no | package status matters
+subscriptions | read own | read own coach | admin RPC | full | no | Direct member/coach update policy too broad/risky
+coach_checkout_requests | read own | read own | service/admin | full | no | legacy
+coach_payment_orders | safe read own | safe read own | full via RPC | full | no | raw_create_intention_response not granted
+coach_payment_transactions | safe read own | safe read own | full via RPC | full | no | raw_payload not granted to authenticated
+coach_payment_receipts | read own/insert via RPC | read own/review via RPC | service/admin | full | no | legacy
+coach_payout_accounts | no | own read/update | all read/update | full | no | sensitive fields masked only
+coach_payouts | no | own read | update/read | full | no | coaches cannot mark paid
+coach_payout_items | no | own read | read | full | no | unique payment_order_id
+coach_member_threads | own participant read | own participant read | repair/read via RPC | full | no | one per subscription
+coach_messages | own participant read | own participant read | service/admin if needed | full | no | direct inserts blocked; RPC insert
+weekly_checkins | own read/submit RPC | own read/feedback RPC | service/admin | full | no | active-only RPC
+progress_photos | own/participant read | participant read | service/admin | full | no | storage policy missing for photo bucket
+coach_client_records | no | own manage | admin possibly via RPC | full | no | coach private CRM
+coach_client_notes | no | own manage | admin possibly via RPC | full | no | client must not see
+coach_program_templates | system/none | own/system manage/read | service/admin | full | no | coach-only
+coach_exercise_library | system/none | own/system manage/read | service/admin | full | no | coach-only
+member_habit_assignments | read own | read/manage own coach | service/admin | full | no | coach can assign
+member_habit_logs | manage own | read client assignment | service/admin | full | no | member UI missing
+coach_resources | no direct unless assigned file | own manage | service/admin | full | no | private bucket
+coach_resource_assignments | own read | own manage/read | service/admin | full | no | member UI missing
+coach_session_types | read active? | own manage | service/admin | full | no | list RPC currently coach-oriented
+coach_bookings | participant manage | participant manage | service/admin | full | no | update transitions broad
+visibility_settings | member manage | active coach read | service/admin | full | no | consent model
+visibility_audit | member read | no | service/admin | full | no | coach cannot read audit
+notifications | own read/update | own read/update | service/admin inserts | full | no | no insert policy for normal users
+admin_audit_events | no | no | read | full | no | admin-only
+app_admins | no | no | admins read/super update | full | no | manual grants
+coach-resources bucket | assigned read | own/assigned read/write own folder | service/admin | full | no | private
+coach-payment-receipts bucket | own upload/read participant | participant read | service/admin | full | no | private legacy
+avatars bucket | own | own | service | full | no | private
+product-images bucket | read public | seller owner write | service | full | read | public bucket
+
+Missing/too broad/security notes:
+- subscriptions_update_member_or_coach is too broad for payment-driven state. State changes should be RPC-only.
+- coach_bookings_manage_participants allows broad participant updates. Consider RPC-only transition checks.
+- assign_program_template_to_client/assign_client_habits/assign_resource_to_client should enforce active subscription if product requires.
+- progress photo storage bucket/policies not found.
+- Admin raw payload access should remain RPC-only and super_admin-only.
+
+============================================================
+SECTION 15 - EDGE CASES AND FAILURE SCENARIOS
+============================================================
+
+Edge case | Expected behavior | Current behavior if detectable | Risk | Suggested fix direction
+--- | --- | --- | --- | ---
+No coaches in marketplace | Empty state | Flutter empty state exists | Low | Keep
+Package draft/archived | Cannot purchase | Public package RPC filters published/active | Low | Keep
+Coach profile incomplete | Hide or fail gracefully | repository has fallbacks | Medium | Add package/profile completeness checks
+Package deleted after checkout open | Existing subscription/order still references package or null | package_id set null on delete in Paymob order | Medium | Prefer archive packages with active checkouts
+Unauthenticated checkout | reject/login | Edge/RPC require auth | Low | Keep
+Non-member checkout | reject | Edge/RPC check role member | Low | Keep
+Duplicate checkout | reject | Paymob checks package or coach open statuses | Low | Keep
+Paymob checkout closed | remain pending | order pending/subscription checkout_pending | Medium | Add expiry/reconciliation job
+Webhook delayed | UI pending until callback | Flutter says confirming; backend source of truth | Medium | Add polling/retry UX
+Duplicate webhook | no duplicate effects | unique tx id and payout item unique | Low | Keep, add audit metric
+Invalid HMAC | no activation, 401 | transaction row inserted when possible, no activation | Low | Add admin audit event
+Amount mismatch | no activation | order/subscription failed if not paid | Medium | Add reconciliation alert
+Currency mismatch | no activation | same as mismatch | Medium | Keep
+Order not found | no activation | processing_result order_not_found | Medium | Admin alert/audit
+Paymob failure | checkout failed | handled | Medium | Retry UX
+Refund after activation | scaffolded only | if order already paid, subscription not reversed | High | Define refund policy/state
+Payment paid, activation failed | should alert | admin summary detects paid/no active | High | Add recovery job
+Active subscription no thread | repair | admin_ensure and check-in ensure can repair | High | Add scheduled alert
+Two threads | impossible by unique | unique subscription_id | Low | Keep
+Messages before activation | blocked | send RPC blocks | Low | Keep
+Paused messages | product decision | currently blocked | Medium | Decide
+Cancelled messages | blocked | currently blocked | Low | Keep
+Coach deleted | preserve history | soft delete may anonymize | Medium | Verify account deletion effects
+Member deleted | preserve/anonymize | soft delete updates/deletes some rows | Medium | Re-test relationship data
+Package archived with active clients | active clients should continue | delete archives if linked | Low | Keep
+Duplicate weekly check-in | update same week | upsert | Low | Keep
+Invalid adherence | clamp/check | clamp 0..100 | Low | Keep
+Feedback without thread | create if active | backend coalesces ensure | Low | UI currently disables if null in inbox
+Empty feedback | reject | backend rejects | Low | Keep
+Photo upload failure | should not submit bad refs | no photo bucket found | High | Add bucket/policy or remove upload
+No visibility settings | no private insights | returns header only | Low | Keep
+Revoked all | no private insights | audit and false toggles | Low | Keep
+Coach reads without consent | should be blocked | RPC toggle-gated | Low | Keep
+Settings for wrong coach | reject | upsert checks subscription/coach | Low | Keep
+Assign program wrong client | reject if not coach subscription | checks coach_id | Medium | Also require active
+Assign inactive resource | reject | checks is_active=true | Low | Keep
+Duplicate resource assignment | update note | conflict unique | Low | Keep
+Missing storage object | file fails to open | possible | Medium | Add object existence validation
+Booking invalid datetime | reject end>start, conflict check | create computes end | Medium | Add past-date guard for coach-created
+No session types | seed defaults for coach | list_coach_session_types seeds | Low | Keep
+Booking non-active | reject except paused | active/paused allowed | Medium | Decide paused behavior
+Payout marked paid twice | reject | admin RPC state validation | Low | Keep
+Payout for unpaid order | should not exist | payout item created only after paid callback | Medium | Add DB check/report
+On-hold payout marked paid | should require release | migration 35 paid accepts ready/processing | Low | Keep
+Admin without permission | reject | admin_assert_permission | Low | Keep
+Missing payout account | should alert | coach balances include account status | Medium | Add dashboard filter
+Unverified payout account | should block or warn | verify action exists, paid RPC may not block | Medium | Product decision
+External reference missing | reject | admin_mark_payout_paid requires | Low | Keep
+
+============================================================
+SECTION 16 - REPO VS LIVE PARITY CHECKLIST
+============================================================
+
+Object | Flutter expects? | Migration exists? | Function/RPC exists? | RLS exists? | Storage bucket exists? | Live status known? | Risk
+--- | --- | --- | --- | --- | --- | --- | ---
+coach_checkout_requests | Yes legacy | Yes | create_coach_checkout | Yes | n/a | Live not verified | Medium
+coach_payment_orders | Yes Paymob/admin | Yes | get/status/admin/process | Yes | n/a | Live not verified | High
+coach_payment_transactions | Admin/backend | Yes | process/admin details | Yes | n/a | Live not verified | High
+coach_member_threads | Yes | Yes | ensure_coach_member_thread | Yes | n/a | Live not verified | High
+coach_messages | Yes | Yes | send_coaching_message | Yes | n/a | Live not verified | High
+weekly_checkins | Yes | Yes | submit/checkin feedback | Yes | n/a | Live not verified | High
+progress_photos | Yes in repository | Yes | via submit_weekly_checkin | Yes table | Not found | Live not verified | High
+coach_resources | Coach yes, member no | Yes | list/save/assign | Yes | coach-resources | Live not verified | Medium
+coach_bookings | Coach yes, member no | Yes | list/create/update | Yes | n/a | Live not verified | Medium
+coach_member_visibility_settings | Yes | Yes | upsert/get/insight | Yes | n/a | Live not verified | Medium
+coach_member_visibility_audit | Yes | Yes | list_visibility_audit | Yes | n/a | Live not verified | Medium
+coach_payouts | Admin/coach billing | Yes adapted | admin payout RPCs | Yes | n/a | Live not verified | High
+coach_payout_items | Admin/backend | Yes | create_pending/admin details | Yes | n/a | Live not verified | High
+admin_audit_events | Admin | Yes | admin list/insert | Yes | n/a | Live not verified | High
+app_admins | Admin | Yes | current_admin/permissions | Yes | n/a | Live not verified | High
+coach-payment-receipts bucket | Legacy member UI | n/a | storage policies | n/a | Yes | Live not verified | Medium
+coach-resources bucket | Coach UI | n/a | storage policies | n/a | Yes | Live not verified | Medium
+admin-payout-proofs bucket | Deferred | No | No | No | No | Live not verified | Low
+
+============================================================
+SECTION 17 - BUG AND RISK REGISTER
+============================================================
+
+ID | Area | Problem | Evidence | Impact | Severity | Suggested fix | Depends on
+--- | --- | --- | --- | --- | --- | --- | ---
+R1 | Security/RLS | subscriptions can be directly updated by member or coach | initial migration subscriptions_update_member_or_coach | Payment/status tampering risk | Critical | Replace broad update with column-scoped or RPC-only policies | Migration review
+R2 | Payments | Legacy coach payment approval still activates subscription | verify_coach_payment RPC | Conflicts with Paymob guarantor model | High | Keep behind manual-only flag and reject Paymob subscriptions in RPC | Product decision
+R3 | Paymob | Live deployment not verified | repo-only migrations/functions | End-to-end may fail in production | High | Deploy migrations/functions and run test payment | Supabase access
+R4 | Storage | progress photo bucket/policy not found | progress_photos table only | Photo upload/read failures or leaks | High | Add private bucket/policies or remove upload | Product storage decision
+R5 | Programs | program assignment does not require active subscription | assign_program_template_to_client checks coach only | Coach can assign before payment | High | Require active or explicit onboarding pre-active rule | Product decision
+R6 | Habits | habits assignment/member logs lack member UI | no member habit screen found | Client cannot use assigned habits | Medium | Build member habit UI or hide coach habit assignment | UI scope
+R7 | Resources | assigned resources lack member screen | no member resource screen found | Client cannot find resources | Medium | Add member resources tab/card | UX design
+R8 | Bookings | member booking/session UI not found | only coach calendar screens found | Self-booking backend unused | Medium | Build member sessions screen | UX/product
+R9 | Booking security | participants can set any booking status | update_coach_booking_status accepts all statuses | Member could mark no_show/completed | High | Enforce role-specific transitions | Product rules
+R10 | Privacy | ordinary text message notifications not found | send_coaching_message no notification insert | Missed messages | Medium | Add idempotent message notifications | Notification design
+R11 | Admin | webhook anomalies not consistently admin_audit_events | process callback logs transactions | Finance audit gap | Medium | Insert admin_audit_events for invalid_hmac/mismatch/duplicate | Admin policy
+R12 | Payout | mark paid may not require verified payout account | admin_mark_payout_paid validates status/ref only | Finance mistake risk | Medium | Warn/block if account missing/unverified | Product decision
+R13 | Pause | paused behavior inconsistent | messages/check-ins active only; bookings active/paused | Confusing UX | Medium | Define paused feature matrix | Product owner
+R14 | Onboarding | apply onboarding before active can fail | ensure_coach_member_thread active-only inside flow | Coach workflow error on pending clients | Medium | UI restrict to active or split pre-active flow | Product decision
+R15 | Tests | Edge tests not locally executed | Deno unavailable in previous verification | Backend regression risk | Medium | Install Deno/run function tests in CI | Tooling
+
+============================================================
+SECTION 18 - RECOMMENDED FIX ORDER
+============================================================
+
+Phase 1 - Relationship Core
+- Why: subscriptions, thread creation, messaging, and check-ins are the operational backbone.
+- Files/areas: subscriptions RLS migrations, ensure_coach_member_thread, send_coaching_message, submit_weekly_checkin, MySubscriptionsScreen, MemberMessagesScreen, CoachClientWorkspaceScreen.
+- Test: active-only gates, active/no-thread repair, member/coach spoofing, unrelated access.
+- Definition of done: only paid/active relationships can message/check in; active subscriptions always get exactly one thread.
+
+Phase 2 - Paymob Payment
+- Why: payment is the authority for activation.
+- Files/areas: migration 34, create-coach-paymob-checkout, paymob-transaction-callback, shared Paymob HMAC helpers, SubscriptionPackagesScreen, MySubscriptionsScreen.
+- Test: checkout creation, duplicate prevention, invalid HMAC, amount mismatch, success, failure, duplicate callback.
+- Definition of done: Paymob test checkout activates subscription only through verified callback and creates payout item once.
+
+Phase 3 - Admin Dashboard
+- Why: GymUnity must settle coaches manually and audit finance actions.
+- Files/areas: migration 35, admin-payment-settings, lib/features/admin.
+- Test: non-admin denied, support read-only, finance mark paid, audit log, coach notification, no secret exposure.
+- Definition of done: finance/super admin can mark external payout paid with audit and no real transfer.
+
+Phase 4 - Privacy/Insights
+- Why: client private app data must not leak.
+- Files/areas: coach_member_insights migration/repo/screens, MySubscriptions privacy entry, CoachMemberInsightsScreen.
+- Test: no settings row, each toggle, revoke all, inactive subscription, wrong coach.
+- Definition of done: coach sees only relationship data plus explicitly shared categories.
+
+Phase 5 - Coach Workspace Tools
+- Why: current coach tools are powerful but unevenly surfaced to clients.
+- Files/areas: program/habit/resource/booking migrations and Flutter screens.
+- Test: active-only assignment, client visibility, resource storage reads, booking role transitions.
+- Definition of done: every coach assignment has a clear member-facing destination or is hidden.
+
+Phase 6 - QA and hardening
+- Why: live parity and payment security need regression coverage.
+- Files/areas: SQL tests, Deno tests, Flutter widget/provider tests, docs/manual QA.
+- Test: full e2e Paymob test, RLS matrix, admin settlement, privacy, pause/cancel edge cases.
+- Definition of done: CI runs Flutter and Edge/SQL tests; live test mode checklist passes.
+
+============================================================
+SECTION 19 - QUESTIONS FOR PRODUCT OWNER
+============================================================
+
+1. Should paused subscriptions allow messages?
+2. Should paused subscriptions allow check-ins?
+3. Should paused subscriptions allow bookings, or only already scheduled sessions?
+4. Should coach-assigned programs replace AI plans in the member UI, coexist, or become a separate coaching tab?
+5. Should coaches be allowed to assign programs/habits/resources before payment is confirmed?
+6. Should Paymob card, wallet, kiosk, and other methods all be supported in MVP?
+7. What is the platform commission in basis points?
+8. Who pays Paymob gateway fees: GymUnity, coach, or client?
+9. When should coach payout become ready: immediately, after hold days, after refund window?
+10. Should admin ever be able to manually activate a Paymob subscription?
+11. Should client be able to request refund in-app?
+12. Should coach see exact payout amount before admin pays?
+13. Should client ever see coach payout status? Recommendation: no.
+14. Should resource files be downloadable or view-only?
+15. Should booking reschedule/cancel be client-controlled?
+16. Should booking completed/no_show be coach-only?
+17. Should client edits to a check-in be locked after coach feedback?
+18. Should check-in edits send another coach notification?
+19. Should ordinary text messages generate notifications?
+20. Should payout account verification be mandatory before mark paid?
+
+============================================================
+SECTION 20 - FINAL SYSTEM DIAGRAMS
+============================================================
+
+1. Happy path
+
+Coach creates package
+  -> package published
+  -> client views coach/package
+  -> client starts Paymob checkout
+  -> create-coach-paymob-checkout creates subscription + payment order
+  -> Paymob hosted checkout
+  -> verified callback
+  -> process_coach_paymob_callback
+  -> coach_payment_orders.status = paid
+  -> subscriptions.status = active / checkout_status = paid
+  -> ensure_coach_member_thread
+  -> client and coach messages/check-ins unlock
+  -> create_pending_coach_payout_for_payment
+  -> admin later marks payout paid
+
+2. Payment failure
+
+Client checkout
+  -> Paymob failed/rejected callback
+  -> HMAC verified
+  -> order.status = failed
+  -> subscription.checkout_status = failed
+  -> no active subscription
+  -> no thread unlock
+  -> client can retry or admin can cancel unpaid checkout
+
+3. Webhook delay
+
+Flutter checkout success screen
+  -> app says "confirming"
+  -> subscription still checkout_pending
+  -> messages/check-ins locked
+  -> Paymob callback arrives later
+  -> backend verifies HMAC
+  -> subscription active
+  -> thread created
+  -> app refresh shows active
+
+4. Check-in loop
+
+Active subscription
+  -> client submits weekly check-in
+  -> weekly_checkins upsert
+  -> coach notification
+  -> coach reviews check-in
+  -> submit_coach_checkin_feedback
+  -> weekly_checkins.coach_reply updated
+  -> coach_messages checkin_feedback inserted
+  -> member notification
+
+5. Privacy loop
+
+Active subscription
+  -> member opens privacy settings
+  -> toggles sharing categories
+  -> upsert_coach_member_visibility
+  -> visibility audit row
+  -> coach insight RPC checks toggles
+  -> sections unlock/lock
+  -> revoke all returns header only
+
+6. Admin payout loop
+
+Paid Paymob order
+  -> payout item created once
+  -> payout batch pending/ready/on_hold
+  -> admin transfers money outside GymUnity
+  -> admin opens /admin-dashboard
+  -> mark payout paid with external reference
+  -> coach_payouts.status = paid
+  -> admin_audit_events row
+  -> coach notification
+
+============================================================
+END OF DISCOVERY
+============================================================
+

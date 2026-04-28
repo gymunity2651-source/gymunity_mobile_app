@@ -15,6 +15,12 @@ class SubscriptionEntity {
     this.billingCycle = 'monthly',
     this.paymentMethod = 'manual',
     this.checkoutStatus = 'not_started',
+    this.paymentGateway,
+    this.paymentOrderId,
+    this.amountCents,
+    this.currency = 'EGP',
+    this.platformFeeCents = 0,
+    this.coachNetCents = 0,
     this.startsAt,
     this.endsAt,
     this.activatedAt,
@@ -49,6 +55,12 @@ class SubscriptionEntity {
   final String billingCycle;
   final String paymentMethod;
   final String checkoutStatus;
+  final String? paymentGateway;
+  final String? paymentOrderId;
+  final int? amountCents;
+  final String currency;
+  final int platformFeeCents;
+  final int coachNetCents;
   final DateTime? startsAt;
   final DateTime? endsAt;
   final DateTime? activatedAt;
@@ -74,8 +86,44 @@ class SubscriptionEntity {
 
   bool get isPaused => status == 'paused';
 
+  bool get isPaymobPayment =>
+      paymentGateway?.toLowerCase() == 'paymob' ||
+      paymentMethod.toLowerCase() == 'paymob';
+
   bool get isCheckoutPending =>
-      status == 'checkout_pending' || checkoutStatus == 'checkout_pending';
+      status == 'checkout_pending' ||
+      status == 'pending_payment' ||
+      status == 'pending_activation' ||
+      checkoutStatus == 'checkout_pending' ||
+      checkoutStatus == 'payment_pending';
+
+  String get billingStatusLabel {
+    if (status == 'active' || checkoutStatus == 'paid') {
+      return 'Activated';
+    }
+    if (checkoutStatus == 'failed') {
+      return isPaymobPayment ? 'Payment failed' : 'Failed / needs follow-up';
+    }
+    if (isPaymobPayment && checkoutStatus == 'paid') {
+      return 'Payment confirmed';
+    }
+    if (isPaymobPayment && isCheckoutPending) {
+      return 'Payment pending';
+    }
+    if (checkoutStatus == 'under_verification') {
+      return 'Under verification';
+    }
+    if (checkoutStatus == 'receipt_uploaded') {
+      return 'Receipt uploaded';
+    }
+    if (checkoutStatus == 'submitted') {
+      return 'Payment submitted';
+    }
+    if (isCheckoutPending) {
+      return 'Awaiting payment';
+    }
+    return status.replaceAll('_', ' ');
+  }
 
   bool get isPaymentConfirmed => checkoutStatus == 'paid';
 
@@ -100,6 +148,12 @@ class SubscriptionEntity {
     String? billingCycle,
     String? paymentMethod,
     String? checkoutStatus,
+    String? paymentGateway,
+    String? paymentOrderId,
+    int? amountCents,
+    String? currency,
+    int? platformFeeCents,
+    int? coachNetCents,
     DateTime? startsAt,
     DateTime? endsAt,
     DateTime? activatedAt,
@@ -134,6 +188,12 @@ class SubscriptionEntity {
       billingCycle: billingCycle ?? this.billingCycle,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       checkoutStatus: checkoutStatus ?? this.checkoutStatus,
+      paymentGateway: paymentGateway ?? this.paymentGateway,
+      paymentOrderId: paymentOrderId ?? this.paymentOrderId,
+      amountCents: amountCents ?? this.amountCents,
+      currency: currency ?? this.currency,
+      platformFeeCents: platformFeeCents ?? this.platformFeeCents,
+      coachNetCents: coachNetCents ?? this.coachNetCents,
       startsAt: startsAt ?? this.startsAt,
       endsAt: endsAt ?? this.endsAt,
       activatedAt: activatedAt ?? this.activatedAt,

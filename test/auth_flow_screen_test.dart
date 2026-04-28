@@ -10,13 +10,8 @@ import 'package:my_app/core/supabase/auth_callback_utils.dart';
 import 'package:my_app/features/auth/domain/entities/auth_session.dart';
 import 'package:my_app/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:my_app/features/auth/presentation/screens/login_screen.dart';
-import 'package:my_app/features/auth/presentation/screens/otp_screen.dart';
 import 'package:my_app/features/auth/presentation/screens/register_screen.dart';
 import 'package:my_app/features/auth/presentation/providers/auth_providers.dart';
-import 'package:my_app/features/member/presentation/screens/member_home_screen.dart';
-import 'package:my_app/features/user/domain/entities/app_role.dart';
-import 'package:my_app/features/user/domain/entities/profile_entity.dart';
-import 'package:my_app/features/user/domain/entities/user_entity.dart';
 
 import 'test_doubles.dart';
 
@@ -47,40 +42,6 @@ void main() {
   tearDownAll(AppConfig.clearDebugOverride);
 
   group('Auth screens', () {
-    testWidgets('register routes to OTP when email verification is required', (
-      tester,
-    ) async {
-      final authRepository = FakeAuthRepository()
-        ..registerResult = const AuthSession(
-          userId: 'user-1',
-          email: 'user@test.com',
-          isAuthenticated: false,
-          requiresOtpVerification: true,
-        );
-      final userRepository = FakeUserRepository();
-
-      await _pumpScreen(
-        tester,
-        const RegisterScreen(),
-        overrides: _overrides(
-          authRepository: authRepository,
-          userRepository: userRepository,
-        ),
-      );
-
-      await tester.enterText(find.byType(TextFormField).at(0), 'John Doe');
-      await tester.enterText(find.byType(TextFormField).at(1), 'user@test.com');
-      await tester.enterText(find.byType(TextFormField).at(2), 'Password123');
-      await tester.enterText(find.byType(TextFormField).at(3), 'Password123');
-
-      await tester.ensureVisible(find.text('CREATE ACCOUNT'));
-      await tester.tap(find.text('CREATE ACCOUNT'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(OtpScreen), findsOneWidget);
-      expect(userRepository.ensureUserCalls, 1);
-    });
-
     testWidgets('register triggers Google OAuth launch', (tester) async {
       final authRepository = FakeAuthRepository()
         ..signInWithGoogleResult = true;
@@ -111,13 +72,7 @@ void main() {
           ..sessionStream = controller.stream
           ..signInWithGoogleResult = true;
         final authCallbackIngress = FakeAuthCallbackIngress();
-        final userRepository = FakeUserRepository()
-          ..currentUser = const UserEntity(id: 'user-1', email: 'user@test.com')
-          ..profile = const ProfileEntity(
-            userId: 'user-1',
-            role: AppRole.member,
-            onboardingCompleted: true,
-          );
+        final userRepository = FakeUserRepository();
 
         await _pumpScreen(
           tester,
@@ -143,56 +98,31 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.byType(MemberHomeScreen), findsOneWidget);
+        expect(find.byType(LoginScreen), findsOneWidget);
         expect(userRepository.ensureUserCalls, 1);
       },
     );
 
-    testWidgets(
-      'register routes directly to resolved destination when OTP is not required',
-      (tester) async {
-        final authRepository = FakeAuthRepository()
-          ..registerResult = const AuthSession(
-            userId: 'user-1',
-            email: 'user@test.com',
-            isAuthenticated: true,
-            requiresOtpVerification: false,
-          );
-        final userRepository = FakeUserRepository()
-          ..currentUser = const UserEntity(id: 'user-1', email: 'user@test.com')
-          ..profile = const ProfileEntity(
-            userId: 'user-1',
-            role: AppRole.member,
-            onboardingCompleted: true,
-          );
+    testWidgets('register screen explains Google-only access', (tester) async {
+      await _pumpScreen(
+        tester,
+        const RegisterScreen(),
+        overrides: _overrides(
+          authRepository: FakeAuthRepository(),
+          userRepository: FakeUserRepository(),
+        ),
+      );
 
-        await _pumpScreen(
-          tester,
-          const RegisterScreen(),
-          overrides: _overrides(
-            authRepository: authRepository,
-            userRepository: userRepository,
-          ),
-        );
+      expect(
+        find.text(
+          'Manual sign-up with name, email, and password has been removed from GymUnity.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Continue with Google'), findsOneWidget);
+    });
 
-        await tester.enterText(find.byType(TextFormField).at(0), 'John Doe');
-        await tester.enterText(
-          find.byType(TextFormField).at(1),
-          'user@test.com',
-        );
-        await tester.enterText(find.byType(TextFormField).at(2), 'Password123');
-        await tester.enterText(find.byType(TextFormField).at(3), 'Password123');
-
-        await tester.ensureVisible(find.text('CREATE ACCOUNT'));
-        await tester.tap(find.text('CREATE ACCOUNT'));
-        await tester.pumpAndSettle();
-
-        expect(find.byType(MemberHomeScreen), findsOneWidget);
-        expect(userRepository.ensureUserCalls, 1);
-      },
-    );
-
-    testWidgets('forgot password sends reset link and returns to login', (
+    testWidgets('forgot password now points users to Google sign-in', (
       tester,
     ) async {
       await _pumpScreen(
@@ -204,13 +134,13 @@ void main() {
         ),
       );
 
-      await tester.enterText(find.byType(TextFormField).first, 'user@test.com');
-      await tester.ensureVisible(find.text('SEND RESET LINK'));
-      await tester.tap(find.text('SEND RESET LINK'));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(
+        find.text(
+          'GymUnity no longer signs users in with email codes or password reset links.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Continue with Google'), findsOneWidget);
     });
 
     testWidgets('login triggers Google OAuth launch', (tester) async {
@@ -263,13 +193,7 @@ void main() {
         ..sessionStream = controller.stream
         ..signInWithGoogleResult = true;
       final authCallbackIngress = FakeAuthCallbackIngress();
-      final userRepository = FakeUserRepository()
-        ..currentUser = const UserEntity(id: 'user-1', email: 'user@test.com')
-        ..profile = const ProfileEntity(
-          userId: 'user-1',
-          role: AppRole.member,
-          onboardingCompleted: true,
-        );
+      final userRepository = FakeUserRepository();
 
       await _pumpScreen(
         tester,
@@ -295,7 +219,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.byType(MemberHomeScreen), findsOneWidget);
+      expect(find.byType(LoginScreen), findsOneWidget);
       expect(userRepository.ensureUserCalls, 1);
     });
 

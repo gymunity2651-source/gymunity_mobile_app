@@ -59,7 +59,7 @@ void main() {
       ),
     );
 
-    expect(find.text('GymUnity'), findsOneWidget);
+    expect(find.text('GU'), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpWidget(const SizedBox.shrink());
   });

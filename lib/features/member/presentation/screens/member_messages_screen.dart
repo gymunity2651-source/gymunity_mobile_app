@@ -111,6 +111,7 @@ class _MemberThreadScreenState extends ConsumerState<MemberThreadScreen> {
     final messagesAsync = ref.watch(
       memberCoachingMessagesProvider(widget.thread.id),
     );
+    final canSend = widget.thread.subscriptionStatus == 'active';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -160,18 +161,40 @@ class _MemberThreadScreenState extends ConsumerState<MemberThreadScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Write an update or question',
+                if (!canSend) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'This coaching subscription is paused. Message history remains available, but new messages require an active subscription.',
+                      style: GoogleFonts.inter(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        enabled: canSend,
+                        decoration: const InputDecoration(
+                          hintText: 'Write an update or question',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    IconButton(
+                      onPressed: canSend ? _send : null,
+                      icon: const Icon(Icons.send),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                IconButton(onPressed: _send, icon: const Icon(Icons.send)),
               ],
             ),
           ),
@@ -185,11 +208,22 @@ class _MemberThreadScreenState extends ConsumerState<MemberThreadScreen> {
     if (content.isEmpty) {
       return;
     }
-    _controller.clear();
-    await ref
-        .read(memberRepositoryProvider)
-        .sendCoachingMessage(threadId: widget.thread.id, content: content);
-    ref.invalidate(memberCoachingMessagesProvider(widget.thread.id));
-    ref.invalidate(memberCoachingThreadsProvider);
+    try {
+      _controller.clear();
+      await ref
+          .read(memberRepositoryProvider)
+          .sendCoachingMessage(threadId: widget.thread.id, content: content);
+      ref.invalidate(memberCoachingMessagesProvider(widget.thread.id));
+      ref.invalidate(memberCoachingThreadsProvider);
+      ref.invalidate(memberSubscriptionsProvider);
+    } catch (error) {
+      _controller.text = content;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Message could not be sent: $error')),
+        );
+    }
   }
 }

@@ -2,19 +2,29 @@ import 'dart:async';
 
 import 'package:my_app/core/supabase/auth_callback_ingress.dart';
 import 'package:my_app/core/result/paged.dart';
+import 'package:my_app/features/ai_coach/domain/entities/ai_coach_entities.dart';
+import 'package:my_app/features/ai_coach/domain/repositories/ai_coach_repository.dart';
 import 'package:my_app/features/ai_chat/domain/entities/chat_message_entity.dart';
 import 'package:my_app/features/ai_chat/domain/entities/chat_session_entity.dart';
 import 'package:my_app/features/ai_chat/domain/entities/planner_turn_result.dart';
 import 'package:my_app/features/ai_chat/domain/repositories/chat_repository.dart';
+import 'package:my_app/features/admin/domain/entities/admin_entities.dart';
+import 'package:my_app/features/admin/domain/repositories/admin_repository.dart';
 import 'package:my_app/features/auth/domain/entities/auth_session.dart';
 import 'package:my_app/features/auth/domain/entities/auth_provider_type.dart';
 import 'package:my_app/features/auth/domain/entities/otp_flow.dart';
 import 'package:my_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_app/features/coach/domain/entities/coach_entity.dart';
+import 'package:my_app/features/coach/domain/entities/coach_workspace_entity.dart';
 import 'package:my_app/features/coach/domain/entities/subscription_entity.dart';
 import 'package:my_app/features/coach/domain/entities/workout_plan_entity.dart';
 import 'package:my_app/features/coach/domain/repositories/coach_repository.dart';
+import 'package:my_app/features/coach_member_insights/domain/entities/member_insight_entity.dart';
+import 'package:my_app/features/coach_member_insights/domain/entities/visibility_audit_entity.dart';
+import 'package:my_app/features/coach_member_insights/domain/entities/visibility_settings_entity.dart';
+import 'package:my_app/features/coach_member_insights/domain/repositories/coach_member_insights_repository.dart';
 import 'package:my_app/features/member/domain/entities/member_home_summary_entity.dart';
+import 'package:my_app/features/member/domain/entities/coach_hub_entity.dart';
 import 'package:my_app/features/member/domain/entities/coaching_engagement_entity.dart';
 import 'package:my_app/features/member/domain/entities/member_profile_entity.dart';
 import 'package:my_app/features/member/domain/entities/member_progress_entity.dart';
@@ -53,6 +63,7 @@ class FakeAuthRepository implements AuthRepository {
   Object? updatePasswordError;
   Object? deleteAccountError;
   int signInWithOAuthCalls = 0;
+  int logoutCalls = 0;
 
   set signInWithGoogleResult(bool value) => signInWithOAuthResult = value;
   bool get signInWithGoogleResult => signInWithOAuthResult;
@@ -128,7 +139,271 @@ class FakeAuthRepository implements AuthRepository {
   Stream<AuthSession?> watchSession() => sessionStream;
 
   @override
-  Future<void> logout() async {}
+  Future<void> logout() async {
+    logoutCalls++;
+  }
+}
+
+class FakeAdminRepository implements AdminRepository {
+  AdminUserEntity? currentAdmin;
+  AdminDashboardSummaryEntity dashboardSummary =
+      const AdminDashboardSummaryEntity(
+        paymentKpis: <String, num>{
+          'total_paid_amount_cents': 120000,
+          'payments_today': 1,
+          'pending_payments': 1,
+          'failed_payments': 0,
+        },
+        payoutKpis: <String, num>{
+          'pending_coach_payouts': 1,
+          'total_coach_net_payable_cents': 90000,
+          'platform_fees_earned_cents': 30000,
+        },
+        operationalKpis: <String, num>{'hmac_failures': 0},
+      );
+  List<AdminPaymentOrderEntity> paymentOrders = const <AdminPaymentOrderEntity>[
+    AdminPaymentOrderEntity(
+      id: 'payment-1',
+      memberName: 'Mona Member',
+      coachName: 'Omar Coach',
+      packageTitle: 'Starter Coaching',
+      amountGrossCents: 120000,
+      status: 'paid',
+      specialReference: 'gymunity_coach_test',
+    ),
+    AdminPaymentOrderEntity(
+      id: 'payment-2',
+      memberName: 'Ali Member',
+      coachName: 'Omar Coach',
+      packageTitle: 'Cut Plan',
+      amountGrossCents: 90000,
+      status: 'failed',
+    ),
+  ];
+  List<AdminPayoutEntity> payouts = const <AdminPayoutEntity>[
+    AdminPayoutEntity(
+      id: 'payout-1',
+      coachId: 'coach-1',
+      coachName: 'Omar Coach',
+      amountCents: 90000,
+      status: 'ready',
+      itemCount: 1,
+    ),
+  ];
+  List<AdminCoachBalanceEntity> coachBalances = const <AdminCoachBalanceEntity>[
+    AdminCoachBalanceEntity(
+      coachId: 'coach-1',
+      coachName: 'Omar Coach',
+      activeClientsCount: 3,
+      totalPaidClientPaymentsCents: 120000,
+      totalCoachNetEarnedCents: 90000,
+    ),
+  ];
+  List<AdminSubscriptionEntity> subscriptions = const <AdminSubscriptionEntity>[
+    AdminSubscriptionEntity(
+      subscriptionId: 'sub-1',
+      memberName: 'Mona Member',
+      coachName: 'Omar Coach',
+      packageTitle: 'Starter Coaching',
+      status: 'active',
+      checkoutStatus: 'paid',
+      threadExists: false,
+    ),
+  ];
+  List<AdminAuditEventEntity> auditEvents = const <AdminAuditEventEntity>[
+    AdminAuditEventEntity(
+      id: 'audit-1',
+      action: 'admin_mark_payout_paid',
+      targetType: 'coach_payout',
+    ),
+  ];
+  AdminSettingsEntity settings = const AdminSettingsEntity(
+    mode: 'test',
+    currency: 'EGP',
+    platformFeeBps: 1500,
+    payoutHoldDays: 0,
+    apiBaseUrl: 'https://accept.paymob.com',
+    notificationUrlConfigured: true,
+    redirectionUrlConfigured: true,
+    testIntegrationIdsConfigured: true,
+    secretKeyConfigured: true,
+    hmacKeyConfigured: true,
+  );
+  final List<Map<String, dynamic>> calls = <Map<String, dynamic>>[];
+
+  @override
+  Future<AdminUserEntity?> getCurrentAdmin() async => currentAdmin;
+
+  @override
+  Future<AdminDashboardSummaryEntity> getDashboardSummary() async =>
+      dashboardSummary;
+
+  @override
+  Future<List<AdminPaymentOrderEntity>> listPaymentOrders({
+    String? status,
+    String? search,
+    String? payoutStatus,
+  }) async {
+    return paymentOrders
+        .where((payment) {
+          final matchesStatus = status == null || payment.status == status;
+          final text =
+              '${payment.memberName} ${payment.coachName} '
+                      '${payment.packageTitle} ${payment.specialReference ?? ''}'
+                  .toLowerCase();
+          final matchesSearch =
+              search == null ||
+              search.trim().isEmpty ||
+              text.contains(search.toLowerCase());
+          return matchesStatus && matchesSearch;
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<AdminPaymentOrderEntity> getPaymentOrderDetails(
+    String paymentOrderId,
+  ) async {
+    return paymentOrders.firstWhere((payment) => payment.id == paymentOrderId);
+  }
+
+  @override
+  Future<List<AdminPayoutEntity>> listPayouts({
+    String? status,
+    String? search,
+  }) async {
+    return payouts
+        .where((payout) => status == null || payout.status == status)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<AdminPayoutEntity> getPayoutDetails(String payoutId) async {
+    return payouts.firstWhere((payout) => payout.id == payoutId);
+  }
+
+  @override
+  Future<List<AdminCoachBalanceEntity>> listCoachBalances({
+    String? search,
+  }) async {
+    return coachBalances;
+  }
+
+  @override
+  Future<List<AdminSubscriptionEntity>> listSubscriptions({
+    String? status,
+    String? search,
+  }) async {
+    return subscriptions;
+  }
+
+  @override
+  Future<List<AdminAuditEventEntity>> listAuditEvents({
+    String? action,
+    String? targetType,
+  }) async {
+    return auditEvents;
+  }
+
+  @override
+  Future<AdminSettingsEntity> getSettings() async => settings;
+
+  @override
+  Future<void> markPayoutReady(String payoutId, {String? note}) async {
+    calls.add({'action': 'mark_ready', 'payoutId': payoutId, 'note': note});
+  }
+
+  @override
+  Future<void> holdPayout(String payoutId, {required String reason}) async {
+    calls.add({'action': 'hold', 'payoutId': payoutId, 'reason': reason});
+  }
+
+  @override
+  Future<void> releasePayout(String payoutId, {String? note}) async {
+    calls.add({'action': 'release', 'payoutId': payoutId, 'note': note});
+  }
+
+  @override
+  Future<void> markPayoutProcessing(String payoutId, {String? note}) async {
+    calls.add({'action': 'processing', 'payoutId': payoutId, 'note': note});
+  }
+
+  @override
+  Future<void> markPayoutPaid({
+    required String payoutId,
+    required String method,
+    required String externalReference,
+    String? adminNote,
+  }) async {
+    calls.add({
+      'action': 'paid',
+      'payoutId': payoutId,
+      'method': method,
+      'externalReference': externalReference,
+      'adminNote': adminNote,
+    });
+  }
+
+  @override
+  Future<void> markPayoutFailed(
+    String payoutId, {
+    required String reason,
+  }) async {
+    calls.add({'action': 'failed', 'payoutId': payoutId, 'reason': reason});
+  }
+
+  @override
+  Future<void> cancelPayout(String payoutId, {required String reason}) async {
+    calls.add({'action': 'cancel', 'payoutId': payoutId, 'reason': reason});
+  }
+
+  @override
+  Future<void> reconcilePaymentOrder(String paymentOrderId) async {
+    calls.add({'action': 'reconcile', 'paymentOrderId': paymentOrderId});
+  }
+
+  @override
+  Future<void> markPaymentNeedsReview(
+    String paymentOrderId,
+    String reason,
+  ) async {
+    calls.add({
+      'action': 'needs_review',
+      'paymentOrderId': paymentOrderId,
+      'reason': reason,
+    });
+  }
+
+  @override
+  Future<void> cancelUnpaidCheckout(
+    String paymentOrderId,
+    String reason,
+  ) async {
+    calls.add({
+      'action': 'cancel_checkout',
+      'paymentOrderId': paymentOrderId,
+      'reason': reason,
+    });
+  }
+
+  @override
+  Future<void> ensureSubscriptionThread(String subscriptionId) async {
+    calls.add({'action': 'ensure_thread', 'subscriptionId': subscriptionId});
+  }
+
+  @override
+  Future<void> verifyCoachPayoutAccount({
+    required String coachId,
+    required bool isVerified,
+    String? note,
+  }) async {
+    calls.add({
+      'action': 'verify_account',
+      'coachId': coachId,
+      'isVerified': isVerified,
+      'note': note,
+    });
+  }
 }
 
 class FakeAuthCallbackIngress implements AuthCallbackIngress {
@@ -226,7 +501,28 @@ class FakeUserRepository implements UserRepository {
 
 class FakeCoachRepository implements CoachRepository {
   List<CoachEntity> coaches = const <CoachEntity>[];
+  CoachWorkspaceEntity workspaceSummary = const CoachWorkspaceEntity();
+  List<CoachActionItemEntity> actionItems = const <CoachActionItemEntity>[];
+  List<CoachProgramTemplateEntity> programTemplates =
+      const <CoachProgramTemplateEntity>[];
+  List<CoachExerciseEntity> exercises = const <CoachExerciseEntity>[];
+  List<CoachOnboardingTemplateEntity> onboardingTemplates =
+      const <CoachOnboardingTemplateEntity>[];
+  List<CoachSessionTypeEntity> sessionTypes = const <CoachSessionTypeEntity>[];
+  List<CoachBookingEntity> bookings = const <CoachBookingEntity>[];
+  List<CoachPaymentReceiptEntity> paymentQueue =
+      const <CoachPaymentReceiptEntity>[];
+  List<CoachPaymentAuditEntity> paymentAuditTrail =
+      const <CoachPaymentAuditEntity>[];
+  List<CoachResourceEntity> resources = const <CoachResourceEntity>[];
+  List<CoachMessageEntity> coachMessages = const <CoachMessageEntity>[];
+  Map<String, CoachClientWorkspaceEntity> clientWorkspaces =
+      <String, CoachClientWorkspaceEntity>{};
   Object? upsertError;
+  int upsertCoachProfileCalls = 0;
+  int saveAvailabilitySlotCalls = 0;
+  Map<String, dynamic>? lastUpsertCoachProfilePayload;
+  Map<String, dynamic>? lastAvailabilitySlotPayload;
   List<CoachPackageEntity> packages = const <CoachPackageEntity>[];
   List<CoachAvailabilitySlotEntity> availability =
       const <CoachAvailabilitySlotEntity>[];
@@ -237,6 +533,20 @@ class FakeCoachRepository implements CoachRepository {
   SubscriptionEntity? lastRequestedSubscription;
   SubscriptionEntity? lastActivatedSubscription;
   Map<String, dynamic>? lastSavedPackagePayload;
+  Map<String, dynamic>? lastSavedClientRecordPayload;
+  Map<String, dynamic>? lastSavedSessionTypePayload;
+  Map<String, dynamic>? lastCreatedBookingPayload;
+  Map<String, dynamic>? lastUpdatedBookingPayload;
+  Map<String, dynamic>? lastSavedOnboardingTemplatePayload;
+  Map<String, dynamic>? lastAppliedOnboardingTemplatePayload;
+  Map<String, dynamic>? lastSavedResourcePayload;
+  Map<String, dynamic>? lastAssignedResourcePayload;
+  Map<String, dynamic>? lastAssignedHabitsPayload;
+  Map<String, dynamic>? lastAssignedProgramTemplatePayload;
+  Map<String, dynamic>? lastCheckinFeedbackPayload;
+  Map<String, dynamic>? lastSentCoachMessagePayload;
+  Map<String, dynamic>? lastSavedProgramTemplatePayload;
+  Map<String, dynamic>? lastSavedExercisePayload;
 
   @override
   Future<Paged<CoachEntity>> listCoaches({
@@ -278,6 +588,24 @@ class FakeCoachRepository implements CoachRepository {
         ratingAvg: coach.ratingAvg,
         ratingCount: coach.ratingCount,
         isVerified: coach.isVerified,
+        city: coach.city,
+        languages: coach.languages,
+        coachGender: coach.coachGender,
+        verificationStatus: coach.verificationStatus,
+        responseSlaHours: coach.responseSlaHours,
+        trialOfferEnabled: coach.trialOfferEnabled,
+        trialPriceEgp: coach.trialPriceEgp,
+        activeClientCount: coach.activeClientCount,
+        remoteOnly: coach.remoteOnly,
+        limitedSpots: coach.limitedSpots,
+        testimonials: coach.testimonials,
+        resultMedia: coach.resultMedia,
+        headline: coach.headline,
+        positioningStatement: coach.positioningStatement,
+        certifications: coach.certifications,
+        trustBadges: coach.trustBadges,
+        faqItems: coach.faqItems,
+        responseMetrics: coach.responseMetrics,
         deliveryMode: coach.deliveryMode,
         serviceSummary: coach.serviceSummary,
         startingPackagePrice: publishedPackages.isEmpty
@@ -313,7 +641,27 @@ class FakeCoachRepository implements CoachRepository {
     bool trialOfferEnabled = true,
     double trialPriceEgp = 0,
     bool remoteOnly = false,
+    String headline = '',
+    String positioningStatement = '',
   }) async {
+    upsertCoachProfileCalls++;
+    lastUpsertCoachProfilePayload = <String, dynamic>{
+      'bio': bio,
+      'specialties': specialties,
+      'yearsExperience': yearsExperience,
+      'hourlyRate': hourlyRate,
+      'deliveryMode': deliveryMode,
+      'serviceSummary': serviceSummary,
+      'city': city,
+      'languages': languages,
+      'coachGender': coachGender,
+      'responseSlaHours': responseSlaHours,
+      'trialOfferEnabled': trialOfferEnabled,
+      'trialPriceEgp': trialPriceEgp,
+      'remoteOnly': remoteOnly,
+      'headline': headline,
+      'positioningStatement': positioningStatement,
+    };
     if (upsertError != null) throw upsertError!;
   }
 
@@ -367,6 +715,17 @@ class FakeCoachRepository implements CoachRepository {
     int maxSlots = 100,
     bool pauseAllowed = true,
     List<String> paymentRails = const <String>[],
+    int weeklyCheckinsIncluded = 1,
+    int feedbackSlaHours = 24,
+    int initialPlanSlaHours = 48,
+    bool workoutPlanIncluded = true,
+    bool nutritionGuidanceIncluded = false,
+    bool habitsIncluded = true,
+    bool resourcesIncluded = true,
+    bool sessionsIncluded = false,
+    bool monthlyReviewIncluded = false,
+    int sessionCountPerMonth = 0,
+    String packageSummaryForMember = '',
   }) async {
     final resolvedVisibilityStatus =
         visibilityStatus ?? (isActive ? 'published' : 'draft');
@@ -400,6 +759,17 @@ class FakeCoachRepository implements CoachRepository {
       'maxSlots': maxSlots,
       'pauseAllowed': pauseAllowed,
       'paymentRails': paymentRails,
+      'weeklyCheckinsIncluded': weeklyCheckinsIncluded,
+      'feedbackSlaHours': feedbackSlaHours,
+      'initialPlanSlaHours': initialPlanSlaHours,
+      'workoutPlanIncluded': workoutPlanIncluded,
+      'nutritionGuidanceIncluded': nutritionGuidanceIncluded,
+      'habitsIncluded': habitsIncluded,
+      'resourcesIncluded': resourcesIncluded,
+      'sessionsIncluded': sessionsIncluded,
+      'monthlyReviewIncluded': monthlyReviewIncluded,
+      'sessionCountPerMonth': sessionCountPerMonth,
+      'packageSummaryForMember': packageSummaryForMember,
     };
 
     final coachId = coaches.isNotEmpty ? coaches.first.id : 'coach-1';
@@ -434,6 +804,17 @@ class FakeCoachRepository implements CoachRepository {
       maxSlots: maxSlots,
       pauseAllowed: pauseAllowed,
       paymentRails: paymentRails,
+      weeklyCheckinsIncluded: weeklyCheckinsIncluded,
+      feedbackSlaHours: feedbackSlaHours,
+      initialPlanSlaHours: initialPlanSlaHours,
+      workoutPlanIncluded: workoutPlanIncluded,
+      nutritionGuidanceIncluded: nutritionGuidanceIncluded,
+      habitsIncluded: habitsIncluded,
+      resourcesIncluded: resourcesIncluded,
+      sessionsIncluded: sessionsIncluded,
+      monthlyReviewIncluded: monthlyReviewIncluded,
+      sessionCountPerMonth: sessionCountPerMonth,
+      packageSummaryForMember: packageSummaryForMember,
     );
 
     packages = <CoachPackageEntity>[
@@ -492,7 +873,17 @@ class FakeCoachRepository implements CoachRepository {
     required String endTime,
     required String timezone,
     bool isActive = true,
-  }) async {}
+  }) async {
+    saveAvailabilitySlotCalls++;
+    lastAvailabilitySlotPayload = <String, dynamic>{
+      'slotId': slotId,
+      'weekday': weekday,
+      'startTime': startTime,
+      'endTime': endTime,
+      'timezone': timezone,
+      'isActive': isActive,
+    };
+  }
 
   @override
   Future<void> deleteAvailabilitySlot(String slotId) async {}
@@ -694,6 +1085,599 @@ class FakeCoachRepository implements CoachRepository {
     required int rating,
     required String reviewText,
   }) async {}
+
+  @override
+  Future<CoachWorkspaceEntity> getWorkspaceSummary() async {
+    if (workspaceSummary.packagePerformance.isNotEmpty ||
+        workspaceSummary.activeClients != 0 ||
+        workspaceSummary.newLeads != 0 ||
+        workspaceSummary.pendingPaymentVerifications != 0 ||
+        workspaceSummary.atRiskClients != 0 ||
+        workspaceSummary.overdueCheckins != 0 ||
+        workspaceSummary.unreadMessages != 0 ||
+        workspaceSummary.renewalsDueSoon != 0 ||
+        workspaceSummary.todaySessions != 0 ||
+        workspaceSummary.revenueMonth != 0) {
+      return workspaceSummary;
+    }
+    return CoachWorkspaceEntity(
+      activeClients: subscriptions
+          .where((subscription) => subscription.status == 'active')
+          .length,
+      newLeads: subscriptions
+          .where(
+            (subscription) =>
+                subscription.status == 'checkout_pending' ||
+                subscription.status == 'pending_payment',
+          )
+          .length,
+      pendingPaymentVerifications: subscriptions
+          .where((subscription) => subscription.checkoutStatus == 'submitted')
+          .length,
+    );
+  }
+
+  @override
+  Future<List<CoachActionItemEntity>> listActionItems() async {
+    return actionItems;
+  }
+
+  @override
+  Future<void> dismissAutomationEvent(String eventId) async {}
+
+  @override
+  Future<List<CoachClientPipelineEntry>> listClientPipeline(
+    CoachClientPipelineFilter filter,
+  ) async {
+    return subscriptions
+        .map((subscription) {
+          final stage = switch (subscription.status) {
+            'checkout_pending' || 'pending_payment' => 'pending_payment',
+            'paused' => 'paused',
+            'completed' || 'cancelled' => 'archived',
+            _ => 'active',
+          };
+          return CoachClientPipelineEntry(
+            subscriptionId: subscription.id,
+            memberId: subscription.memberId,
+            memberName: subscription.memberName ?? 'Member One',
+            packageId: subscription.packageId,
+            packageTitle: subscription.displayTitle,
+            status: subscription.status,
+            checkoutStatus: subscription.checkoutStatus,
+            billingCycle: subscription.billingCycle,
+            amount: subscription.amount,
+            pipelineStage: stage,
+            internalStatus: 'active',
+            riskStatus: 'none',
+            startedAt: subscription.startsAt ?? subscription.createdAt,
+            nextRenewalAt: subscription.nextRenewalAt,
+          );
+        })
+        .where((entry) {
+          return filter.pipelineStage == null ||
+              filter.pipelineStage == entry.pipelineStage;
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<CoachClientWorkspaceEntity> getClientWorkspace(
+    String subscriptionId,
+  ) async {
+    final direct = clientWorkspaces[subscriptionId];
+    if (direct != null) {
+      return direct;
+    }
+    final client = (await listClientPipeline(
+      const CoachClientPipelineFilter(),
+    )).firstWhere((entry) => entry.subscriptionId == subscriptionId);
+    return CoachClientWorkspaceEntity(client: client);
+  }
+
+  @override
+  Future<void> saveClientRecord({
+    required String subscriptionId,
+    String? pipelineStage,
+    String? internalStatus,
+    String? riskStatus,
+    List<String>? tags,
+    String? coachNotes,
+    String? preferredLanguage,
+    DateTime? followUpAt,
+  }) async {
+    lastSavedClientRecordPayload = <String, dynamic>{
+      'subscriptionId': subscriptionId,
+      'pipelineStage': pipelineStage,
+      'internalStatus': internalStatus,
+      'riskStatus': riskStatus,
+      'tags': tags,
+      'coachNotes': coachNotes,
+      'preferredLanguage': preferredLanguage,
+      'followUpAt': followUpAt,
+    };
+  }
+
+  @override
+  Future<CoachClientNoteEntity> addClientNote({
+    required String subscriptionId,
+    required String note,
+    String noteType = 'general',
+    bool isPinned = false,
+    Map<String, dynamic> metadata = const <String, dynamic>{},
+  }) async {
+    return CoachClientNoteEntity(
+      id: 'note-1',
+      subscriptionId: subscriptionId,
+      memberId: 'member-1',
+      note: note,
+      noteType: noteType,
+      isPinned: isPinned,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<List<CoachThreadEntity>> listCoachThreads() async {
+    return const <CoachThreadEntity>[];
+  }
+
+  @override
+  Future<List<CoachMessageEntity>> listCoachMessages(String threadId) async {
+    return coachMessages
+        .where((message) => message.threadId == threadId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> sendCoachMessage({
+    required String threadId,
+    required String content,
+  }) async {
+    lastSentCoachMessagePayload = <String, dynamic>{
+      'threadId': threadId,
+      'content': content,
+    };
+    coachMessages = <CoachMessageEntity>[
+      ...coachMessages,
+      CoachMessageEntity(
+        id: 'coach-message-${coachMessages.length + 1}',
+        threadId: threadId,
+        senderUserId: 'coach-1',
+        senderRole: 'coach',
+        content: content,
+        createdAt: DateTime.now(),
+      ),
+    ];
+  }
+
+  @override
+  Future<void> markThreadRead(String threadId) async {}
+
+  @override
+  Future<List<WeeklyCheckinEntity>> listCheckinInbox() async {
+    return const <WeeklyCheckinEntity>[];
+  }
+
+  @override
+  Future<void> submitCheckinFeedback({
+    required String checkinId,
+    required String threadId,
+    required String feedback,
+    String whatWentWell = '',
+    String whatNeedsAttention = '',
+    String adjustmentForNextWeek = '',
+    String onePriority = '',
+    String coachNote = '',
+    String planChangesSummary = '',
+    DateTime? nextCheckinDate,
+  }) async {
+    lastCheckinFeedbackPayload = <String, dynamic>{
+      'checkinId': checkinId,
+      'threadId': threadId,
+      'feedback': feedback,
+      'whatWentWell': whatWentWell,
+      'whatNeedsAttention': whatNeedsAttention,
+      'adjustmentForNextWeek': adjustmentForNextWeek,
+      'onePriority': onePriority,
+      'coachNote': coachNote,
+      'planChangesSummary': planChangesSummary,
+      'nextCheckinDate': nextCheckinDate,
+    };
+  }
+
+  @override
+  Future<List<CoachProgramTemplateEntity>> listProgramTemplates() async {
+    return programTemplates;
+  }
+
+  @override
+  Future<CoachProgramTemplateEntity> saveProgramTemplate({
+    String? templateId,
+    required String title,
+    required String goalType,
+    String description = '',
+    int durationWeeks = 4,
+    String difficultyLevel = 'beginner',
+    String locationMode = 'online',
+    List<dynamic> weeklyStructure = const <dynamic>[],
+    List<String> tags = const <String>[],
+  }) async {
+    final template = CoachProgramTemplateEntity(
+      id: templateId ?? 'program-template-1',
+      title: title,
+      goalType: goalType,
+      description: description,
+      durationWeeks: durationWeeks,
+      difficultyLevel: difficultyLevel,
+      locationMode: locationMode,
+      weeklyStructureJson: weeklyStructure,
+      tags: tags,
+    );
+    lastSavedProgramTemplatePayload = <String, dynamic>{
+      'templateId': templateId,
+      'title': title,
+      'goalType': goalType,
+      'description': description,
+      'durationWeeks': durationWeeks,
+      'difficultyLevel': difficultyLevel,
+      'locationMode': locationMode,
+      'weeklyStructure': weeklyStructure,
+      'tags': tags,
+    };
+    programTemplates = <CoachProgramTemplateEntity>[
+      ...programTemplates,
+      template,
+    ];
+    return template;
+  }
+
+  @override
+  Future<void> assignProgramTemplate({
+    required String subscriptionId,
+    required String templateId,
+    DateTime? startDate,
+    String? defaultReminderTime,
+  }) async {
+    lastAssignedProgramTemplatePayload = <String, dynamic>{
+      'subscriptionId': subscriptionId,
+      'templateId': templateId,
+      'startDate': startDate,
+      'defaultReminderTime': defaultReminderTime,
+    };
+  }
+
+  @override
+  Future<List<CoachExerciseEntity>> listExercises() async {
+    return exercises;
+  }
+
+  @override
+  Future<CoachExerciseEntity> saveExercise({
+    String? exerciseId,
+    required String title,
+    String category = 'strength',
+    List<String> primaryMuscles = const <String>[],
+    List<String> equipmentTags = const <String>[],
+    String difficultyLevel = 'beginner',
+    String instructions = '',
+    String? videoUrl,
+    List<dynamic> substitutions = const <dynamic>[],
+    String progressionRule = '',
+    String regressionRule = '',
+    int? restGuidanceSeconds,
+    List<dynamic> cues = const <dynamic>[],
+  }) async {
+    final exercise = CoachExerciseEntity(
+      id: exerciseId ?? 'exercise-1',
+      title: title,
+      category: category,
+      primaryMuscles: primaryMuscles,
+      equipmentTags: equipmentTags,
+      difficultyLevel: difficultyLevel,
+      instructions: instructions,
+      videoUrl: videoUrl,
+      progressionRule: progressionRule,
+      regressionRule: regressionRule,
+      restGuidanceSeconds: restGuidanceSeconds,
+    );
+    lastSavedExercisePayload = <String, dynamic>{
+      'exerciseId': exerciseId,
+      'title': title,
+      'category': category,
+      'primaryMuscles': primaryMuscles,
+      'equipmentTags': equipmentTags,
+      'difficultyLevel': difficultyLevel,
+      'instructions': instructions,
+      'videoUrl': videoUrl,
+      'substitutions': substitutions,
+      'progressionRule': progressionRule,
+      'regressionRule': regressionRule,
+      'restGuidanceSeconds': restGuidanceSeconds,
+      'cues': cues,
+    };
+    exercises = <CoachExerciseEntity>[...exercises, exercise];
+    return exercise;
+  }
+
+  @override
+  Future<List<CoachHabitAssignmentEntity>> assignHabits({
+    required String subscriptionId,
+    required List<Map<String, dynamic>> habits,
+  }) async {
+    lastAssignedHabitsPayload = <String, dynamic>{
+      'subscriptionId': subscriptionId,
+      'habits': habits,
+    };
+    return const <CoachHabitAssignmentEntity>[];
+  }
+
+  @override
+  Future<List<CoachOnboardingTemplateEntity>> listOnboardingTemplates() async {
+    return onboardingTemplates;
+  }
+
+  @override
+  Future<CoachOnboardingTemplateEntity> saveOnboardingTemplate({
+    String? templateId,
+    required String title,
+    String clientType = 'general',
+    String description = '',
+    String welcomeMessage = '',
+    Map<String, dynamic> intakeForm = const <String, dynamic>{},
+    Map<String, dynamic> goalsQuestionnaire = const <String, dynamic>{},
+    String? starterProgramTemplateId,
+    List<dynamic> habitTemplates = const <dynamic>[],
+    List<dynamic> nutritionTasks = const <dynamic>[],
+    Map<String, dynamic> checkinSchedule = const <String, dynamic>{},
+    List<String> resourceIds = const <String>[],
+  }) async {
+    final template = CoachOnboardingTemplateEntity(
+      id: templateId ?? 'onboarding-1',
+      title: title,
+      clientType: clientType,
+      description: description,
+      welcomeMessage: welcomeMessage,
+      starterProgramTemplateId: starterProgramTemplateId,
+      resourceIds: resourceIds,
+      habitTemplates: habitTemplates,
+    );
+    lastSavedOnboardingTemplatePayload = <String, dynamic>{
+      'templateId': templateId,
+      'title': title,
+      'clientType': clientType,
+      'description': description,
+      'welcomeMessage': welcomeMessage,
+      'intakeForm': intakeForm,
+      'goalsQuestionnaire': goalsQuestionnaire,
+      'starterProgramTemplateId': starterProgramTemplateId,
+      'habitTemplates': habitTemplates,
+      'nutritionTasks': nutritionTasks,
+      'checkinSchedule': checkinSchedule,
+      'resourceIds': resourceIds,
+    };
+    onboardingTemplates = <CoachOnboardingTemplateEntity>[
+      ...onboardingTemplates,
+      template,
+    ];
+    return template;
+  }
+
+  @override
+  Future<Map<String, dynamic>> applyOnboardingTemplate({
+    required String subscriptionId,
+    required String templateId,
+  }) async {
+    lastAppliedOnboardingTemplatePayload = <String, dynamic>{
+      'subscription_id': subscriptionId,
+      'template_id': templateId,
+    };
+    return lastAppliedOnboardingTemplatePayload!;
+  }
+
+  @override
+  Future<List<CoachSessionTypeEntity>> listSessionTypes() async {
+    return sessionTypes;
+  }
+
+  @override
+  Future<CoachSessionTypeEntity> saveSessionType({
+    String? sessionTypeId,
+    required String title,
+    String sessionKind = 'consultation',
+    int durationMinutes = 45,
+    int bufferBeforeMinutes = 0,
+    int bufferAfterMinutes = 10,
+    String deliveryMode = 'online',
+    String? locationNote,
+    int cancellationNoticeHours = 12,
+    int rescheduleNoticeHours = 12,
+    bool isSelfBookable = true,
+  }) async {
+    final sessionType = CoachSessionTypeEntity(
+      id: sessionTypeId ?? 'session-type-1',
+      title: title,
+      sessionKind: sessionKind,
+      durationMinutes: durationMinutes,
+      deliveryMode: deliveryMode,
+      isSelfBookable: isSelfBookable,
+    );
+    lastSavedSessionTypePayload = <String, dynamic>{
+      'sessionTypeId': sessionTypeId,
+      'title': title,
+      'sessionKind': sessionKind,
+      'durationMinutes': durationMinutes,
+      'bufferBeforeMinutes': bufferBeforeMinutes,
+      'bufferAfterMinutes': bufferAfterMinutes,
+      'deliveryMode': deliveryMode,
+      'locationNote': locationNote,
+      'cancellationNoticeHours': cancellationNoticeHours,
+      'rescheduleNoticeHours': rescheduleNoticeHours,
+      'isSelfBookable': isSelfBookable,
+    };
+    sessionTypes = <CoachSessionTypeEntity>[...sessionTypes, sessionType];
+    return sessionType;
+  }
+
+  @override
+  Future<List<CoachBookingEntity>> listBookings({
+    DateTime? from,
+    DateTime? to,
+    String? subscriptionId,
+  }) async {
+    return bookings;
+  }
+
+  @override
+  Future<CoachBookingEntity> createBooking({
+    required String subscriptionId,
+    required String sessionTypeId,
+    required DateTime startsAt,
+    String timezone = 'UTC',
+    String? note,
+  }) async {
+    lastCreatedBookingPayload = <String, dynamic>{
+      'subscriptionId': subscriptionId,
+      'sessionTypeId': sessionTypeId,
+      'startsAt': startsAt,
+      'timezone': timezone,
+      'note': note,
+    };
+    final booking = CoachBookingEntity(
+      id: 'booking-1',
+      coachId: 'coach-1',
+      memberId: 'member-1',
+      subscriptionId: subscriptionId,
+      sessionTypeId: sessionTypeId,
+      title: 'Session',
+      startsAt: startsAt,
+      endsAt: startsAt.add(const Duration(minutes: 45)),
+      timezone: timezone,
+    );
+    bookings = <CoachBookingEntity>[...bookings, booking];
+    return booking;
+  }
+
+  @override
+  Future<CoachBookingEntity> updateBookingStatus({
+    required String bookingId,
+    required String status,
+    String? reason,
+  }) async {
+    lastUpdatedBookingPayload = <String, dynamic>{
+      'bookingId': bookingId,
+      'status': status,
+      'reason': reason,
+    };
+    return CoachBookingEntity(
+      id: bookingId,
+      coachId: 'coach-1',
+      memberId: 'member-1',
+      title: 'Session',
+      startsAt: DateTime.now(),
+      endsAt: DateTime.now().add(const Duration(minutes: 45)),
+      status: status,
+    );
+  }
+
+  @override
+  Future<List<CoachPaymentReceiptEntity>> listPaymentQueue() async {
+    return paymentQueue;
+  }
+
+  @override
+  Future<CoachPaymentReceiptEntity> verifyPayment({
+    required String receiptId,
+    String? note,
+  }) async {
+    return CoachPaymentReceiptEntity(
+      id: receiptId,
+      subscriptionId: 'subscription-1',
+      memberId: 'member-1',
+      status: 'activated',
+      billingState: 'activated',
+    );
+  }
+
+  @override
+  Future<CoachPaymentReceiptEntity> failPayment({
+    required String receiptId,
+    required String reason,
+  }) async {
+    return CoachPaymentReceiptEntity(
+      id: receiptId,
+      subscriptionId: 'subscription-1',
+      memberId: 'member-1',
+      status: 'failed',
+      billingState: 'failed_needs_follow_up',
+      failureReason: reason,
+    );
+  }
+
+  @override
+  Future<List<CoachPaymentAuditEntity>> listPaymentAuditTrail(
+    String subscriptionId,
+  ) async {
+    return paymentAuditTrail;
+  }
+
+  @override
+  Future<String> uploadCoachResource({
+    required List<int> bytes,
+    required String fileName,
+  }) async {
+    return 'coach-1/$fileName';
+  }
+
+  @override
+  Future<List<CoachResourceEntity>> listCoachResources() async {
+    return resources;
+  }
+
+  @override
+  Future<CoachResourceEntity> saveCoachResource({
+    String? resourceId,
+    required String title,
+    String description = '',
+    String resourceType = 'file',
+    String? storagePath,
+    String? externalUrl,
+    List<String> tags = const <String>[],
+  }) async {
+    final resource = CoachResourceEntity(
+      id: resourceId ?? 'resource-1',
+      title: title,
+      description: description,
+      resourceType: resourceType,
+      storagePath: storagePath,
+      externalUrl: externalUrl,
+      tags: tags,
+    );
+    lastSavedResourcePayload = <String, dynamic>{
+      'resourceId': resourceId,
+      'title': title,
+      'description': description,
+      'resourceType': resourceType,
+      'storagePath': storagePath,
+      'externalUrl': externalUrl,
+      'tags': tags,
+    };
+    resources = <CoachResourceEntity>[...resources, resource];
+    return resource;
+  }
+
+  @override
+  Future<void> assignResourceToClient({
+    required String subscriptionId,
+    required String resourceId,
+    String? note,
+  }) async {
+    lastAssignedResourcePayload = <String, dynamic>{
+      'subscriptionId': subscriptionId,
+      'resourceId': resourceId,
+      'note': note,
+    };
+  }
 }
 
 class FakeMemberRepository implements MemberRepository {
@@ -704,10 +1688,27 @@ class FakeMemberRepository implements MemberRepository {
   List<WorkoutPlanEntity> workoutPlans = const <WorkoutPlanEntity>[];
   List<WorkoutSessionEntity> workoutSessions = const <WorkoutSessionEntity>[];
   List<SubscriptionEntity> subscriptions = const <SubscriptionEntity>[];
+  List<WeeklyCheckinEntity> weeklyCheckins = const <WeeklyCheckinEntity>[];
+  List<MemberCoachAgendaItemEntity> coachAgenda =
+      const <MemberCoachAgendaItemEntity>[];
+  List<MemberAssignedHabitEntity> assignedHabits =
+      const <MemberAssignedHabitEntity>[];
+  List<MemberAssignedResourceEntity> assignedResources =
+      const <MemberAssignedResourceEntity>[];
+  List<CoachSessionTypeEntity> bookableSessionTypes =
+      const <CoachSessionTypeEntity>[];
+  List<MemberBookableSlotEntity> bookableSlots =
+      const <MemberBookableSlotEntity>[];
+  List<CoachBookingEntity> coachBookings = const <CoachBookingEntity>[];
+  List<CoachingMessageEntity> coachingMessages =
+      const <CoachingMessageEntity>[];
   List<OrderEntity> orders = const <OrderEntity>[];
   MemberHomeSummaryEntity homeSummary = const MemberHomeSummaryEntity();
+  Map<String, dynamic>? lastSentCoachingMessagePayload;
 
   Object? upsertError;
+  Object? homeSummaryError;
+  int homeSummaryRequests = 0;
 
   @override
   Future<MemberProfileEntity?> getMemberProfile() async => profile;
@@ -840,6 +1841,33 @@ class FakeMemberRepository implements MemberRepository {
   }
 
   @override
+  Future<String> uploadCoachPaymentReceipt({
+    required String subscriptionId,
+    required List<int> bytes,
+    required String fileName,
+  }) async {
+    return 'member-1/$subscriptionId/$fileName';
+  }
+
+  @override
+  Future<void> submitCoachPaymentReceipt({
+    required String subscriptionId,
+    String? paymentReference,
+    String? receiptStoragePath,
+    double? amount,
+  }) async {
+    final existing = subscriptions.firstWhere(
+      (item) => item.id == subscriptionId,
+    );
+    final updated = existing.copyWith(checkoutStatus: 'submitted');
+    subscriptions = <SubscriptionEntity>[
+      updated,
+      for (final subscription in subscriptions)
+        if (subscription.id != subscriptionId) subscription,
+    ];
+  }
+
+  @override
   Future<SubscriptionEntity> pauseSubscription({
     required String subscriptionId,
     bool pauseNow = true,
@@ -871,6 +1899,7 @@ class FakeMemberRepository implements MemberRepository {
             coachId: subscription.coachId,
             coachName: subscription.coachName,
             packageTitle: subscription.displayTitle,
+            subscriptionStatus: subscription.status,
             lastMessagePreview: 'Your coaching thread is ready.',
           ),
         )
@@ -881,6 +1910,12 @@ class FakeMemberRepository implements MemberRepository {
   Future<List<CoachingMessageEntity>> listCoachingMessages(
     String threadId,
   ) async {
+    final messages = coachingMessages
+        .where((message) => message.threadId == threadId)
+        .toList(growable: false);
+    if (messages.isNotEmpty) {
+      return messages;
+    }
     return <CoachingMessageEntity>[
       CoachingMessageEntity(
         id: 'message-1',
@@ -898,13 +1933,34 @@ class FakeMemberRepository implements MemberRepository {
   Future<void> sendCoachingMessage({
     required String threadId,
     required String content,
-  }) async {}
+  }) async {
+    lastSentCoachingMessagePayload = <String, dynamic>{
+      'threadId': threadId,
+      'content': content,
+    };
+    coachingMessages = <CoachingMessageEntity>[
+      ...coachingMessages,
+      CoachingMessageEntity(
+        id: 'member-message-${coachingMessages.length + 1}',
+        threadId: threadId,
+        senderUserId: 'member-1',
+        senderRole: 'member',
+        content: content,
+        createdAt: DateTime.now(),
+      ),
+    ];
+  }
 
   @override
   Future<List<WeeklyCheckinEntity>> listWeeklyCheckins({
     String? subscriptionId,
   }) async {
-    return const <WeeklyCheckinEntity>[];
+    if (subscriptionId == null || subscriptionId.isEmpty) {
+      return weeklyCheckins;
+    }
+    return weeklyCheckins
+        .where((checkin) => checkin.subscriptionId == subscriptionId)
+        .toList(growable: false);
   }
 
   @override
@@ -920,6 +1976,17 @@ class FakeMemberRepository implements MemberRepository {
     String? blockers,
     String? questions,
     List<Map<String, dynamic>> photos = const <Map<String, dynamic>>[],
+    int? workoutsCompleted,
+    int? missedWorkouts,
+    String? missedWorkoutsReason,
+    int? sorenessScore,
+    int? fatigueScore,
+    String? painWarning,
+    int? nutritionAdherenceScore,
+    int? habitAdherenceScore,
+    String? biggestObstacle,
+    String? supportNeeded,
+    Map<String, dynamic> metadata = const <String, dynamic>{},
   }) async {
     return WeeklyCheckinEntity(
       id: 'checkin-1',
@@ -933,6 +2000,17 @@ class FakeMemberRepository implements MemberRepository {
       wins: wins,
       blockers: blockers,
       questions: questions,
+      workoutsCompleted: workoutsCompleted,
+      missedWorkouts: missedWorkouts,
+      missedWorkoutsReason: missedWorkoutsReason,
+      sorenessScore: sorenessScore,
+      fatigueScore: fatigueScore,
+      painWarning: painWarning,
+      nutritionAdherenceScore: nutritionAdherenceScore,
+      habitAdherenceScore: habitAdherenceScore,
+      biggestObstacle: biggestObstacle,
+      supportNeeded: supportNeeded,
+      checkinMetadata: metadata,
     );
   }
 
@@ -940,7 +2018,236 @@ class FakeMemberRepository implements MemberRepository {
   Future<List<OrderEntity>> listOrders() async => orders;
 
   @override
-  Future<MemberHomeSummaryEntity> getHomeSummary() async => homeSummary;
+  Future<MemberDailyStreakEntity> recordDailyActivity({
+    DateTime? occurredAt,
+    String source = 'app_open',
+  }) async {
+    if (homeSummaryError != null) {
+      throw homeSummaryError!;
+    }
+    return homeSummary.dailyStreak;
+  }
+
+  @override
+  Future<MemberHomeSummaryEntity> getHomeSummary() async {
+    homeSummaryRequests += 1;
+    if (homeSummaryError != null) {
+      throw homeSummaryError!;
+    }
+    return homeSummary;
+  }
+
+  @override
+  Future<MemberCoachHubEntity> getCoachHub({String? subscriptionId}) async {
+    SubscriptionEntity? subscription;
+    for (final item in subscriptions) {
+      if (subscriptionId == null || item.id == subscriptionId) {
+        subscription = item;
+        break;
+      }
+    }
+    if (subscription == null) {
+      return const MemberCoachHubEntity();
+    }
+    return MemberCoachHubEntity(
+      subscription: MemberCoachSubscriptionSummaryEntity(
+        id: subscription.id,
+        memberId: subscription.memberId,
+        coachId: subscription.coachId,
+        coachName: subscription.coachName ?? 'Coach',
+        packageId: subscription.packageId,
+        packageTitle: subscription.displayTitle,
+        planName: subscription.planName,
+        status: subscription.status,
+        checkoutStatus: subscription.checkoutStatus,
+        billingCycle: subscription.billingCycle,
+        amount: subscription.amount,
+        currency: subscription.currency,
+        activatedAt: subscription.activatedAt,
+        nextRenewalAt: subscription.nextRenewalAt,
+        threadId: subscription.threadId,
+      ),
+      relationshipStage: subscription.status == 'active'
+          ? 'in_weekly_coaching'
+          : '${subscription.status}_readonly',
+      todayAgenda: coachAgenda,
+      weekAgenda: coachAgenda,
+      habits: assignedHabits,
+      resources: assignedResources,
+      bookings: coachBookings,
+    );
+  }
+
+  @override
+  Future<List<MemberCoachAgendaItemEntity>> listCoachAgenda({
+    required String subscriptionId,
+    required DateTime dateFrom,
+    required DateTime dateTo,
+  }) async {
+    return coachAgenda
+        .where((item) => item.subscriptionId == subscriptionId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<MemberCoachKickoffEntity> submitCoachKickoff({
+    required String subscriptionId,
+    required String primaryGoal,
+    required String trainingLevel,
+    required List<String> preferredTrainingDays,
+    required List<String> availableEquipment,
+    required String injuriesLimitations,
+    required String scheduleConstraints,
+    required String nutritionSituation,
+    required String sleepRecoveryNotes,
+    required String biggestObstacle,
+    required String coachExpectations,
+    String memberNote = '',
+    bool shareProgressSummary = true,
+    bool shareNutritionSummary = false,
+    bool shareAiSummary = false,
+    bool shareWorkoutAdherence = true,
+    bool shareProductContext = false,
+  }) async {
+    return MemberCoachKickoffEntity(
+      id: 'kickoff-1',
+      subscriptionId: subscriptionId,
+      coachId: 'coach-1',
+      memberId: 'member-1',
+      primaryGoal: primaryGoal,
+      trainingLevel: trainingLevel,
+      preferredTrainingDays: preferredTrainingDays,
+      availableEquipment: availableEquipment,
+      injuriesLimitations: injuriesLimitations,
+      scheduleConstraints: scheduleConstraints,
+      nutritionSituation: nutritionSituation,
+      sleepRecoveryNotes: sleepRecoveryNotes,
+      biggestObstacle: biggestObstacle,
+      coachExpectations: coachExpectations,
+      memberNote: memberNote,
+      completedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<List<MemberAssignedHabitEntity>> listAssignedHabits({
+    String? subscriptionId,
+    DateTime? date,
+  }) async {
+    return assignedHabits
+        .where(
+          (item) =>
+              subscriptionId == null || item.subscriptionId == subscriptionId,
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<MemberAssignedHabitEntity?> logAssignedHabit({
+    required String assignmentId,
+    required String completionStatus,
+    DateTime? logDate,
+    double? value,
+    String? note,
+  }) async {
+    for (final item in assignedHabits) {
+      if (item.id == assignmentId) return item;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<MemberAssignedResourceEntity>> listAssignedResources({
+    String? subscriptionId,
+  }) async {
+    return assignedResources
+        .where(
+          (item) =>
+              subscriptionId == null || item.subscriptionId == subscriptionId,
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<MemberAssignedResourceEntity?> markResourceProgress({
+    required String assignmentId,
+    bool markViewed = true,
+    bool markCompleted = false,
+    String? memberNote,
+  }) async {
+    for (final item in assignedResources) {
+      if (item.id == assignmentId) return item;
+    }
+    return null;
+  }
+
+  @override
+  Future<String> createCoachResourceSignedUrl(String storagePath) async {
+    return 'https://example.test/$storagePath';
+  }
+
+  @override
+  Future<List<CoachSessionTypeEntity>> listBookableSessionTypes({
+    required String subscriptionId,
+  }) async {
+    return bookableSessionTypes;
+  }
+
+  @override
+  Future<List<MemberBookableSlotEntity>> listBookableSlots({
+    required String coachId,
+    required String sessionTypeId,
+    required DateTime dateFrom,
+    required DateTime dateTo,
+  }) async {
+    return bookableSlots;
+  }
+
+  @override
+  Future<List<CoachBookingEntity>> listMemberBookings({
+    required String subscriptionId,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    return coachBookings
+        .where((item) => item.subscriptionId == subscriptionId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<CoachBookingEntity> createMemberBooking({
+    required String subscriptionId,
+    required String sessionTypeId,
+    required DateTime startsAt,
+    String timezone = 'UTC',
+    String? note,
+  }) async {
+    final subscription = subscriptions.firstWhere(
+      (item) => item.id == subscriptionId,
+    );
+    final booking = CoachBookingEntity(
+      id: 'booking-${coachBookings.length + 1}',
+      coachId: subscription.coachId,
+      memberId: subscription.memberId,
+      subscriptionId: subscription.id,
+      sessionTypeId: sessionTypeId,
+      title: 'Session',
+      startsAt: startsAt,
+      endsAt: startsAt.add(const Duration(minutes: 45)),
+      timezone: timezone,
+    );
+    coachBookings = <CoachBookingEntity>[booking, ...coachBookings];
+    return booking;
+  }
+
+  @override
+  Future<CoachBookingEntity> updateMemberBookingStatus({
+    required String bookingId,
+    required String status,
+    String? reason,
+  }) async {
+    return coachBookings.firstWhere((item) => item.id == bookingId);
+  }
 }
 
 class FakeStoreRepository implements StoreRepository {
@@ -1689,5 +2996,318 @@ class FakePlannerRepository implements PlannerRepository {
     );
     todayAgenda = List<PlanTaskEntity>.from(todayAgenda)..[index] = updated;
     return updated;
+  }
+}
+
+class FakeCoachMemberInsightsRepository
+    implements CoachMemberInsightsRepository {
+  List<InsightSummaryEntity> summaries = const <InsightSummaryEntity>[];
+  MemberInsightEntity? memberInsight;
+  VisibilitySettingsEntity? visibilitySettings;
+  List<VisibilityAuditEntity> auditEntries = const <VisibilityAuditEntity>[];
+
+  Object? summariesError;
+  Object? insightError;
+  Object? visibilityError;
+  Object? upsertError;
+
+  @override
+  Future<List<InsightSummaryEntity>> listClientInsightSummaries() async {
+    if (summariesError != null) throw summariesError!;
+    return summaries;
+  }
+
+  @override
+  Future<MemberInsightEntity?> getMemberInsight({
+    required String memberId,
+    required String subscriptionId,
+  }) async {
+    if (insightError != null) throw insightError!;
+    return memberInsight;
+  }
+
+  @override
+  Future<VisibilitySettingsEntity?> getVisibilitySettings({
+    required String subscriptionId,
+  }) async {
+    if (visibilityError != null) throw visibilityError!;
+    return visibilitySettings;
+  }
+
+  @override
+  Future<VisibilitySettingsEntity> upsertVisibilitySettings({
+    required String subscriptionId,
+    required String coachId,
+    required bool shareAiPlanSummary,
+    required bool shareWorkoutAdherence,
+    required bool shareProgressMetrics,
+    required bool shareNutritionSummary,
+    required bool shareProductRecommendations,
+    required bool shareRelevantPurchases,
+  }) async {
+    if (upsertError != null) throw upsertError!;
+    final updated = VisibilitySettingsEntity(
+      id: visibilitySettings?.id ?? 'vis-1',
+      memberId: visibilitySettings?.memberId ?? 'member-1',
+      coachId: coachId,
+      subscriptionId: subscriptionId,
+      shareAiPlanSummary: shareAiPlanSummary,
+      shareWorkoutAdherence: shareWorkoutAdherence,
+      shareProgressMetrics: shareProgressMetrics,
+      shareNutritionSummary: shareNutritionSummary,
+      shareProductRecommendations: shareProductRecommendations,
+      shareRelevantPurchases: shareRelevantPurchases,
+    );
+    visibilitySettings = updated;
+    return updated;
+  }
+
+  @override
+  Future<List<VisibilityAuditEntity>> listVisibilityAudit({
+    required String subscriptionId,
+  }) async {
+    return auditEntries;
+  }
+}
+
+class FakeAiCoachRepository implements AiCoachRepository {
+  AiDailyBriefEntity? dailyBrief;
+  AiReadinessLogEntity? readinessLog;
+  List<AiNudgeEntity> nudges = const <AiNudgeEntity>[];
+  ActiveWorkoutSessionEntity? activeWorkoutSession;
+  AiWeeklySummaryEntity? weeklySummary;
+  Map<String, dynamic> workoutPrompt = const <String, dynamic>{
+    'message': 'Stay steady and keep the next block clean.',
+  };
+
+  int accountabilityScanCalls = 0;
+  int maintainMemoryCalls = 0;
+  Object? error;
+
+  @override
+  Future<AiPlanAdaptationEntity> applyAdjustment({
+    required String adjustmentType,
+    DateTime? briefDate,
+    String? taskId,
+  }) async {
+    if (error != null) throw error!;
+    return AiPlanAdaptationEntity(
+      id: 'adapt-1',
+      adaptationType: adjustmentType,
+      status: 'applied',
+      whyShort: 'TAIYO adjusted today to reduce friction.',
+      before: const <String, dynamic>{},
+      after: <String, dynamic>{'task_id': taskId},
+      confidence: 0.85,
+    );
+  }
+
+  @override
+  Future<AiWeeklySummaryEntity> refreshWeeklySummary(DateTime weekStart) async {
+    if (error != null) throw error!;
+    weeklySummary ??= AiWeeklySummaryEntity(
+      id: 'summary-1',
+      weekStart: weekStart,
+      adherenceScore: 76,
+      summaryText: 'TAIYO weekly summary ready.',
+      nextFocus: 'Keep the plan simple and finishable.',
+      whyShort: 'Based on adherence and recovery.',
+      confidence: 0.85,
+      shareStatus: 'private',
+    );
+    return weeklySummary!;
+  }
+
+  @override
+  Future<AiDailyBriefEntity> refreshDailyBrief(DateTime date) async {
+    if (error != null) throw error!;
+    dailyBrief ??= AiDailyBriefEntity(
+      id: 'brief-1',
+      briefDate: date,
+      planId: 'plan-1',
+      dayId: 'day-1',
+      primaryTaskId: 'task-1',
+      readinessScore: 62,
+      intensityBand: 'yellow',
+      coachMode: false,
+      recommendedWorkout: const <String, dynamic>{
+        'title': 'Upper strength',
+        'duration_minutes': 35,
+      },
+      habitFocus: const <String, dynamic>{
+        'title': 'Show up on time',
+        'body': 'Protect the start of the session.',
+      },
+      nutritionPriority: const <String, dynamic>{
+        'title': 'Protein after training',
+        'body': 'Keep recovery simple.',
+      },
+      whyShort: 'TAIYO picked a finishable session for today.',
+      confidence: 0.85,
+    );
+    return dailyBrief!;
+  }
+
+  @override
+  Future<ActiveWorkoutSessionEntity?> getActiveWorkoutSession(
+    String sessionId,
+  ) async {
+    if (error != null) throw error!;
+    return activeWorkoutSession;
+  }
+
+  @override
+  Future<AiDailyBriefEntity?> getDailyBrief(DateTime date) async => dailyBrief;
+
+  @override
+  Future<List<AiNudgeEntity>> listNudges() async {
+    if (error != null) throw error!;
+    return nudges;
+  }
+
+  @override
+  Future<void> maintainMemory() async {
+    if (error != null) throw error!;
+    maintainMemoryCalls++;
+  }
+
+  @override
+  Future<void> recordActiveWorkoutEvent({
+    required String sessionId,
+    required String eventType,
+    Map<String, dynamic> payload = const <String, dynamic>{},
+  }) async {
+    if (error != null) throw error!;
+  }
+
+  @override
+  Future<void> runAccountabilityScan() async {
+    if (error != null) throw error!;
+    accountabilityScanCalls++;
+  }
+
+  @override
+  Future<void> shareWeeklySummary(DateTime weekStart) async {
+    if (error != null) throw error!;
+    final current = await refreshWeeklySummary(weekStart);
+    weeklySummary = AiWeeklySummaryEntity(
+      id: current.id,
+      weekStart: current.weekStart,
+      adherenceScore: current.adherenceScore,
+      summaryText: current.summaryText,
+      wins: current.wins,
+      blockers: current.blockers,
+      nextFocus: current.nextFocus,
+      workoutSummary: current.workoutSummary,
+      nutritionSummary: current.nutritionSummary,
+      whyShort: current.whyShort,
+      signalsUsed: current.signalsUsed,
+      confidence: current.confidence,
+      shareStatus: 'shared',
+    );
+  }
+
+  @override
+  Future<ActiveWorkoutSessionEntity> startActiveWorkout({
+    required String planId,
+    String? dayId,
+    DateTime? targetDate,
+  }) async {
+    if (error != null) throw error!;
+    activeWorkoutSession = ActiveWorkoutSessionEntity(
+      id: 'session-1',
+      planId: planId,
+      dayId: dayId,
+      status: 'active',
+      startedAt: DateTime.now(),
+      plannedMinutes: 35,
+      whyShort: 'TAIYO started the guided session.',
+      confidence: 0.9,
+      summary: const <String, dynamic>{
+        'tasks': [
+          {
+            'task_id': 'task-1',
+            'title': 'Bench Press',
+            'task_type': 'workout',
+            'instructions': '3 x 8',
+            'sort_order': 1,
+          },
+        ],
+        'completed_task_ids': [],
+        'partial_task_ids': [],
+        'skipped_task_ids': [],
+      },
+      wasShortened: false,
+      wasSwapped: false,
+    );
+    return activeWorkoutSession!;
+  }
+
+  @override
+  Future<AiReadinessLogEntity> upsertReadiness({
+    DateTime? logDate,
+    int? energyLevel,
+    int? sorenessLevel,
+    int? stressLevel,
+    int? availableMinutes,
+    String? locationMode,
+    List<String> equipmentOverride = const <String>[],
+    String? note,
+    String source = 'member',
+  }) async {
+    if (error != null) throw error!;
+    readinessLog = AiReadinessLogEntity(
+      id: 'readiness-1',
+      logDate: logDate ?? DateTime.now(),
+      energyLevel: energyLevel,
+      sorenessLevel: sorenessLevel,
+      stressLevel: stressLevel,
+      availableMinutes: availableMinutes,
+      locationMode: locationMode,
+      equipmentOverride: equipmentOverride,
+      readinessScore: 61,
+      intensityBand: 'yellow',
+      source: source,
+      note: note,
+    );
+    return readinessLog!;
+  }
+
+  @override
+  Future<AiWeeklySummaryEntity?> getWeeklySummary(DateTime weekStart) async =>
+      weeklySummary;
+
+  @override
+  Future<Map<String, dynamic>> getWorkoutPrompt({
+    required String sessionId,
+    String promptKind = 'mid_session',
+  }) async {
+    if (error != null) throw error!;
+    return workoutPrompt;
+  }
+
+  @override
+  Future<ActiveWorkoutSessionEntity> completeActiveWorkout({
+    required String sessionId,
+    int? difficultyScore,
+    Map<String, dynamic> summary = const <String, dynamic>{},
+  }) async {
+    if (error != null) throw error!;
+    activeWorkoutSession = ActiveWorkoutSessionEntity(
+      id: sessionId,
+      planId: activeWorkoutSession?.planId,
+      dayId: activeWorkoutSession?.dayId,
+      status: 'completed',
+      startedAt: activeWorkoutSession?.startedAt ?? DateTime.now(),
+      endedAt: DateTime.now(),
+      plannedMinutes: activeWorkoutSession?.plannedMinutes ?? 35,
+      difficultyScore: difficultyScore,
+      whyShort: 'Workout complete.',
+      confidence: 0.9,
+      summary: summary,
+      wasShortened: summary['was_shortened'] as bool? ?? false,
+      wasSwapped: summary['was_swapped'] as bool? ?? false,
+    );
+    return activeWorkoutSession!;
   }
 }

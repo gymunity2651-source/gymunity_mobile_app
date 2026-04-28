@@ -499,9 +499,13 @@ class _SetupInput extends StatelessWidget {
           }).toList(growable: false),
         );
       case NutritionSetupInputKind.multiChoice:
-        final selected = answer is Iterable
-            ? answer!.map((item) => item.toString()).toSet()
-            : <String>{};
+        final selectedValues = switch (answer) {
+          final Iterable<Object?> items => items,
+          _ => const <Object?>[],
+        };
+        final selected = selectedValues
+            .map((item) => item.toString())
+            .toSet();
         return Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -526,8 +530,13 @@ class _SetupInput extends StatelessWidget {
       case NutritionSetupInputKind.number:
         final min = question.min ?? 0;
         final max = question.max ?? 100;
-        final current = (answer is num ? answer.toDouble() : (min + max) / 2)
-            .clamp(min, max);
+        final numericAnswer = answer;
+        final current =
+            ((numericAnswer is num)
+                    ? numericAnswer.toDouble()
+                    : (min + max) / 2)
+                .clamp(min, max)
+                .toDouble();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

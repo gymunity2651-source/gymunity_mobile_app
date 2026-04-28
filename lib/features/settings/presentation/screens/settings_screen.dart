@@ -7,6 +7,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
+import '../../../admin/presentation/providers/admin_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../monetization/presentation/providers/monetization_providers.dart';
 import '../providers/settings_providers.dart';
@@ -22,6 +23,7 @@ class SettingsScreen extends ConsumerWidget {
     final showSubscriptionSettings = ref.watch(
       shouldShowSubscriptionSettingsProvider,
     );
+    final admin = ref.watch(currentAdminProvider).valueOrNull;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -86,12 +88,6 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () =>
                     Navigator.pushNamed(context, AppRoutes.editProfile),
               ),
-              _ActionTile(
-                icon: Icons.lock_outline,
-                label: 'Change Password',
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.forgotPassword),
-              ),
               if (showSubscriptionSettings)
                 _ActionTile(
                   icon: Icons.workspace_premium_outlined,
@@ -100,6 +96,13 @@ class SettingsScreen extends ConsumerWidget {
                     context,
                     AppRoutes.subscriptionManagement,
                   ),
+                ),
+              if (admin != null && admin.isActive)
+                _ActionTile(
+                  icon: Icons.admin_panel_settings_outlined,
+                  label: 'Admin Dashboard',
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.adminDashboard),
                 ),
               const SizedBox(height: 24),
               _SectionTitle(title: 'Preferences'),

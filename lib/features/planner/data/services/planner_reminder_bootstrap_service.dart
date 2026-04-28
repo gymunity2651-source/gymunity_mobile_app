@@ -133,9 +133,15 @@ class PlannerReminderBootstrapService {
       );
     }
 
+    await _syncAiCoachNotifications(
+      androidScheduleMode: androidScheduleMode,
+      timeZone: timeZone,
+    );
+
     final pending = await _plugin.pendingNotificationRequests();
     for (final notification in pending) {
-      if ((notification.payload ?? '').startsWith('planner-task:') &&
+      final payload = notification.payload ?? '';
+      if (payload.startsWith('planner-task:') &&
           !desiredIds.contains(notification.id)) {
         await _plugin.cancel(notification.id);
       }
@@ -266,9 +272,93 @@ class PlannerReminderBootstrapService {
   Future<void> _cancelAllPlannerNotifications() async {
     final pending = await _plugin.pendingNotificationRequests();
     for (final notification in pending) {
-      if ((notification.payload ?? '').startsWith('planner-task:')) {
+      final payload = notification.payload ?? '';
+      if (payload.startsWith('planner-task:') ||
+          payload.startsWith('coach-nudge:')) {
         await _plugin.cancel(notification.id);
       }
     }
+  }
+
+  Future<void> _syncAiCoachNotifications({
+    required AndroidScheduleMode androidScheduleMode,
+    required String timeZone,
+  }) async {
+    final client = _ref.read(supabaseClientProvider);
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      return;
+    }
+
+    final rows = await client
+        .from('notifications')
+        .select('id,title,body,available_at,data,external_key')
+        .eq('user_id', userId)
+        .eq('type', 'ai')
+        .order('available_at', ascending: true);
+
+    final now = DateTime.now();
+    final cutoff = now.add(const Duration(days: 7));
+    final desiredIds = <int>{};
+    final location = _locationFromName(timeZone);
+
+    for (final dynamic row in rows as List<dynamic>) {
+      final map = row is Map<String, dynamic>
+          ? row
+          : Map<String, dynamic>.from(row as Map);
+      final data = map['data'] is Map<String, dynamic>
+          ? map['data'] as Map<String, dynamic>
+          : Map<String, dynamic>.from((map['data'] as Map?) ?? const {});
+      if ((data['kind'] as String?) != 'coach_nudge') {
+        continue;
+      }
+      final availableAt = DateTime.tryParse(
+        map['available_at'] as String? ?? '',
+      );
+      if (availableAt == null ||
+          !availableAt.isAfter(now) ||
+          availableAt.isAfter(cutoff)) {
+        continue;
+      }
+      final notificationId = _notificationIdFromKey(
+        map['external_key'] as String? ?? map['id'] as String? ?? '',
+      );
+      desiredIds.add(notificationId);
+      await _plugin.zonedSchedule(
+        notificationId,
+        map['title'] as String? ?? 'TAIYO coach',
+        map['body'] as String? ?? 'TAIYO has a new coaching nudge for you.',
+        tz.TZDateTime.from(availableAt, location),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'coach_nudges',
+            'AI Coach Nudges',
+            channelDescription:
+                'Proactive nudges from TAIYO to keep training and recovery on track.',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
+        ),
+        payload: 'coach-nudge:${map['id']}',
+        androidScheduleMode: androidScheduleMode,
+      );
+    }
+
+    final pending = await _plugin.pendingNotificationRequests();
+    for (final notification in pending) {
+      if ((notification.payload ?? '').startsWith('coach-nudge:') &&
+          !desiredIds.contains(notification.id)) {
+        await _plugin.cancel(notification.id);
+      }
+    }
+  }
+
+  int _notificationIdFromKey(String key) {
+    var hash = 0;
+    for (final codeUnit in key.codeUnits) {
+      hash = (hash * 31 + codeUnit) & 0x7fffffff;
+    }
+    return hash;
   }
 }

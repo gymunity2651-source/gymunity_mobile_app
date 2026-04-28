@@ -28,10 +28,7 @@ class MemberCheckinsScreen extends ConsumerWidget {
         error: (error, _) => Center(child: Text(error.toString())),
         data: (subscriptions) {
           final activeSubscriptions = subscriptions
-              .where(
-                (subscription) =>
-                    subscription.isActive || subscription.isPaused,
-              )
+              .where((subscription) => subscription.isActive)
               .toList(growable: false);
 
           if (activeSubscriptions.isEmpty) {
@@ -130,6 +127,16 @@ class _CheckinCard extends ConsumerWidget {
     final weightController = TextEditingController();
     final waistController = TextEditingController();
     final adherenceController = TextEditingController(text: '80');
+    final workoutsCompletedController = TextEditingController();
+    final missedWorkoutsController = TextEditingController();
+    final missedReasonController = TextEditingController();
+    final sorenessController = TextEditingController();
+    final fatigueController = TextEditingController();
+    final nutritionController = TextEditingController();
+    final habitController = TextEditingController();
+    final painController = TextEditingController();
+    final obstacleController = TextEditingController();
+    final supportController = TextEditingController();
     final winsController = TextEditingController();
     final blockersController = TextEditingController();
     final questionsController = TextEditingController();
@@ -160,6 +167,86 @@ class _CheckinCard extends ConsumerWidget {
                 controller: adherenceController,
                 decoration: const InputDecoration(labelText: 'Adherence %'),
                 keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: workoutsCompletedController,
+                decoration: const InputDecoration(
+                  labelText: 'Workouts completed',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: missedWorkoutsController,
+                decoration: const InputDecoration(labelText: 'Missed workouts'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: missedReasonController,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for missed workouts',
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: sorenessController,
+                      decoration: const InputDecoration(
+                        labelText: 'Soreness 1-10',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: fatigueController,
+                      decoration: const InputDecoration(
+                        labelText: 'Fatigue 1-10',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: nutritionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nutrition %',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: habitController,
+                      decoration: const InputDecoration(labelText: 'Habits %'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              TextField(
+                controller: painController,
+                decoration: const InputDecoration(
+                  labelText: 'Pain or injury warning',
+                ),
+              ),
+              TextField(
+                controller: obstacleController,
+                decoration: const InputDecoration(
+                  labelText: 'Biggest obstacle this week',
+                ),
+              ),
+              TextField(
+                controller: supportController,
+                decoration: const InputDecoration(
+                  labelText: 'Support needed from coach',
+                ),
               ),
               TextField(
                 controller: winsController,
@@ -201,6 +288,28 @@ class _CheckinCard extends ConsumerWidget {
           weightKg: double.tryParse(weightController.text.trim()),
           waistCm: double.tryParse(waistController.text.trim()),
           adherenceScore: int.tryParse(adherenceController.text.trim()) ?? 0,
+          workoutsCompleted: int.tryParse(
+            workoutsCompletedController.text.trim(),
+          ),
+          missedWorkouts: int.tryParse(missedWorkoutsController.text.trim()),
+          missedWorkoutsReason: missedReasonController.text.trim().isEmpty
+              ? null
+              : missedReasonController.text.trim(),
+          sorenessScore: int.tryParse(sorenessController.text.trim()),
+          fatigueScore: int.tryParse(fatigueController.text.trim()),
+          painWarning: painController.text.trim().isEmpty
+              ? null
+              : painController.text.trim(),
+          nutritionAdherenceScore: int.tryParse(
+            nutritionController.text.trim(),
+          ),
+          habitAdherenceScore: int.tryParse(habitController.text.trim()),
+          biggestObstacle: obstacleController.text.trim().isEmpty
+              ? null
+              : obstacleController.text.trim(),
+          supportNeeded: supportController.text.trim().isEmpty
+              ? null
+              : supportController.text.trim(),
           wins: winsController.text.trim().isEmpty
               ? null
               : winsController.text.trim(),

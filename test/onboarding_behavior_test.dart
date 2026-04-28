@@ -103,14 +103,16 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('CONTINUE'));
+      await tester.drag(find.byType(ListView), const Offset(0, -900));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).at(0), 'FitGear Pro');
       await tester.enterText(
         find.byType(TextFormField).at(1),
         'Supplements and equipment for committed training.',
       );
-      await tester.tap(find.text('CONTINUE'));
+      await tester.tap(find.text('Continue to Curation'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('LAUNCH STORE'));
       await tester.pump();
@@ -134,7 +136,7 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('CONTINUE'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byType(TextFormField).at(2),
@@ -144,20 +146,116 @@ void main() {
         find.byType(TextFormField).at(3),
         'Weekly programming, async support, and accountability.',
       );
-      await tester.tap(find.text('CONTINUE'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byType(TextFormField).at(1),
         'A complete starter package with weekly check-ins.',
       );
-      await tester.tap(find.text('CONTINUE'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('START COACHING'));
+      await tester.tap(find.text('Start Coaching'));
       await tester.pump();
 
       expect(find.byType(CoachOnboardingScreen), findsOneWidget);
       expect(find.text('Coach onboarding failed'), findsOneWidget);
     });
+
+    testWidgets(
+      'coach onboarding submits profile and leaves screen on success',
+      (tester) async {
+        final coachRepository = FakeCoachRepository();
+
+        await _pumpScreen(
+          tester,
+          const CoachOnboardingScreen(),
+          overrides: <Override>[
+            userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+            coachRepositoryProvider.overrideWithValue(coachRepository),
+          ],
+        );
+
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextFormField).at(2),
+          'Performance coach for strength-focused members.',
+        );
+        await tester.enterText(
+          find.byType(TextFormField).at(3),
+          'Weekly programming, async support, and accountability.',
+        );
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextFormField).at(1),
+          'A complete starter package with weekly check-ins.',
+        );
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Start Coaching'));
+        await tester.pumpAndSettle();
+
+        expect(coachRepository.upsertCoachProfileCalls, 1);
+        expect(
+          coachRepository.lastUpsertCoachProfilePayload?['bio'],
+          'Performance coach for strength-focused members.',
+        );
+        expect(
+          coachRepository.lastUpsertCoachProfilePayload?['serviceSummary'],
+          'Weekly programming, async support, and accountability.',
+        );
+        expect(
+          coachRepository.lastSavedPackagePayload?['title'],
+          'Starter Coaching',
+        );
+        expect(
+          coachRepository.lastSavedPackagePayload?['visibilityStatus'],
+          'published',
+        );
+        expect(coachRepository.lastSavedPackagePayload?['isActive'], isTrue);
+        expect(coachRepository.saveAvailabilitySlotCalls, 1);
+        expect(find.byType(CoachOnboardingScreen), findsNothing);
+        expect(
+          find.text('Unable to complete onboarding right now.'),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'coach onboarding blocks leaving profile step when bio data is missing',
+      (tester) async {
+        await _pumpScreen(
+          tester,
+          const CoachOnboardingScreen(),
+          overrides: <Override>[
+            userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+            coachRepositoryProvider.overrideWithValue(FakeCoachRepository()),
+          ],
+        );
+
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('coach-profile-step')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.text('Continue'));
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('coach-profile-step')),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Complete your coach bio and service summary.'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }
 
@@ -166,6 +264,10 @@ Future<void> _pumpScreen(
   Widget screen, {
   List<Override> overrides = const <Override>[],
 }) async {
+  tester.view.physicalSize = const Size(1440, 2560);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     ProviderScope(
       overrides: overrides,

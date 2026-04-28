@@ -147,6 +147,15 @@ max_indexes = 5
 # Vector Buckets is available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
 
+[functions.ai-coach]
+verify_jwt = false
+
+[functions.paymob-transaction-callback]
+verify_jwt = false
+
+[functions.paymob-payment-response]
+verify_jwt = false
+
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used

@@ -40,6 +40,8 @@ class AppConfig {
     required this.enableAppleSignIn,
     required this.enableStorePurchases,
     required this.enableCoachSubscriptions,
+    this.enableCoachPaymobPayments = false,
+    this.enableCoachManualPaymentProofs = true,
     this.enableAiPremium = false,
     this.appleAiPremiumMonthlyProductId = '',
     this.appleAiPremiumAnnualProductId = '',
@@ -114,6 +116,14 @@ class AppConfig {
         ),
         'ENABLE_COACH_SUBSCRIPTIONS' => const String.fromEnvironment(
           'ENABLE_COACH_SUBSCRIPTIONS',
+          defaultValue: '',
+        ),
+        'ENABLE_COACH_PAYMOB_PAYMENTS' => const String.fromEnvironment(
+          'ENABLE_COACH_PAYMOB_PAYMENTS',
+          defaultValue: '',
+        ),
+        'ENABLE_COACH_MANUAL_PAYMENT_PROOFS' => const String.fromEnvironment(
+          'ENABLE_COACH_MANUAL_PAYMENT_PROOFS',
           defaultValue: '',
         ),
         'ENABLE_AI_PREMIUM' => const String.fromEnvironment(
@@ -197,6 +207,14 @@ class AppConfig {
         'ENABLE_COACH_SUBSCRIPTIONS',
         defaultValue: true,
       ),
+      enableCoachPaymobPayments: readBool(
+        'ENABLE_COACH_PAYMOB_PAYMENTS',
+        defaultValue: false,
+      ),
+      enableCoachManualPaymentProofs: readBool(
+        'ENABLE_COACH_MANUAL_PAYMENT_PROOFS',
+        defaultValue: true,
+      ),
       enableAiPremium: readBool('ENABLE_AI_PREMIUM', defaultValue: false),
       appleAiPremiumMonthlyProductId: read(
         'APPLE_AI_PREMIUM_MONTHLY_PRODUCT_ID',
@@ -251,6 +269,8 @@ class AppConfig {
   final bool enableAppleSignIn;
   final bool enableStorePurchases;
   final bool enableCoachSubscriptions;
+  final bool enableCoachPaymobPayments;
+  final bool enableCoachManualPaymentProofs;
   final bool enableAiPremium;
   final String appleAiPremiumMonthlyProductId;
   final String appleAiPremiumAnnualProductId;
@@ -417,6 +437,14 @@ class AppConfig {
       ),
       enableCoachSubscriptions: readBool(
         'ENABLE_COACH_SUBSCRIPTIONS',
+        defaultValue: true,
+      ),
+      enableCoachPaymobPayments: readBool(
+        'ENABLE_COACH_PAYMOB_PAYMENTS',
+        defaultValue: false,
+      ),
+      enableCoachManualPaymentProofs: readBool(
+        'ENABLE_COACH_MANUAL_PAYMENT_PROOFS',
         defaultValue: true,
       ),
       enableAiPremium: readBool('ENABLE_AI_PREMIUM', defaultValue: false),

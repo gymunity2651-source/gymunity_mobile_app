@@ -8,7 +8,7 @@ final coachSearchQueryProvider = StateProvider<String>((ref) => '');
 final selectedCoachCityProvider = StateProvider<String?>((ref) => null);
 final selectedCoachLanguageProvider = StateProvider<String?>((ref) => 'arabic');
 final selectedCoachGenderProvider = StateProvider<String?>((ref) => null);
-final selectedCoachBudgetProvider = StateProvider<double?>((ref) => 2500);
+final selectedCoachBudgetProvider = StateProvider<double?>((ref) => null);
 
 final coachSpecialtiesProvider = Provider<List<String>>(
   (ref) => <String>['All', 'HIIT', 'Strength', 'Yoga', 'Nutrition', 'Crossfit'],
@@ -44,6 +44,12 @@ final filteredCoachListProvider = Provider<List<CoachEntity>>((ref) {
   return coaches.where((coach) {
     return coach.name.toLowerCase().contains(query) ||
         coach.specialty.toLowerCase().contains(query) ||
-        coach.badge.toLowerCase().contains(query);
+        coach.badge.toLowerCase().contains(query) ||
+        (coach.city?.toLowerCase().contains(query) ?? false) ||
+        coach.bio.toLowerCase().contains(query) ||
+        coach.publicHeadline.toLowerCase().contains(query) ||
+        coach.positioningStatement.toLowerCase().contains(query) ||
+        coach.serviceSummary.toLowerCase().contains(query) ||
+        coach.languages.any((lang) => lang.toLowerCase().contains(query));
   }).toList();
 });

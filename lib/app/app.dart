@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_theme.dart';
 import '../core/constants/app_strings.dart';
 import '../core/config/app_config.dart';
+import '../features/ai_coach/presentation/providers/ai_coach_providers.dart';
 import '../features/monetization/presentation/providers/monetization_providers.dart';
 import '../features/planner/presentation/providers/planner_providers.dart';
 import '../features/settings/presentation/providers/settings_providers.dart';
@@ -27,6 +28,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(monetizationBootstrapProvider).start();
       ref.read(plannerReminderBootstrapProvider).start();
+      ref.read(aiCoachBootProvider).start();
     });
   }
 
@@ -43,6 +45,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
     if (state == AppLifecycleState.resumed) {
       ref.read(monetizationBootstrapProvider).refreshEntitlements();
       ref.read(plannerReminderBootstrapProvider).sync();
+      ref.read(aiCoachBootProvider).refresh();
     }
   }
 
@@ -53,6 +56,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
     if (hasValidConfig) {
       ref.watch(authAwareMonetizationProvider);
       ref.watch(authAwarePlannerRemindersProvider);
+      ref.watch(authAwareAiCoachProvider);
     }
 
     SystemChrome.setSystemUIOverlayStyle(

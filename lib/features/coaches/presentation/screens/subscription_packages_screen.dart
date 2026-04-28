@@ -4,94 +4,138 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/services/external_link_service.dart';
 import '../../../coach/domain/entities/coach_entity.dart';
 import '../../../coach/domain/entities/subscription_entity.dart';
 import '../../../coach/presentation/providers/coach_providers.dart';
+import '../../../member/presentation/providers/member_providers.dart';
 import '../../../planner/domain/entities/planner_entities.dart';
 
-class SubscriptionPackagesScreen extends ConsumerWidget {
+class SubscriptionPackagesScreen extends ConsumerStatefulWidget {
   const SubscriptionPackagesScreen({super.key, this.coach});
 
   final CoachEntity? coach;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubscriptionPackagesScreen> createState() =>
+      _SubscriptionPackagesScreenState();
+}
+
+class _SubscriptionPackagesScreenState
+    extends ConsumerState<SubscriptionPackagesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    final coachId = widget.coach?.id;
+    if (coachId != null && coachId.isNotEmpty) {
+      Future.microtask(() => ref.invalidate(coachDetailsProvider(coachId)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final coach = widget.coach;
     if (coach == null) {
       return const _UnavailablePackagesScreen();
     }
 
-    final coachAsync = ref.watch(coachDetailsProvider(coach!.id));
+    final coachAsync = ref.watch(coachDetailsProvider(coach.id));
+    final currentCoach = coachAsync.valueOrNull ?? coach;
+    final paymobEnabled = AppConfig.current.enableCoachPaymobPayments;
+
+    if (coachAsync.hasError) {
+      debugPrint('[SubscriptionPackagesScreen] Error: ${coachAsync.error}');
+    }
+
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
       appBar: AppBar(
         backgroundColor: AppColors.lightBackground,
         foregroundColor: AppColors.textDark,
-        title: Text('${coach!.name} Offers'),
+        title: const Text('Coaching Offers'),
       ),
-      body: coachAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: ElevatedButton(
-            onPressed: () => ref.refresh(coachDetailsProvider(coach!.id)),
-            child: const Text('Retry'),
-          ),
-        ),
-        data: (data) {
-          final currentCoach = data ?? coach!;
+      body: Builder(
+        builder: (context) {
           if (currentCoach.packages.isEmpty) {
+            if (coachAsync.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(AppSizes.screenPadding),
-                child: Text(
-                  'This coach does not have any published offers right now.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    color: AppColors.textSecondary,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'This coach does not have any published offers right now.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSizes.md),
+                    TextButton.icon(
+                      onPressed: () =>
+                          ref.invalidate(coachDetailsProvider(coach.id)),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Refresh offers'),
+                    ),
+                  ],
                 ),
               ),
             );
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(AppSizes.screenPadding),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSizes.lg),
-                decoration: BoxDecoration(
-                  color: AppColors.lightSurface,
-                  borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                  border: Border.all(
-                    color: AppColors.border.withValues(alpha: 0.15),
+          return RefreshIndicator.adaptive(
+            onRefresh: () async {
+              ref.invalidate(coachDetailsProvider(coach.id));
+              await ref.read(coachDetailsProvider(coach.id).future);
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(AppSizes.screenPadding),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSizes.lg),
+                  decoration: BoxDecoration(
+                    color: AppColors.lightSurface,
+                    borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                    border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.15),
+                    ),
                   ),
-                ),
-                child: Text(
-                  'Choose a coaching offer, review the starter plan preview, then start a paid checkout. Once payment is confirmed, your coaching thread and weekly check-ins go live.',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSizes.lg),
-              ...currentCoach.packages.map(
-                (package) => Padding(
-                  padding: const EdgeInsets.only(bottom: AppSizes.lg),
-                  child: _OfferCard(
-                    package: package,
-                    currency: currentCoach.pricingCurrency,
-                    onRequest: () => _requestPackage(
-                      context: context,
-                      ref: ref,
-                      package: package,
+                  child: Text(
+                    paymobEnabled
+                        ? 'Choose a coaching offer, review the starter plan preview, then start a secure Paymob test checkout. Your coaching thread and weekly check-ins unlock only after GymUnity receives the verified Paymob callback.'
+                        : 'Choose a coaching offer, review the starter plan preview, then start a paid checkout. Once payment is confirmed, your coaching thread and weekly check-ins go live.',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: AppSizes.lg),
+                ...currentCoach.packages.map(
+                  (package) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSizes.lg),
+                    child: _OfferCard(
+                      package: package,
+                      currency: currentCoach.pricingCurrency,
+                      paymobEnabled: paymobEnabled,
+                      onRequest: () => _requestPackage(
+                        context: context,
+                        ref: ref,
+                        coachId: currentCoach.id,
+                        package: package,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -101,18 +145,51 @@ class SubscriptionPackagesScreen extends ConsumerWidget {
   Future<void> _requestPackage({
     required BuildContext context,
     required WidgetRef ref,
+    required String coachId,
     required CoachPackageEntity package,
   }) async {
+    final paymobEnabled = AppConfig.current.enableCoachPaymobPayments;
     final data = await showDialog<_SubscriptionRequestData>(
       context: context,
-      builder: (context) =>
-          _SubscriptionRequestDialog(packageTitle: package.title),
+      builder: (context) => _SubscriptionRequestDialog(
+        packageTitle: package.title,
+        paymobEnabled: paymobEnabled,
+      ),
     );
     if (data == null) {
       return;
     }
 
     try {
+      if (paymobEnabled) {
+        final session = await ref
+            .read(coachPaymentRepositoryProvider)
+            .createPaymobCheckout(
+              packageId: package.id,
+              coachId: coachId,
+              intakeSnapshot: data.intake,
+              note: data.note,
+            );
+        debugPrint(
+          '[Paymob checkout] TEST MODE order=${session.paymentOrderId} subscription=${session.subscriptionId}',
+        );
+        final opened = await ExternalLinkService.openUrl(session.checkoutUrl);
+        ref.invalidate(memberSubscriptionsProvider);
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              opened
+                  ? 'TEST PAYMENT checkout opened. Confirming your subscription after Paymob callback.'
+                  : 'TEST PAYMENT checkout created, but the checkout link could not be opened.',
+            ),
+          ),
+        );
+        return;
+      }
+
       await ref
           .read(coachRepositoryProvider)
           .requestSubscription(
@@ -146,11 +223,13 @@ class _OfferCard extends StatelessWidget {
   const _OfferCard({
     required this.package,
     required this.currency,
+    required this.paymobEnabled,
     required this.onRequest,
   });
 
   final CoachPackageEntity package;
   final String currency;
+  final bool paymobEnabled;
   final VoidCallback onRequest;
 
   @override
@@ -289,6 +368,34 @@ class _OfferCard extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 14),
+          Text(
+            'Coaching promise',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (package.packageSummaryForMember.trim().isNotEmpty) ...[
+            Text(
+              package.packageSummaryForMember,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: package.deliverableLabels
+                .map((label) => _InfoPill(label: label))
+                .toList(growable: false),
+          ),
           if (package.supportSummary.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
@@ -342,6 +449,10 @@ class _OfferCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 14),
+          if (paymobEnabled) ...[
+            const _TestPaymentBadge(),
+            const SizedBox(height: 10),
+          ],
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -350,26 +461,14 @@ class _OfferCard extends StatelessWidget {
                 backgroundColor: AppColors.orange,
                 foregroundColor: AppColors.white,
               ),
-              child: const Text('Start paid checkout'),
+              child: Text(
+                paymobEnabled ? 'Start secure payment' : 'Start paid checkout',
+              ),
             ),
           ),
         ],
       ),
     );
-  }
-
-  static String _priceLabel(
-    double value,
-    String currency,
-    String billingCycle,
-  ) {
-    final symbol = currency.trim().toUpperCase() == 'USD'
-        ? '\$'
-        : '${currency.trim().toUpperCase()} ';
-    final normalized = value == value.roundToDouble()
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(2);
-    return '$symbol$normalized/${billingCycle.replaceAll('_', ' ')}';
   }
 
   static String _titleize(String value) => value
@@ -459,9 +558,13 @@ class _PlanPreviewSection extends StatelessWidget {
 }
 
 class _SubscriptionRequestDialog extends StatefulWidget {
-  const _SubscriptionRequestDialog({required this.packageTitle});
+  const _SubscriptionRequestDialog({
+    required this.packageTitle,
+    required this.paymobEnabled,
+  });
 
   final String packageTitle;
+  final bool paymobEnabled;
 
   @override
   State<_SubscriptionRequestDialog> createState() =>
@@ -498,7 +601,11 @@ class _SubscriptionRequestDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Request ${widget.packageTitle}'),
+      title: Text(
+        widget.paymobEnabled
+            ? 'Start secure payment'
+            : 'Request ${widget.packageTitle}',
+      ),
       content: SizedBox(
         width: 460,
         child: Form(
@@ -598,23 +705,29 @@ class _SubscriptionRequestDialogState
                   ),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _paymentRail,
-                  decoration: const InputDecoration(labelText: 'Payment rail'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'instapay',
-                      child: Text('Instapay'),
+                if (widget.paymobEnabled) ...[
+                  const _TestPaymentBadge(),
+                ] else ...[
+                  DropdownButtonFormField<String>(
+                    initialValue: _paymentRail,
+                    decoration: const InputDecoration(
+                      labelText: 'Payment rail',
                     ),
-                    DropdownMenuItem(value: 'card', child: Text('Card')),
-                    DropdownMenuItem(value: 'wallet', child: Text('Wallet')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _paymentRail = value);
-                    }
-                  },
-                ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'instapay',
+                        child: Text('Instapay'),
+                      ),
+                      DropdownMenuItem(value: 'card', child: Text('Card')),
+                      DropdownMenuItem(value: 'wallet', child: Text('Wallet')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _paymentRail = value);
+                      }
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -625,7 +738,12 @@ class _SubscriptionRequestDialogState
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(onPressed: _submit, child: const Text('Submit request')),
+        ElevatedButton(
+          onPressed: _submit,
+          child: Text(
+            widget.paymobEnabled ? 'Pay with Paymob' : 'Submit request',
+          ),
+        ),
       ],
     );
   }
@@ -674,6 +792,30 @@ class _SubscriptionRequestData {
   final CoachSubscriptionIntakeEntity intake;
   final String paymentRail;
   final String? note;
+}
+
+class _TestPaymentBadge extends StatelessWidget {
+  const _TestPaymentBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.orange.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
+        border: Border.all(color: AppColors.orange.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        'TEST PAYMENT',
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: AppColors.orange,
+        ),
+      ),
+    );
+  }
 }
 
 class _InfoPill extends StatelessWidget {

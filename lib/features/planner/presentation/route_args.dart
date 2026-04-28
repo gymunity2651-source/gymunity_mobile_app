@@ -24,3 +24,23 @@ class WorkoutDayArgs {
   final String planId;
   final String dayId;
 }
+
+class ActiveWorkoutSessionArgs {
+  const ActiveWorkoutSessionArgs({this.sessionId, this.planId, this.dayId});
+
+  final String? sessionId;
+  final String? planId;
+  final String? dayId;
+}
+
+class NutritionRouteArgs {
+  const NutritionRouteArgs({this.initialHydrationAmountMl});
+
+  final int? initialHydrationAmountMl;
+}
+
+class MealPlanRouteArgs {
+  const MealPlanRouteArgs({this.openQuickAddOnLaunch = false});
+
+  final bool openQuickAddOnLaunch;
+}

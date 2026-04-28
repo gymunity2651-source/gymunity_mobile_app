@@ -2,14 +2,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../features/ai_coach/data/repositories/ai_coach_repository_impl.dart';
+import '../../features/ai_coach/domain/repositories/ai_coach_repository.dart';
 import '../../features/ai_chat/data/repositories/chat_repository_impl.dart';
 import '../../features/ai_chat/domain/repositories/chat_repository.dart';
+import '../../features/admin/data/repositories/admin_repository_impl.dart';
+import '../../features/admin/domain/repositories/admin_repository.dart';
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/entities/auth_session.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/coach/data/repositories/coach_repository_impl.dart';
+import '../../features/coach/data/repositories/coach_payment_repository_impl.dart';
+import '../../features/coach/domain/repositories/coach_payment_repository.dart';
 import '../../features/coach/domain/repositories/coach_repository.dart';
+import '../../features/coach_member_insights/data/repositories/coach_member_insights_repository_impl.dart';
+import '../../features/coach_member_insights/domain/repositories/coach_member_insights_repository.dart';
 import '../../features/member/data/repositories/member_repository_impl.dart';
 import '../../features/member/domain/repositories/member_repository.dart';
 import '../../features/monetization/data/repositories/billing_repository_impl.dart';
@@ -78,6 +86,11 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
   );
 });
 
+final adminRepositoryProvider = Provider<AdminRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return AdminRepositoryImpl(client);
+});
+
 final storeRepositoryProvider = Provider<StoreRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return StoreRepositoryImpl(client);
@@ -86,6 +99,11 @@ final storeRepositoryProvider = Provider<StoreRepository>((ref) {
 final coachRepositoryProvider = Provider<CoachRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return CoachRepositoryImpl(client);
+});
+
+final coachPaymentRepositoryProvider = Provider<CoachPaymentRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return CoachPaymentRepositoryImpl(client);
 });
 
 final memberRepositoryProvider = Provider<MemberRepository>((ref) {
@@ -121,6 +139,11 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   return ChatRepositoryImpl(client);
 });
 
+final aiCoachRepositoryProvider = Provider<AiCoachRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return AiCoachRepositoryImpl(client);
+});
+
 final newsRepositoryProvider = Provider<NewsRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return NewsRepositoryImpl(client);
@@ -130,6 +153,12 @@ final nutritionRepositoryProvider = Provider<NutritionRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return NutritionRepositoryImpl(client);
 });
+
+final coachMemberInsightsRepositoryProvider =
+    Provider<CoachMemberInsightsRepository>((ref) {
+      final client = ref.watch(supabaseClientProvider);
+      return CoachMemberInsightsRepositoryImpl(client);
+    });
 
 final authSessionProvider = StreamProvider<AuthSession?>((ref) {
   final repo = ref.watch(authRepositoryProvider);

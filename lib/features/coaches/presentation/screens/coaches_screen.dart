@@ -52,11 +52,8 @@ class _CoachesScreenState extends ConsumerState<CoachesScreen> {
       );
     }
 
-    final featuredCoach = coaches.isNotEmpty ? coaches.first : null;
-    final remainingCoaches = coaches.length > 1
-        ? coaches.sublist(1)
-        : const <CoachEntity>[];
-    final showResetFilters = searchQuery.trim().isNotEmpty ||
+    final showResetFilters =
+        searchQuery.trim().isNotEmpty ||
         selectedSpecialtyIndex != 0 ||
         city != null ||
         budget != null ||
@@ -76,7 +73,8 @@ class _CoachesScreenState extends ConsumerState<CoachesScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 118),
               children: [
                 _MarketplaceTopBar(
-                  onMenuTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+                  onMenuTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.settings),
                 ),
                 const SizedBox(height: 28),
                 const _MarketplaceHeroCopy(),
@@ -92,14 +90,12 @@ class _CoachesScreenState extends ConsumerState<CoachesScreen> {
                 _SpecialtyChipWrap(
                   labels: specialties,
                   selectedIndex: selectedSpecialtyIndex,
-                  onSelected: (index) => ref
-                      .read(selectedCoachSpecialtyProvider.notifier)
-                      .state = index,
+                  onSelected: (index) =>
+                      ref.read(selectedCoachSpecialtyProvider.notifier).state =
+                          index,
                 ),
                 const SizedBox(height: 34),
                 if (coachesAsync.isLoading && coaches.isEmpty) ...[
-                  const _FeaturedCoachCardSkeleton(),
-                  const SizedBox(height: 28),
                   const _TailoredPanelSkeleton(),
                   const SizedBox(height: 32),
                   const _CoachEditorialCardSkeleton(),
@@ -130,20 +126,6 @@ class _CoachesScreenState extends ConsumerState<CoachesScreen> {
                           },
                   ),
                 ] else ...[
-                  _FeaturedCoachCard(
-                    coach: featuredCoach!,
-                    onViewProfile: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.coachDetails,
-                      arguments: featuredCoach,
-                    ),
-                    onViewOffers: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.subscriptionPackages,
-                      arguments: featuredCoach,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
                   _TailoredPanel(
                     coaches: coaches,
                     specialtyLabel: selectedSpecialty,
@@ -152,53 +134,41 @@ class _CoachesScreenState extends ConsumerState<CoachesScreen> {
                     budget: budget,
                     gender: gender,
                     showResetFilters: showResetFilters,
-                    onCityTap: () => ref
-                            .read(selectedCoachCityProvider.notifier)
-                            .state =
-                        city == null ? 'Cairo' : null,
-                    onLanguageTap: () => ref
-                            .read(selectedCoachLanguageProvider.notifier)
-                            .state =
-                        language == 'arabic' ? 'english' : 'arabic',
-                    onBudgetTap: () => ref
-                            .read(selectedCoachBudgetProvider.notifier)
-                            .state =
-                        budget == null ? 2500 : null,
-                    onGenderTap: () => ref
-                            .read(selectedCoachGenderProvider.notifier)
-                            .state =
-                        gender == null ? 'female' : null,
+                    onCityTap: () =>
+                        ref.read(selectedCoachCityProvider.notifier).state =
+                            city == null ? 'Cairo' : null,
+                    onLanguageTap: () =>
+                        ref.read(selectedCoachLanguageProvider.notifier).state =
+                            language == 'arabic' ? 'english' : 'arabic',
+                    onBudgetTap: () =>
+                        ref.read(selectedCoachBudgetProvider.notifier).state =
+                            budget == null ? 2500 : null,
+                    onGenderTap: () =>
+                        ref.read(selectedCoachGenderProvider.notifier).state =
+                            gender == null ? 'female' : null,
                     onResetTap: _clearFilters,
                   ),
-                  if (remainingCoaches.isNotEmpty) const SizedBox(height: 34),
-                  for (var index = 0; index < remainingCoaches.length; index++) ...[
+                  const SizedBox(height: 28),
+                  _MarketplaceListHeader(
+                    count: coaches.length,
+                    specialtyLabel: selectedSpecialty,
+                  ),
+                  const SizedBox(height: 14),
+                  for (var index = 0; index < coaches.length; index++) ...[
                     _CoachEditorialCard(
-                      coach: remainingCoaches[index],
+                      coach: coaches[index],
                       onViewProfile: () => Navigator.pushNamed(
                         context,
                         AppRoutes.coachDetails,
-                        arguments: remainingCoaches[index],
+                        arguments: coaches[index],
                       ),
                       onViewOffers: () => Navigator.pushNamed(
                         context,
                         AppRoutes.subscriptionPackages,
-                        arguments: remainingCoaches[index],
+                        arguments: coaches[index],
                       ),
                     ),
-                    if (index != remainingCoaches.length - 1)
-                      const SizedBox(height: 32),
-                  ],
-                  if (remainingCoaches.isEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'More practitioners will appear here as new profiles publish live coaching offers.',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        height: 1.6,
-                        color: _MarketplacePalette.muted,
-                      ),
-                    ),
+                    if (index != coaches.length - 1) const SizedBox(height: 16),
                   ],
                 ],
               ],
@@ -238,22 +208,11 @@ class _MarketplaceTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _RoundGhostButton(
-          icon: Icons.menu_rounded,
-          onTap: onMenuTap,
+        Offstage(
+          offstage: true,
+          child: _RoundGhostButton(icon: Icons.menu_rounded, onTap: onMenuTap),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'Curated Wellness',
-            style: GoogleFonts.notoSerif(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              fontStyle: FontStyle.italic,
-              color: _MarketplacePalette.primary,
-            ),
-          ),
-        ),
+        const Spacer(),
         MemberProfileShortcutButton(
           size: 36,
           backgroundColor: _MarketplacePalette.surface,
@@ -452,151 +411,6 @@ class _SpecialtyChip extends StatelessWidget {
   }
 }
 
-class _FeaturedCoachCard extends StatelessWidget {
-  const _FeaturedCoachCard({
-    required this.coach,
-    required this.onViewProfile,
-    required this.onViewOffers,
-  });
-
-  final CoachEntity coach;
-  final VoidCallback onViewProfile;
-  final VoidCallback onViewOffers;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 400,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(34),
-        boxShadow: const [
-          BoxShadow(
-            color: _MarketplacePalette.shadow,
-            blurRadius: 38,
-            offset: Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _CoachArtwork(coach: coach),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.06),
-                  Colors.black.withValues(alpha: 0.12),
-                  Colors.black.withValues(alpha: 0.84),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            right: -36,
-            top: -24,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    _MarketplacePalette.primarySoft.withValues(alpha: 0.26),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 18,
-            top: 18,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _MarketplacePalette.primarySoft.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                'Featured Practitioner',
-                style: GoogleFonts.manrope(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: _MarketplacePalette.surface,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 20,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Curated\nCoaching',
-                  style: GoogleFonts.notoSerif(
-                    fontSize: 34,
-                    height: 0.96,
-                    fontWeight: FontWeight.w500,
-                    color: _MarketplacePalette.surface,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _coachFeatureCopy(coach),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.manrope(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    height: 1.6,
-                    color: _MarketplacePalette.surface.withValues(alpha: 0.9),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'with ${coach.name}',
-                  style: GoogleFonts.manrope(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _MarketplacePalette.surface.withValues(alpha: 0.74),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _EditorialPrimaryButton(
-                        label: 'Find a coach',
-                        onTap: onViewProfile,
-                        light: true,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    _MiniCircleActionButton(
-                      icon: Icons.favorite_border_rounded,
-                      onTap: onViewOffers,
-                      backgroundColor:
-                          _MarketplacePalette.surface.withValues(alpha: 0.16),
-                      foregroundColor: _MarketplacePalette.surface,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TailoredPanel extends StatelessWidget {
   const _TailoredPanel({
     required this.coaches,
@@ -628,15 +442,16 @@ class _TailoredPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final verifiedCount =
-        coaches
-            .where((coach) => coach.isVerified || coach.verificationStatus == 'verified')
-            .length;
+    final verifiedCount = coaches
+        .where(
+          (coach) => coach.isVerified || coach.verificationStatus == 'verified',
+        )
+        .length;
     final maxYears = coaches.isEmpty
         ? 0
         : coaches
-            .map((coach) => coach.yearsExperience)
-            .reduce((value, element) => value > element ? value : element);
+              .map((coach) => coach.yearsExperience)
+              .reduce((value, element) => value > element ? value : element);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
@@ -730,14 +545,58 @@ class _TailoredPanel extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   decoration: TextDecoration.underline,
-                  decorationColor:
-                      _MarketplacePalette.primary.withValues(alpha: 0.35),
+                  decorationColor: _MarketplacePalette.primary.withValues(
+                    alpha: 0.35,
+                  ),
                 ),
               ),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _MarketplaceListHeader extends StatelessWidget {
+  const _MarketplaceListHeader({
+    required this.count,
+    required this.specialtyLabel,
+  });
+
+  final int count;
+  final String specialtyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final noun = count == 1 ? 'coach' : 'coaches';
+    final scope = specialtyLabel == 'All'
+        ? 'available coaching profiles'
+        : '$specialtyLabel coaching profiles';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$count $noun',
+          style: GoogleFonts.notoSerif(
+            fontSize: 30,
+            height: 1.05,
+            fontWeight: FontWeight.w500,
+            color: _MarketplacePalette.text,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Review $scope, open the coach profile, then inspect the live offers before subscribing.',
+          style: GoogleFonts.manrope(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            height: 1.55,
+            color: _MarketplacePalette.muted,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -755,95 +614,276 @@ class _CoachEditorialCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(34),
-        onTap: onViewProfile,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 334,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(34),
-                    child: _CoachArtwork(coach: coach),
-                  ),
-                  Positioned(
-                    top: 14,
-                    right: 14,
-                    child: _MiniCircleActionButton(
-                      icon: Icons.favorite_rounded,
-                      onTap: onViewOffers,
-                      backgroundColor: _MarketplacePalette.surface,
-                      foregroundColor: _MarketplacePalette.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
+    final offerCount = coach.activePackageCount;
+    final offerLabel = offerCount <= 0
+        ? 'Offers'
+        : '$offerCount ${offerCount == 1 ? 'offer' : 'offers'}';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _MarketplacePalette.section,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: onViewProfile,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    coach.name,
-                    style: GoogleFonts.notoSerif(
-                      fontSize: 28,
-                      height: 1.02,
-                      fontWeight: FontWeight.w500,
-                      color: _MarketplacePalette.text,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: SizedBox(
+                        width: 104,
+                        height: 132,
+                        child: _CoachArtwork(coach: coach),
+                      ),
                     ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  coach.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.notoSerif(
+                                    fontSize: 23,
+                                    height: 1.02,
+                                    fontWeight: FontWeight.w500,
+                                    color: _MarketplacePalette.text,
+                                  ),
+                                ),
+                              ),
+                              if (coach.isVerified ||
+                                  coach.verificationStatus == 'verified') ...[
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  size: 19,
+                                  color: _MarketplacePalette.primary,
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _coachRoleLine(coach),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              height: 1.35,
+                              color: _MarketplacePalette.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 7,
+                            runSpacing: 7,
+                            children: [
+                              _CoachMetricPill(
+                                icon: Icons.local_offer_outlined,
+                                label: offerLabel,
+                              ),
+                              _CoachMetricPill(
+                                icon: Icons.payments_outlined,
+                                label: coach.discoveryPriceLabel,
+                              ),
+                              _CoachMetricPill(
+                                icon: Icons.star_rounded,
+                                label: _coachReviewLine(coach),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  _coachFeatureCopy(coach),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    height: 1.55,
+                    color: _MarketplacePalette.muted,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    coach.discoveryPriceLabel,
-                    textAlign: TextAlign.end,
-                    style: GoogleFonts.manrope(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.2,
-                      color: _MarketplacePalette.primary,
-                    ),
+                if (coach.specialties.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: coach.specialties
+                        .take(3)
+                        .map((specialty) => _CoachSpecialtyPill(specialty))
+                        .toList(growable: false),
                   ),
+                ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _CoachCardButton(
+                        label: 'View',
+                        icon: Icons.person_outline_rounded,
+                        onTap: onViewProfile,
+                        primary: false,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _CoachCardButton(
+                        label: 'Offers',
+                        icon: Icons.inventory_2_outlined,
+                        onTap: onViewOffers,
+                        primary: true,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              _coachRoleLine(coach),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CoachMetricPill extends StatelessWidget {
+  const _CoachMetricPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: _MarketplacePalette.surface,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: _MarketplacePalette.primary),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.manrope(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
                 color: _MarketplacePalette.muted,
               ),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(
-                  Icons.star_rounded,
-                  size: 14,
-                  color: _MarketplacePalette.primarySoft,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoachSpecialtyPill extends StatelessWidget {
+  const _CoachSpecialtyPill(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: _MarketplacePalette.field.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.manrope(
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.9,
+          color: _MarketplacePalette.primary,
+        ),
+      ),
+    );
+  }
+}
+
+class _CoachCardButton extends StatelessWidget {
+  const _CoachCardButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.primary,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = primary
+        ? _MarketplacePalette.surface
+        : _MarketplacePalette.primary;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          height: 48,
+          decoration: BoxDecoration(
+            color: primary ? null : _MarketplacePalette.surface,
+            gradient: primary
+                ? const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      _MarketplacePalette.primary,
+                      _MarketplacePalette.primarySoft,
+                    ],
+                  )
+                : null,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: foreground),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: foreground,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  _coachReviewLine(coach),
-                  style: GoogleFonts.manrope(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _MarketplacePalette.primary,
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -879,9 +919,7 @@ class _CoachArtwork extends ConsumerWidget {
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => _CoachArtworkFallback(coach: coach),
             ),
-            Container(
-              color: _MarketplacePalette.halo.withValues(alpha: 0.1),
-            ),
+            Container(color: _MarketplacePalette.halo.withValues(alpha: 0.1)),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -976,22 +1014,13 @@ class _CoachArtworkFallback extends StatelessWidget {
 }
 
 class _EditorialPrimaryButton extends StatelessWidget {
-  const _EditorialPrimaryButton({
-    required this.label,
-    required this.onTap,
-    this.light = false,
-  });
+  const _EditorialPrimaryButton({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
-  final bool light;
 
   @override
   Widget build(BuildContext context) {
-    final foreground = light
-        ? _MarketplacePalette.primary
-        : _MarketplacePalette.surface;
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1001,17 +1030,14 @@ class _EditorialPrimaryButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
-            color: light ? _MarketplacePalette.surface : null,
-            gradient: light
-                ? null
-                : const LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      _MarketplacePalette.primary,
-                      _MarketplacePalette.primarySoft,
-                    ],
-                  ),
+            gradient: const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                _MarketplacePalette.primary,
+                _MarketplacePalette.primarySoft,
+              ],
+            ),
           ),
           child: Center(
             child: Text(
@@ -1019,41 +1045,10 @@ class _EditorialPrimaryButton extends StatelessWidget {
               style: GoogleFonts.manrope(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
-                color: foreground,
+                color: _MarketplacePalette.surface,
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniCircleActionButton extends StatelessWidget {
-  const _MiniCircleActionButton({
-    required this.icon,
-    required this.onTap,
-    required this.backgroundColor,
-    required this.foregroundColor,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color backgroundColor;
-  final Color foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: backgroundColor,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 42,
-          height: 42,
-          child: Icon(icon, size: 20, color: foregroundColor),
         ),
       ),
     );
@@ -1209,21 +1204,6 @@ class _MarketplaceStateCard extends StatelessWidget {
   }
 }
 
-class _FeaturedCoachCardSkeleton extends StatelessWidget {
-  const _FeaturedCoachCardSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 400,
-      decoration: BoxDecoration(
-        color: _MarketplacePalette.section,
-        borderRadius: BorderRadius.circular(34),
-      ),
-    );
-  }
-}
-
 class _TailoredPanelSkeleton extends StatelessWidget {
   const _TailoredPanelSkeleton();
 
@@ -1244,35 +1224,12 @@ class _CoachEditorialCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: 334,
-          decoration: BoxDecoration(
-            color: _MarketplacePalette.section,
-            borderRadius: BorderRadius.circular(34),
-          ),
-        ),
-        const SizedBox(height: 14),
-        Container(
-          height: 22,
-          width: 180,
-          decoration: BoxDecoration(
-            color: _MarketplacePalette.section,
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          height: 14,
-          width: 150,
-          decoration: BoxDecoration(
-            color: _MarketplacePalette.section,
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      ],
+    return Container(
+      height: 248,
+      decoration: BoxDecoration(
+        color: _MarketplacePalette.section,
+        borderRadius: BorderRadius.circular(28),
+      ),
     );
   }
 }
@@ -1292,7 +1249,11 @@ class _MarketplacePalette {
 }
 
 String _coachFeatureCopy(CoachEntity coach) {
-  final source = coach.serviceSummary.trim().isNotEmpty
+  final source = coach.positioningStatement.trim().isNotEmpty
+      ? coach.positioningStatement.trim()
+      : coach.headline.trim().isNotEmpty
+      ? coach.headline.trim()
+      : coach.serviceSummary.trim().isNotEmpty
       ? coach.serviceSummary.trim()
       : coach.bio.trim();
   if (source.isNotEmpty) {
@@ -1306,6 +1267,9 @@ String _coachFeatureCopy(CoachEntity coach) {
 }
 
 String _coachRoleLine(CoachEntity coach) {
+  if (coach.headline.trim().isNotEmpty) {
+    return coach.headline.trim();
+  }
   if (coach.specialties.isNotEmpty) {
     return '${coach.specialties.take(2).join(' & ')} Expert';
   }
@@ -1316,6 +1280,10 @@ String _coachRoleLine(CoachEntity coach) {
 }
 
 String _coachReviewLine(CoachEntity coach) {
+  final responseRate = coach.responseMetrics['response_rate_percent'];
+  if (responseRate is num && responseRate > 0) {
+    return '${responseRate.round()}% response - ${coach.rating} rating';
+  }
   if (coach.ratingCount <= 0) {
     return '${coach.rating} review pending';
   }

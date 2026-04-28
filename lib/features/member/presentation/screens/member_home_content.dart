@@ -3,19 +3,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../app/routes.dart';
+import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/widgets/app_reveal.dart';
-import '../../../ai_chat/presentation/screens/ai_chat_home_screen.dart';
+import '../../../ai_coach/domain/entities/ai_coach_entities.dart';
+import '../../../ai_coach/presentation/providers/ai_coach_providers.dart';
+import '../../../ai_coach/presentation/screens/ai_coach_home_screen.dart';
 import '../../../coaches/presentation/screens/coaches_screen.dart';
 import '../../../news/presentation/screens/news_feed_screen.dart';
+import '../../../planner/presentation/route_args.dart';
 import '../../../store/presentation/screens/store_home_screen.dart';
+import '../../domain/entities/member_home_summary_entity.dart';
 import '../providers/member_providers.dart';
 import '../widgets/member_profile_shortcut_button.dart';
 import 'member_checkins_screen.dart';
+import 'member_coach_hub_screen.dart';
 import 'member_messages_screen.dart';
-import 'my_subscriptions_screen.dart';
 import 'progress_screen.dart';
 
 /// The editorial "Ethereal Atelier" member home page.
@@ -28,9 +34,11 @@ class MemberHomeContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final coachBriefAsync = ref.watch(aiCoachDailyBriefProvider(today));
     final profileAsync = ref.watch(currentUserProfileProvider);
     final summaryAsync = ref.watch(memberHomeSummaryProvider);
-    final subscriptionsAsync = ref.watch(memberSubscriptionsProvider);
 
     const baseDelay = 40;
     Duration revealDelay(int index) =>
@@ -92,7 +100,7 @@ class MemberHomeContent extends ConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     // Streak pill
-                    const _StreakPill(),
+                    _StreakPill(summaryAsync: summaryAsync),
                   ],
                 ),
               ),
@@ -112,70 +120,11 @@ class MemberHomeContent extends ConsumerWidget {
             // ── Metric cards + next-step CTA ──
             AppReveal(
               delay: revealDelay(4),
-              child: AnimatedSwitcher(
-                duration: AppMotion.medium,
-                switchInCurve: AppMotion.emphasizedCurve,
-                switchOutCurve: AppMotion.exitCurve,
-                transitionBuilder: _fadeSlide,
-                child: summaryAsync.when(
-                  loading: () => const KeyedSubtree(
-                    key: ValueKey('metrics-loading'),
-                    child: Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: CircularProgressIndicator(
-                          color: AtelierColors.primary,
-                          strokeWidth: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-                  error: (_, _) => const KeyedSubtree(
-                    key: ValueKey('metrics-error'),
-                    child: _EmptyStateCard(
-                      message:
-                          'Unable to load your summary right now. Pull to refresh.',
-                    ),
-                  ),
-                  data: (summary) => subscriptionsAsync.when(
-                    loading: () => const KeyedSubtree(
-                      key: ValueKey('subs-loading'),
-                      child: Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: CircularProgressIndicator(
-                            color: AtelierColors.primary,
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                    error: (_, _) => const KeyedSubtree(
-                      key: ValueKey('subs-error'),
-                      child: _EmptyStateCard(
-                        message:
-                            'Unable to load coaching status. Pull to refresh.',
-                      ),
-                    ),
-                    data: (subscriptions) {
-                      final active = subscriptions
-                          .where((item) => item.isActive)
-                          .toList();
-                      return KeyedSubtree(
-                        key: ValueKey(
-                          'metrics-${active.length}-${summary.activePlan?.id ?? 'none'}',
-                        ),
-                        child: _MetricsBlock(
-                          activeCoaches: active.length,
-                          latestWeightKg:
-                              summary.latestWeightEntry?.weightKg,
-                          hasPlan: summary.activePlan != null,
-                          needsCheckout: active.isEmpty,
-                        ),
-                      );
-                    },
-                  ),
+              child: _DynamicMetricsBlock(
+                key: ValueKey(
+                  'metrics-${summaryAsync.valueOrNull?.activeCoachCount ?? 'pending'}-${summaryAsync.valueOrNull?.activeAiPlan?.id ?? 'none'}',
                 ),
+                summaryAsync: summaryAsync,
               ),
             ),
             const SizedBox(height: 36),
@@ -183,37 +132,23 @@ class MemberHomeContent extends ConsumerWidget {
             // ── "Quick Actions" section ──
             AppReveal(
               delay: revealDelay(5),
-              child: _SectionHeading(
-                title: 'Quick Actions',
-                subtitle: '',
-              ),
+              child: _SectionHeading(title: 'Quick Actions', subtitle: ''),
             ),
             const SizedBox(height: 16),
 
             // ── Featured TAIYO card ──
             AppReveal(
               delay: revealDelay(6),
-              child: const _FeaturedActionCard(
-                title: 'Open TAIYO',
-                subtitle: 'Intelligent wellness insights',
-                icon: Icons.auto_awesome_outlined,
-                destinationBuilder: _buildAiHome,
-              ),
+              child: _AiCoachFeaturedCard(briefAsync: coachBriefAsync),
             ),
             const SizedBox(height: 14),
 
             // ── Quick-action grid (2 columns) ──
-            AppReveal(
-              delay: revealDelay(7),
-              child: const _QuickActionsGrid(),
-            ),
+            AppReveal(delay: revealDelay(7), child: const _QuickActionsGrid()),
             const SizedBox(height: 24),
 
             // ── Browse store row ──
-            AppReveal(
-              delay: revealDelay(8),
-              child: const _BrowseStoreCard(),
-            ),
+            AppReveal(delay: revealDelay(8), child: const _BrowseStoreCard()),
           ],
         ),
       ),
@@ -251,7 +186,7 @@ class _TopBar extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            'Atelier',
+            AppStrings.appName,
             style: GoogleFonts.notoSerif(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -357,7 +292,9 @@ class _HeroGreeting extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _StreakPill extends StatefulWidget {
-  const _StreakPill();
+  const _StreakPill({required this.summaryAsync});
+
+  final AsyncValue<MemberHomeSummaryEntity> summaryAsync;
 
   @override
   State<_StreakPill> createState() => _StreakPillState();
@@ -383,7 +320,7 @@ class _StreakPillState extends State<_StreakPill>
     super.dispose();
   }
 
-  Widget _buildTextColumn() {
+  Widget _buildTextColumn(String headline, {bool includeValueKey = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -400,13 +337,15 @@ class _StreakPillState extends State<_StreakPill>
         ),
         const SizedBox(height: 2),
         Text(
-          '12 Days Active',
+          headline,
+          key: includeValueKey ? const Key('member-daily-streak-value') : null,
           style: GoogleFonts.manrope(
             fontSize: 14,
             fontWeight: FontWeight.w700,
             color: AtelierColors.onSurface,
           ),
           maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -414,8 +353,11 @@ class _StreakPillState extends State<_StreakPill>
 
   @override
   Widget build(BuildContext context) {
+    final headline = _resolveDailyStreakHeadline(widget.summaryAsync);
+
     return Center(
       child: Container(
+        key: const Key('member-daily-streak-card'),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         decoration: BoxDecoration(
           color: AtelierColors.surfaceContainerLow,
@@ -437,9 +379,11 @@ class _StreakPillState extends State<_StreakPill>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(width: 36), // The exact footprint of the icon
+                      const SizedBox(
+                        width: 36,
+                      ), // The exact footprint of the icon
                       const SizedBox(width: 12),
-                      _buildTextColumn(),
+                      _buildTextColumn(headline),
                     ],
                   ),
                 ),
@@ -458,7 +402,10 @@ class _StreakPillState extends State<_StreakPill>
                             // Icon moves to exactly W/2 from the left.
                             // They converge in the absolute center pixel-perfectly with 0 gap!
                             offset: Offset(-progress * (W / 2), 0.0),
-                            child: _buildTextColumn(),
+                            child: _buildTextColumn(
+                              headline,
+                              includeValueKey: true,
+                            ),
                           ),
                         ),
                       );
@@ -477,6 +424,19 @@ class _StreakPillState extends State<_StreakPill>
                         width: 36,
                         height: 36,
                         fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF4DCC5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.local_fire_department_rounded,
+                            color: AtelierColors.primary,
+                            size: 20,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -499,15 +459,36 @@ class _SmoothEatingClipper extends CustomClipper<Rect> {
     // Determine the exact pixel coordinate of the Icon's dynamic center
     // Icon aligns from -1.0 (left) to 0.0 (center)
     final centerOfIconX = ((size.width - 36) / 2) * progress + 18;
-    
+
     // Anything to the left of the Icon's center is mathematically clipped (invisible)
     // Making it seamlessly disappear as the texts dives in.
-    return Rect.fromLTWH(centerOfIconX, 0, size.width - centerOfIconX, size.height);
+    return Rect.fromLTWH(
+      centerOfIconX,
+      0,
+      size.width - centerOfIconX,
+      size.height,
+    );
   }
 
   @override
   bool shouldReclip(covariant _SmoothEatingClipper oldDelegate) =>
       oldDelegate.progress != progress;
+}
+
+String _resolveDailyStreakHeadline(
+  AsyncValue<MemberHomeSummaryEntity> summaryAsync,
+) {
+  return summaryAsync.when(
+    loading: () => 'Loading...',
+    error: (_, _) => 'Unavailable',
+    data: (summary) =>
+        _formatDailyStreakHeadline(summary.dailyStreak.currentCount),
+  );
+}
+
+String _formatDailyStreakHeadline(int count) {
+  final safeCount = math.max(0, count);
+  return safeCount == 1 ? '1 Day Active' : '$safeCount Days Active';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -553,6 +534,7 @@ class _SectionHeading extends StatelessWidget {
 //  METRICS BLOCK
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ignore: unused_element
 class _MetricsBlock extends StatelessWidget {
   const _MetricsBlock({
     required this.activeCoaches,
@@ -647,9 +629,19 @@ class _MetricTile extends StatelessWidget {
                           width: 24,
                           height: 24,
                           fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(
+                                Icons.groups_2_rounded,
+                                size: 18,
+                                color: AtelierColors.primary,
+                              ),
                         ),
                       )
-                    : Icon(icon, size: 20, color: AtelierColors.onSurfaceVariant),
+                    : Icon(
+                        icon,
+                        size: 20,
+                        color: AtelierColors.onSurfaceVariant,
+                      ),
               ),
               const SizedBox(height: 14),
               Text(
@@ -777,7 +769,11 @@ class _RadarPainter extends CustomPainter {
     );
 
     canvas.drawCircle(coach1, 2, Paint()..color = color.withValues(alpha: 0.6));
-    canvas.drawCircle(coach2, 2.5, Paint()..color = color.withValues(alpha: 0.4));
+    canvas.drawCircle(
+      coach2,
+      2.5,
+      Paint()..color = color.withValues(alpha: 0.4),
+    );
   }
 
   @override
@@ -846,14 +842,14 @@ class _SparklinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Fake downward trend for weight: mapped 0 to 1 (0 is top of chart, 1 is bottom)
     final baseValues = [0.2, 0.4, 0.3, 0.6, 0.5, 0.9];
-    
+
     // Calculate undulating values using the progress as a phase
     double getValue(int index) {
       // Create a smooth floating offset for each point based on the continuous progress
       final shift = math.sin((progress * math.pi * 2) + (index * 1.5)) * 0.12;
       return math.max(0.0, math.min(1.0, baseValues[index] + shift));
     }
-    
+
     final path = Path();
     final step = size.width / (baseValues.length - 1);
 
@@ -865,11 +861,7 @@ class _SparklinePainter extends CustomPainter {
       final y2 = size.height * getValue(i + 1);
 
       // Smooth cubic bezier connection
-      path.cubicTo(
-        x1 + step / 2, y1,
-        x1 + step / 2, y2,
-        x2, y2,
-      );
+      path.cubicTo(x1 + step / 2, y1, x1 + step / 2, y2, x2, y2);
     }
 
     final linePaint = Paint()
@@ -889,18 +881,18 @@ class _SparklinePainter extends CustomPainter {
 
     final fillPaint = Paint()
       ..shader = LinearGradient(
-        colors: [
-          color.withValues(alpha: 0.15),
-          color.withValues(alpha: 0.0),
-        ],
+        colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.0)],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawPath(areaPath, fillPaint);
-    
+
     // Glowing tip at current data point
-    final tipPos = Offset(size.width, size.height * getValue(baseValues.length - 1));
+    final tipPos = Offset(
+      size.width,
+      size.height * getValue(baseValues.length - 1),
+    );
     canvas.drawCircle(tipPos, 3, Paint()..color = color);
   }
 
@@ -970,7 +962,7 @@ class _WeekPainter extends CustomPainter {
     const int days = 7;
     const int currentDay = 4; // 0-indexed: 4th block is today
     const double radius = 3.0;
-    
+
     final double spacing = (size.width - (radius * 2 * days)) / (days - 1);
     final double y = size.height / 2;
 
@@ -984,7 +976,11 @@ class _WeekPainter extends CustomPainter {
         // Current day: pulsating glow + solid core
         final glowPaint = Paint()
           ..color = color.withValues(alpha: 0.2 + (0.4 * pulse));
-        canvas.drawCircle(Offset(x, y), radius + (1.5 + (2.5 * pulse)), glowPaint);
+        canvas.drawCircle(
+          Offset(x, y),
+          radius + (1.5 + (2.5 * pulse)),
+          glowPaint,
+        );
         canvas.drawCircle(Offset(x, y), radius, Paint()..color = color);
       } else {
         // Upcoming days: hollow outline
@@ -1064,9 +1060,7 @@ class _NextStepCard extends StatelessWidget {
                   if (needsCheckout) {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const CoachesScreen(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const CoachesScreen()),
                     );
                   } else {
                     Navigator.push(
@@ -1111,6 +1105,1019 @@ class _NextStepCard extends StatelessWidget {
 //  FEATURED TAIYO CARD
 // ═══════════════════════════════════════════════════════════════════════════
 
+class _DynamicMetricsBlock extends StatelessWidget {
+  const _DynamicMetricsBlock({super.key, required this.summaryAsync});
+
+  final AsyncValue<MemberHomeSummaryEntity> summaryAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = summaryAsync.valueOrNull;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ActiveCoachesSummaryCard(summaryAsync: summaryAsync),
+        const SizedBox(height: 12),
+        _LatestWeightSummaryCard(summaryAsync: summaryAsync),
+        const SizedBox(height: 12),
+        _CurrentPlanSummaryCard(summaryAsync: summaryAsync),
+        if (summary != null) ...[
+          const SizedBox(height: 14),
+          _DynamicNextStepCard(
+            hasActiveCoach: summary.activeCoachCount > 0,
+            hasPendingCoachCheckout: summary.hasPendingCoachCheckout,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DashboardMetricTile extends StatelessWidget {
+  const _DashboardMetricTile({
+    this.cardKey,
+    this.valueKey,
+    this.icon,
+    this.imageAsset,
+    required this.label,
+    required this.headline,
+    this.headlineColor,
+    this.supportingText,
+    this.compactHeadline = false,
+    this.trailingWidget,
+  }) : assert(icon != null || imageAsset != null);
+
+  final Key? cardKey;
+  final Key? valueKey;
+  final IconData? icon;
+  final String? imageAsset;
+  final String label;
+  final String headline;
+  final Color? headlineColor;
+  final String? supportingText;
+  final bool compactHeadline;
+  final Widget? trailingWidget;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: cardKey,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AtelierColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AtelierColors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: imageAsset != null
+                      ? Center(
+                          child: Image.asset(
+                            imageAsset!,
+                            width: 24,
+                            height: 24,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                                  Icons.groups_2_rounded,
+                                  size: 18,
+                                  color: AtelierColors.primary,
+                                ),
+                          ),
+                        )
+                      : Icon(
+                          icon,
+                          size: 20,
+                          color: AtelierColors.onSurfaceVariant,
+                        ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  label,
+                  style: GoogleFonts.manrope(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                    color: AtelierColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  headline,
+                  key: valueKey,
+                  maxLines: compactHeadline ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(
+                    fontSize: compactHeadline ? 18 : 24,
+                    fontWeight: FontWeight.w800,
+                    height: compactHeadline ? 1.2 : 1.0,
+                    color: headlineColor ?? AtelierColors.onSurface,
+                  ),
+                ),
+                if (supportingText != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    supportingText!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.45,
+                      color: AtelierColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailingWidget != null) ...[
+            const SizedBox(width: 16),
+            trailingWidget!,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveCoachesSummaryCard extends ConsumerWidget {
+  const _ActiveCoachesSummaryCard({required this.summaryAsync});
+
+  final AsyncValue<MemberHomeSummaryEntity> summaryAsync;
+
+  void _navigateToCoaches(WidgetRef ref) {
+    ref.read(memberHomeTabSwitchProvider.notifier).state = 1;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () => _navigateToCoaches(ref),
+      child: summaryAsync.when(
+        loading: () => const _DashboardMetricTile(
+          cardKey: Key('member-summary-active-coaches'),
+          valueKey: Key('member-summary-active-coaches-value'),
+          imageAsset: 'assets/images/coaches_icon.png',
+          label: 'ACTIVE COACHES',
+          headline: 'Loading...',
+          compactHeadline: true,
+          supportingText: 'Checking live coach assignments.',
+          trailingWidget: _MetricLoadingGlyph(),
+        ),
+        error: (_, _) => const _DashboardMetricTile(
+          cardKey: Key('member-summary-active-coaches'),
+          valueKey: Key('member-summary-active-coaches-value'),
+          imageAsset: 'assets/images/coaches_icon.png',
+          label: 'ACTIVE COACHES',
+          headline: 'Unavailable',
+          compactHeadline: true,
+          supportingText: 'Unable to load coaching status.',
+          trailingWidget: _MetricErrorGlyph(),
+        ),
+        data: (summary) {
+          final count = summary.activeCoachCount;
+          final supportingText = count == 0
+              ? summary.hasPendingCoachCheckout
+                    ? 'Checkout pending. This count updates as soon as your coach is active.'
+                    : 'No active coach subscription. Tap to browse coaches.'
+              : count == 1
+              ? '1 live coach connection.'
+              : '$count live coach connections.';
+
+          return _DashboardMetricTile(
+            cardKey: const Key('member-summary-active-coaches'),
+            valueKey: const Key('member-summary-active-coaches-value'),
+            imageAsset: 'assets/images/coaches_icon.png',
+            label: 'ACTIVE COACHES',
+            headline: '$count',
+            supportingText: supportingText,
+            trailingWidget: _CoachPresenceStack(count: count),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LatestWeightSummaryCard extends StatelessWidget {
+  const _LatestWeightSummaryCard({required this.summaryAsync});
+
+  final AsyncValue<MemberHomeSummaryEntity> summaryAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return summaryAsync.when(
+      loading: () => const _DashboardMetricTile(
+        cardKey: Key('member-summary-latest-weight'),
+        valueKey: Key('member-summary-latest-weight-value'),
+        icon: Icons.monitor_weight_outlined,
+        label: 'LATEST WEIGHT',
+        headline: 'Loading...',
+        compactHeadline: true,
+        supportingText: 'Syncing your latest weigh-in.',
+        trailingWidget: _MetricLoadingGlyph(),
+      ),
+      error: (_, _) => const _DashboardMetricTile(
+        cardKey: Key('member-summary-latest-weight'),
+        valueKey: Key('member-summary-latest-weight-value'),
+        icon: Icons.monitor_weight_outlined,
+        label: 'LATEST WEIGHT',
+        headline: 'Unavailable',
+        compactHeadline: true,
+        supportingText: 'Unable to load weight data right now.',
+        trailingWidget: _MetricErrorGlyph(),
+      ),
+      data: (summary) {
+        final latestWeight = summary.latestWeightEntry;
+        if (latestWeight == null) {
+          return const _DashboardMetricTile(
+            cardKey: Key('member-summary-latest-weight'),
+            valueKey: Key('member-summary-latest-weight-value'),
+            icon: Icons.monitor_weight_outlined,
+            label: 'LATEST WEIGHT',
+            headline: 'No weight data yet',
+            compactHeadline: true,
+            supportingText:
+                'Track your first weigh-in to unlock real trend changes.',
+            trailingWidget: _WeightTrendGlyph(
+              direction: MemberWeightTrendDirection.neutral,
+            ),
+          );
+        }
+
+        return _DashboardMetricTile(
+          cardKey: const Key('member-summary-latest-weight'),
+          valueKey: const Key('member-summary-latest-weight-value'),
+          icon: Icons.monitor_weight_outlined,
+          label: 'LATEST WEIGHT',
+          headline: '${latestWeight.weightKg.toStringAsFixed(1)} kg',
+          supportingText: _buildWeightSupportingText(summary),
+          trailingWidget: _WeightTrendGlyph(
+            direction: summary.weightTrendDirection,
+          ),
+        );
+      },
+    );
+  }
+
+  String _buildWeightSupportingText(MemberHomeSummaryEntity summary) {
+    final latest = summary.latestWeightEntry;
+    if (latest == null) {
+      return 'No weight data yet.';
+    }
+    final updatedAt = _formatMetricDate(latest.recordedAt);
+    final delta = summary.weightDeltaKg;
+    if (delta == null) {
+      return 'First recorded weigh-in. Updated $updatedAt.';
+    }
+    if (summary.weightTrendDirection == MemberWeightTrendDirection.stable) {
+      return 'Stable vs previous entry. Updated $updatedAt.';
+    }
+    final amount = delta.abs().toStringAsFixed(1);
+    if (summary.weightTrendDirection == MemberWeightTrendDirection.down) {
+      return '$amount kg down vs previous entry. Updated $updatedAt.';
+    }
+    return '$amount kg up vs previous entry. Updated $updatedAt.';
+  }
+}
+
+class _CurrentPlanSummaryCard extends StatelessWidget {
+  const _CurrentPlanSummaryCard({required this.summaryAsync});
+
+  final AsyncValue<MemberHomeSummaryEntity> summaryAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return summaryAsync.when(
+      loading: () => const _DashboardMetricTile(
+        cardKey: Key('member-summary-current-plan'),
+        valueKey: Key('member-summary-current-plan-value'),
+        icon: Icons.event_note_outlined,
+        label: 'CURRENT PLAN',
+        headline: 'Loading...',
+        compactHeadline: true,
+        supportingText: 'Checking your live AI plan.',
+        trailingWidget: _MetricLoadingGlyph(),
+      ),
+      error: (_, _) => const _DashboardMetricTile(
+        cardKey: Key('member-summary-current-plan'),
+        valueKey: Key('member-summary-current-plan-value'),
+        icon: Icons.event_note_outlined,
+        label: 'CURRENT PLAN',
+        headline: 'Unavailable',
+        compactHeadline: true,
+        supportingText: 'Unable to load AI plan status.',
+        trailingWidget: _MetricErrorGlyph(),
+      ),
+      data: (summary) {
+        final consistency = summary.planConsistency;
+        final activePlan = summary.activeAiPlan;
+        final hasActivePlan = activePlan != null;
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (activePlan != null) {
+              Navigator.pushNamed(
+                context,
+                AppRoutes.workoutPlan,
+                arguments: WorkoutPlanArgs(planId: activePlan.id),
+              );
+              return;
+            }
+            Navigator.pushNamed(context, AppRoutes.aiPlannerBuilder);
+          },
+          child: _DashboardMetricTile(
+            cardKey: const Key('member-summary-current-plan'),
+            valueKey: const Key('member-summary-current-plan-value'),
+            icon: Icons.event_note_outlined,
+            label: 'CURRENT PLAN',
+            headline: hasActivePlan ? 'Live' : 'No active plan',
+            compactHeadline: !hasActivePlan,
+            headlineColor: hasActivePlan ? AtelierColors.success : null,
+            supportingText: _buildPlanSupportingText(
+              hasActivePlan: hasActivePlan,
+              consistency: consistency,
+              planTitle: activePlan?.title,
+            ),
+            trailingWidget: _PlanConsistencyGlyph(
+              weeks: hasActivePlan
+                  ? consistency.visibleWeeks
+                  : const <MemberPlanConsistencyWeek>[],
+              visualCap: consistency.visualCap,
+              hasActivePlan: hasActivePlan,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _buildPlanSupportingText({
+    required bool hasActivePlan,
+    required MemberPlanConsistencySummary consistency,
+    String? planTitle,
+  }) {
+    if (!hasActivePlan) {
+      return 'Tap to build and activate your AI workout plan.';
+    }
+    final title = planTitle?.trim();
+    if (title != null && title.isNotEmpty) {
+      return '$title. Tap to open your workout plan.';
+    }
+    if (consistency.currentStreakWeeks > 0) {
+      return '${_pluralize(consistency.currentStreakWeeks, 'consistent week')} in a row. Tap to open.';
+    }
+    if (consistency.totalConsistentWeeks > 0) {
+      return '${_pluralize(consistency.totalConsistentWeeks, 'consistent week')} logged so far. Tap to open.';
+    }
+    return 'Plan is live. Tap to open your workout plan.';
+  }
+}
+
+class _MetricLoadingGlyph extends StatelessWidget {
+  const _MetricLoadingGlyph();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 54,
+      height: 54,
+      child: Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AtelierColors.primary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricErrorGlyph extends StatelessWidget {
+  const _MetricErrorGlyph();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 54,
+      height: 54,
+      decoration: BoxDecoration(
+        color: AtelierColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Icon(
+        Icons.sync_problem_rounded,
+        color: AtelierColors.error,
+        size: 22,
+      ),
+    );
+  }
+}
+
+class _CoachPresenceStack extends StatelessWidget {
+  const _CoachPresenceStack({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleCount = math.max(0, math.min(count, 3));
+
+    return AnimatedSwitcher(
+      duration: AppMotion.medium,
+      switchInCurve: AppMotion.emphasizedCurve,
+      switchOutCurve: AppMotion.exitCurve,
+      transitionBuilder: _fadeSlide,
+      child: SizedBox(
+        key: ValueKey(count),
+        width: 76,
+        height: 74,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: 8,
+              right: 8,
+              top: 6,
+              bottom: 12,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: count == 0
+                      ? AtelierColors.surfaceContainer
+                      : AtelierColors.primary.withValues(alpha: 0.10),
+                ),
+              ),
+            ),
+            if (count == 0)
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AtelierColors.surfaceContainerLowest,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AtelierColors.outlineVariant,
+                      width: 1.2,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.groups_2_rounded,
+                    color: AtelierColors.onSurfaceVariant,
+                    size: 18,
+                  ),
+                ),
+              )
+            else
+              for (var index = 0; index < visibleCount; index++)
+                Positioned(
+                  left: 10.0 + (index * 14),
+                  top: index.isEven ? 16 : 8,
+                  child: _CoachPresenceAvatar(index: index),
+                ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AtelierColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$count',
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: count == 0
+                        ? AtelierColors.onSurfaceVariant
+                        : AtelierColors.primary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoachPresenceAvatar extends StatelessWidget {
+  const _CoachPresenceAvatar({required this.index});
+
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = <Color>[
+      AtelierColors.primary.withValues(alpha: 0.92),
+      AtelierColors.primaryContainer.withValues(alpha: 0.92),
+      AtelierColors.success.withValues(alpha: 0.88),
+    ];
+
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: palette[index % palette.length],
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        Icons.person_rounded,
+        color: AtelierColors.white,
+        size: 15,
+      ),
+    );
+  }
+}
+
+class _WeightTrendGlyph extends StatelessWidget {
+  const _WeightTrendGlyph({required this.direction});
+
+  final MemberWeightTrendDirection direction;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: AppMotion.medium,
+      switchInCurve: AppMotion.emphasizedCurve,
+      switchOutCurve: AppMotion.exitCurve,
+      transitionBuilder: _fadeSlide,
+      child: _AnimatedWeightTrendGlyph(
+        key: ValueKey(direction),
+        direction: direction,
+      ),
+    );
+  }
+}
+
+class _AnimatedWeightTrendGlyph extends StatelessWidget {
+  const _AnimatedWeightTrendGlyph({super.key, required this.direction});
+
+  final MemberWeightTrendDirection direction;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 82,
+      height: 46,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: 1),
+        duration: AppMotion.slow,
+        curve: AppMotion.emphasizedCurve,
+        builder: (context, reveal, _) {
+          return CustomPaint(
+            painter: _WeightTrendGlyphPainter(
+              direction: direction,
+              reveal: reveal,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _WeightTrendGlyphPainter extends CustomPainter {
+  _WeightTrendGlyphPainter({required this.direction, required this.reveal});
+
+  final MemberWeightTrendDirection direction;
+  final double reveal;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final color = _colorFor(direction);
+    final values = _normalizedValues(direction);
+    final step = size.width / (values.length - 1);
+    final points = values
+        .asMap()
+        .entries
+        .map((entry) => Offset(step * entry.key, size.height * entry.value))
+        .toList(growable: false);
+
+    canvas.drawLine(
+      Offset(0, size.height * 0.8),
+      Offset(size.width, size.height * 0.8),
+      Paint()
+        ..color = AtelierColors.outlineVariant.withValues(alpha: 0.35)
+        ..strokeWidth = 1,
+    );
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var index = 0; index < points.length - 1; index++) {
+      final current = points[index];
+      final next = points[index + 1];
+      final controlX = (current.dx + next.dx) / 2;
+      path.cubicTo(controlX, current.dy, controlX, next.dy, next.dx, next.dy);
+    }
+
+    final areaPath = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width * reveal, size.height));
+    canvas.drawPath(
+      areaPath,
+      Paint()
+        ..shader = LinearGradient(
+          colors: <Color>[
+            color.withValues(alpha: 0.18),
+            color.withValues(alpha: 0),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.restore();
+
+    if (reveal >= 0.98) {
+      canvas.drawCircle(points.last, 3.5, Paint()..color = color);
+    }
+  }
+
+  List<double> _normalizedValues(MemberWeightTrendDirection direction) {
+    switch (direction) {
+      case MemberWeightTrendDirection.down:
+        return const <double>[0.30, 0.38, 0.44, 0.58, 0.70];
+      case MemberWeightTrendDirection.up:
+        return const <double>[0.70, 0.58, 0.50, 0.38, 0.26];
+      case MemberWeightTrendDirection.stable:
+        return const <double>[0.49, 0.48, 0.50, 0.49, 0.48];
+      case MemberWeightTrendDirection.neutral:
+        return const <double>[0.56, 0.54, 0.53, 0.52, 0.51];
+    }
+  }
+
+  Color _colorFor(MemberWeightTrendDirection direction) {
+    switch (direction) {
+      case MemberWeightTrendDirection.down:
+        return AtelierColors.success;
+      case MemberWeightTrendDirection.up:
+        return AtelierColors.primary;
+      case MemberWeightTrendDirection.stable:
+        return AtelierColors.onSurfaceVariant;
+      case MemberWeightTrendDirection.neutral:
+        return AtelierColors.textMuted;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WeightTrendGlyphPainter oldDelegate) {
+    return oldDelegate.direction != direction || oldDelegate.reveal != reveal;
+  }
+}
+
+class _PlanConsistencyGlyph extends StatelessWidget {
+  const _PlanConsistencyGlyph({
+    required this.weeks,
+    required this.visualCap,
+    required this.hasActivePlan,
+  });
+
+  final List<MemberPlanConsistencyWeek> weeks;
+  final int visualCap;
+  final bool hasActivePlan;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleWeeks = weeks.length <= visualCap
+        ? weeks
+        : weeks.sublist(weeks.length - visualCap);
+    final dotStates = hasActivePlan
+        ? (visibleWeeks.isEmpty
+              ? List<MemberPlanConsistencyState>.filled(
+                  math.min(visualCap, 4),
+                  MemberPlanConsistencyState.pending,
+                )
+              : visibleWeeks.map((week) => week.state).toList(growable: false))
+        : List<MemberPlanConsistencyState>.filled(
+            math.min(visualCap, 6),
+            MemberPlanConsistencyState.pending,
+          );
+
+    return AnimatedSwitcher(
+      duration: AppMotion.medium,
+      switchInCurve: AppMotion.emphasizedCurve,
+      switchOutCurve: AppMotion.exitCurve,
+      transitionBuilder: _fadeSlide,
+      child: KeyedSubtree(
+        key: ValueKey(dotStates.map((state) => state.name).join('-')),
+        child: Row(
+          key: const Key('member-summary-current-plan-dots'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var index = 0; index < dotStates.length; index++)
+              Padding(
+                padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
+                child: _PlanConsistencyDotGlyph(
+                  key: ValueKey(
+                    'member-summary-plan-dot-$index-${dotStates[index].name}',
+                  ),
+                  state: dotStates[index],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanConsistencyDotGlyph extends StatelessWidget {
+  const _PlanConsistencyDotGlyph({super.key, required this.state});
+
+  final MemberPlanConsistencyState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final isConsistent = state == MemberPlanConsistencyState.consistent;
+    final isPending = state == MemberPlanConsistencyState.pending;
+
+    return AnimatedContainer(
+      duration: AppMotion.medium,
+      curve: AppMotion.standardCurve,
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isConsistent
+            ? AtelierColors.success
+            : isPending
+            ? AtelierColors.transparent
+            : AtelierColors.primary.withValues(alpha: 0.20),
+        border: Border.all(
+          color: isConsistent
+              ? AtelierColors.success
+              : AtelierColors.outlineVariant.withValues(
+                  alpha: isPending ? 0.9 : 0.55,
+                ),
+          width: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
+class _DynamicNextStepCard extends StatelessWidget {
+  const _DynamicNextStepCard({
+    required this.hasActiveCoach,
+    required this.hasPendingCoachCheckout,
+  });
+
+  final bool hasActiveCoach;
+  final bool hasPendingCoachCheckout;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = hasPendingCoachCheckout
+        ? 'Complete Checkout'
+        : hasActiveCoach
+        ? 'Submit Check-in'
+        : 'Browse Coaches';
+    final cta = hasPendingCoachCheckout
+        ? 'Checkout Now'
+        : hasActiveCoach
+        ? 'Open Check-in'
+        : 'Find a Coach';
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AtelierColors.darkCard,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'NEXT STEP',
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.8,
+              color: AtelierColors.white.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: GoogleFonts.manrope(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AtelierColors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: <Color>[
+                  AtelierColors.primary,
+                  AtelierColors.primaryContainer,
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(9999),
+            ),
+            child: Material(
+              color: AtelierColors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(9999),
+                onTap: () {
+                  if (hasPendingCoachCheckout || !hasActiveCoach) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CoachesScreen()),
+                    );
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MemberCheckinsScreen(),
+                    ),
+                  );
+                },
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        cta,
+                        style: GoogleFonts.manrope(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AtelierColors.onPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: AtelierColors.onPrimary,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatMetricDate(DateTime value) {
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day';
+}
+
+String _pluralize(int value, String noun) {
+  return value == 1 ? '1 $noun' : '$value ${noun}s';
+}
+
+class _AiCoachFeaturedCard extends StatelessWidget {
+  const _AiCoachFeaturedCard({required this.briefAsync});
+
+  final AsyncValue<AiDailyBriefEntity?> briefAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () =>
+          Navigator.push(context, MaterialPageRoute(builder: _buildAiHome)),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AtelierColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AtelierColors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.auto_awesome_outlined,
+                color: AtelierColors.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: briefAsync.when(
+                loading: () => _buildCopy(
+                  title: 'Open TAIYO',
+                  subtitle: 'Preparing today\'s coach brief...',
+                ),
+                error: (error, stackTrace) => _buildCopy(
+                  title: 'Open TAIYO',
+                  subtitle: 'Daily AI coaching and workout guidance',
+                ),
+                data: (brief) => _buildCopy(
+                  title: _resolveBriefTitle(brief),
+                  subtitle: _resolveBriefSubtitle(brief),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCopy({required String title, required String subtitle}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.manrope(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: AtelierColors.onSurface,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.manrope(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: AtelierColors.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _resolveBriefTitle(AiDailyBriefEntity? brief) {
+    try {
+      final title = brief?.workoutTitle.trim();
+      if (title != null && title.isNotEmpty) {
+        return title;
+      }
+    } catch (_) {
+      // Fall back to safe copy when backend payloads are partially malformed.
+    }
+    return 'Open TAIYO';
+  }
+
+  String _resolveBriefSubtitle(AiDailyBriefEntity? brief) {
+    final subtitle = brief?.whyShort.trim();
+    if (subtitle != null && subtitle.isNotEmpty) {
+      return subtitle;
+    }
+    return 'Daily AI coaching and workout guidance';
+  }
+}
+
 class _FeaturedActionCard extends StatefulWidget {
   const _FeaturedActionCard({
     required this.title,
@@ -1143,9 +2150,7 @@ class _FeaturedActionCardState extends State<_FeaturedActionCard> {
         onTapCancel: () => setState(() => _pressed = false),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: widget.destinationBuilder,
-          ),
+          MaterialPageRoute(builder: widget.destinationBuilder),
         ),
         child: Container(
           padding: const EdgeInsets.all(20),
@@ -1297,9 +2302,7 @@ class _GridActionTileState extends State<_GridActionTile> {
         onTapCancel: () => setState(() => _pressed = false),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: widget.action.destinationBuilder,
-          ),
+          MaterialPageRoute(builder: widget.action.destinationBuilder),
         ),
         child: Container(
           padding: const EdgeInsets.all(18),
@@ -1367,9 +2370,7 @@ class _BrowseStoreCardState extends State<_BrowseStoreCard> {
         onTapCancel: () => setState(() => _pressed = false),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const StoreHomeScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const StoreHomeScreen()),
         ),
         child: Container(
           padding: const EdgeInsets.all(20),
@@ -1430,6 +2431,7 @@ class _BrowseStoreCardState extends State<_BrowseStoreCard> {
 //  EMPTY STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ignore: unused_element
 class _EmptyStateCard extends StatelessWidget {
   const _EmptyStateCard({required this.message});
 
@@ -1478,12 +2480,12 @@ Widget _fadeSlide(Widget child, Animation<double> animation) {
   );
 }
 
-Widget _buildAiHome(BuildContext context) => const AiChatHomeScreen();
+Widget _buildAiHome(BuildContext context) => const AiCoachHomeScreen();
 
 Widget _buildNewsFeed(BuildContext context) => const NewsFeedScreen();
 
 Widget _buildSubscriptions(BuildContext context) =>
-    const MySubscriptionsScreen();
+    const MemberCoachHubScreen();
 
 Widget _buildCheckins(BuildContext context) => const MemberCheckinsScreen();
 
@@ -1492,4 +2494,3 @@ Widget _buildProgress(BuildContext context) => const ProgressScreen();
 Widget _buildCoaches(BuildContext context) => const CoachesScreen();
 
 Widget _buildMessages(BuildContext context) => const MemberMessagesScreen();
-
