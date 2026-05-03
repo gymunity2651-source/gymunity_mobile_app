@@ -1,13 +1,17 @@
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  createClient,
+  type SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import {
   buildMemoryPayload,
   buildPersonalizationUsed,
   buildSuggestedReplies,
-  classifyConversationMode,
   clamp,
+  classifyConversationMode,
   compactPlan,
+  type ConversationMode,
   criticalMissing,
   dateOnly,
   deriveSignals,
@@ -17,16 +21,15 @@ import {
   nonNegInt,
   nonNegNum,
   obj,
+  type PlannerAction,
+  type PlannerContextLike,
+  type PlannerProfile,
   posInt,
+  type SessionType,
   str,
   strings,
   summarizeSessionState,
   time,
-  type ConversationMode,
-  type PlannerAction,
-  type PlannerContextLike,
-  type PlannerProfile,
-  type SessionType,
   type TurnStatus,
 } from "./engine.ts";
 
@@ -122,7 +125,9 @@ type PlannerContext = PlannerContextLike & {
 };
 
 const nullableStringSchema = { anyOf: [{ type: "string" }, { type: "null" }] };
-const nullableIntegerSchema = { anyOf: [{ type: "integer" }, { type: "null" }] };
+const nullableIntegerSchema = {
+  anyOf: [{ type: "integer" }, { type: "null" }],
+};
 const nullableNumberSchema = { anyOf: [{ type: "number" }, { type: "null" }] };
 
 const memoryUpdateSchema = {
@@ -144,7 +149,13 @@ const responseSchema = {
     assistant_message: { type: "string" },
     status: {
       type: "string",
-      enum: ["general_response", "needs_more_info", "plan_ready", "plan_updated", "unsafe_request"],
+      enum: [
+        "general_response",
+        "needs_more_info",
+        "plan_ready",
+        "plan_updated",
+        "unsafe_request",
+      ],
     },
     missing_fields: { type: "array", items: { type: "string" } },
     extracted_profile: { type: "object" },
@@ -156,13 +167,25 @@ const responseSchema = {
     },
     conversation_mode: {
       type: "string",
-      enum: ["general_coaching", "planner_collect", "planner_generate", "planner_refine", "progress_checkin"],
+      enum: [
+        "general_coaching",
+        "planner_collect",
+        "planner_generate",
+        "planner_refine",
+        "progress_checkin",
+      ],
     },
     personalization_used: { type: "array", items: { type: "string" } },
     suggested_replies: { type: "array", items: { type: "string" } },
     memory_updates: memoryUpdateSchema,
   },
-  required: ["assistant_message", "status", "missing_fields", "extracted_profile", "plan"],
+  required: [
+    "assistant_message",
+    "status",
+    "missing_fields",
+    "extracted_profile",
+    "plan",
+  ],
 };
 
 const planSchema = {
@@ -215,11 +238,29 @@ const planSchema = {
                       reminder_time: nullableStringSchema,
                       is_required: { type: "boolean" },
                     },
-                    required: ["type", "title", "instructions", "sets", "reps", "duration_minutes", "target_value", "target_unit", "scheduled_time", "reminder_time", "is_required"],
+                    required: [
+                      "type",
+                      "title",
+                      "instructions",
+                      "sets",
+                      "reps",
+                      "duration_minutes",
+                      "target_value",
+                      "target_unit",
+                      "scheduled_time",
+                      "reminder_time",
+                      "is_required",
+                    ],
                   },
                 },
               },
-              required: ["week_number", "day_number", "label", "focus", "tasks"],
+              required: [
+                "week_number",
+                "day_number",
+                "label",
+                "focus",
+                "tasks",
+              ],
             },
           },
         },
@@ -227,15 +268,34 @@ const planSchema = {
       },
     },
   },
-  required: ["title", "summary", "duration_weeks", "level", "start_date_suggestion", "safety_notes", "rest_guidance", "nutrition_guidance", "hydration_guidance", "sleep_guidance", "step_target", "weekly_structure"],
+  required: [
+    "title",
+    "summary",
+    "duration_weeks",
+    "level",
+    "start_date_suggestion",
+    "safety_notes",
+    "rest_guidance",
+    "nutrition_guidance",
+    "hydration_guidance",
+    "sleep_guidance",
+    "step_target",
+    "weekly_structure",
+  ],
 };
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   try {
-    const supabase = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), {
-      auth: { persistSession: false },
-    });
+    const supabase = createClient(
+      env("SUPABASE_URL"),
+      env("SUPABASE_SERVICE_ROLE_KEY"),
+      {
+        auth: { persistSession: false },
+      },
+    );
     const user = await authUser(supabase, bearer(req));
     const body = obj(await req.json().catch(() => ({})));
     const actionValue = str(body.action) || "reply";
@@ -244,12 +304,16 @@ Deno.serve(async (req: Request) => {
     }
     const action: PlannerAction = actionValue;
     const sessionId = str(body.session_id);
-    if (!sessionId) return jsonResponse({ error: "session_id is required." }, 400);
+    if (!sessionId) {
+      return jsonResponse({ error: "session_id is required." }, 400);
+    }
 
     const session = await getSession(supabase, sessionId, user.id);
     const ctx = await getContext(supabase, user.id, session);
     if (session.session_type === "planner" && ctx.role !== "member") {
-      return jsonResponse({ error: "AI planning is available for member accounts only." }, 403);
+      return jsonResponse({
+        error: "AI planning is available for member accounts only.",
+      }, 403);
     }
 
     let replyToMessageId: string | null = null;
@@ -257,20 +321,38 @@ Deno.serve(async (req: Request) => {
     let draftRef: Record<string, unknown> | null = null;
     if (action === "reply") {
       replyToMessageId = str(body.message_id);
-      if (!replyToMessageId) return jsonResponse({ error: "message_id is required for reply." }, 400);
+      if (!replyToMessageId) {
+        return jsonResponse(
+          { error: "message_id is required for reply." },
+          400,
+        );
+      }
       await requireUserMessage(supabase, sessionId, replyToMessageId);
-      const existing = await existingAssistantReply(supabase, sessionId, replyToMessageId);
+      const existing = await existingAssistantReply(
+        supabase,
+        sessionId,
+        replyToMessageId,
+      );
       if (existing) return jsonResponse(existing);
     } else {
       regenerateFromDraftId = str(body.draft_id);
       if (!regenerateFromDraftId) {
-        return jsonResponse({ error: "draft_id is required for regenerate_plan." }, 400);
+        return jsonResponse({
+          error: "draft_id is required for regenerate_plan.",
+        }, 400);
       }
-      draftRef = await getDraft(supabase, regenerateFromDraftId, sessionId, user.id);
+      draftRef = await getDraft(
+        supabase,
+        regenerateFromDraftId,
+        sessionId,
+        user.id,
+      );
     }
 
     const history = await getHistory(supabase, sessionId, 18);
-    const latestUserMessage = [...history].reverse().find((message) => message.sender === "user")?.content || "";
+    const latestUserMessage = [...history].reverse().find((message) =>
+      message.sender === "user"
+    )?.content || "";
     const initialMode = classifyConversationMode({
       sessionType: session.session_type,
       action,
@@ -283,7 +365,9 @@ Deno.serve(async (req: Request) => {
       ? plannerPrompt(ctx, action, draftRef, initialMode)
       : generalPrompt(ctx, initialMode);
     const extraUserInstruction = action === "regenerate_plan" && draftRef
-      ? `Refine the plan using this current draft JSON: ${JSON.stringify(compactDraft(draftRef))}`
+      ? `Refine the plan using this current draft JSON: ${
+        JSON.stringify(compactDraft(draftRef))
+      }`
       : null;
 
     const providerResult = await orchestrateStructuredJson({
@@ -296,7 +380,12 @@ Deno.serve(async (req: Request) => {
     });
 
     let turn = session.session_type === "planner"
-      ? sanitizePlanner(providerResult.payload, ctx, action === "regenerate_plan", initialMode)
+      ? sanitizePlanner(
+        providerResult.payload,
+        ctx,
+        action === "regenerate_plan",
+        initialMode,
+      )
       : sanitizeGeneral(providerResult.payload, ctx, initialMode);
 
     if (
@@ -306,7 +395,12 @@ Deno.serve(async (req: Request) => {
       !turn.plan
     ) {
       const forcedPlan = await orchestrateStructuredJson({
-        systemPrompt: planOnlyPrompt(ctx, turn.extracted_profile, draftRef, turn.conversation_mode),
+        systemPrompt: planOnlyPrompt(
+          ctx,
+          turn.extracted_profile,
+          draftRef,
+          turn.conversation_mode,
+        ),
         history: [],
         extraUserInstruction: null,
         schema: planSchema,
@@ -319,8 +413,13 @@ Deno.serve(async (req: Request) => {
           ...turn,
           status: action === "regenerate_plan" ? "plan_updated" : "plan_ready",
           plan: normalizedPlan,
-          conversation_mode: action === "regenerate_plan" ? "planner_refine" : "planner_generate",
-          assistant_message: turn.assistant_message || defaultAssistant(action === "regenerate_plan" ? "plan_updated" : "plan_ready"),
+          conversation_mode: action === "regenerate_plan"
+            ? "planner_refine"
+            : "planner_generate",
+          assistant_message: turn.assistant_message ||
+            defaultAssistant(
+              action === "regenerate_plan" ? "plan_updated" : "plan_ready",
+            ),
         };
       }
     }
@@ -348,10 +447,17 @@ Deno.serve(async (req: Request) => {
     };
     const { data: assistantRow, error: assistantError } = await supabase
       .from("chat_messages")
-      .insert({ session_id: sessionId, sender: "assistant", content: response.assistant_message, metadata })
+      .insert({
+        session_id: sessionId,
+        sender: "assistant",
+        content: response.assistant_message,
+        metadata,
+      })
       .select("id")
       .single();
-    if (assistantError || !assistantRow?.id) throw new Error(assistantError?.message || "Unable to save AI response.");
+    if (assistantError || !assistantRow?.id) {
+      throw new Error(assistantError?.message || "Unable to save AI response.");
+    }
 
     if (ctx.role === "member") {
       const memoryPayload = buildMemoryPayload(
@@ -406,11 +512,13 @@ function optionalEnv(name: string) {
 
 function errorStatus(message: string) {
   const lower = message.toLowerCase();
-  if (message === "Unauthorized" || message === "Missing auth token") return 401;
+  if (message === "Unauthorized" || message === "Missing auth token") {
+    return 401;
+  }
   if (lower.includes("member accounts only")) return 403;
   if (lower.includes("not found")) return 404;
   if (
-    lower.includes("\"code\": 429") ||
+    lower.includes('"code": 429') ||
     lower.includes("quota exceeded") ||
     lower.includes("resource_exhausted") ||
     lower.includes("rate limit") ||
@@ -423,7 +531,7 @@ function errorStatus(message: string) {
 
 function publicError(message: string, status: number) {
   if (status === 429) {
-    return "The configured AI providers are rate-limited or temporarily unavailable.";
+    return "Azure Foundry is rate-limited or temporarily unavailable.";
   }
   return status >= 500 ? "Unhandled ai-chat function error" : message;
 }
@@ -455,11 +563,15 @@ async function getSession(
 ): Promise<SessionRecord> {
   const { data, error } = await supabase
     .from("chat_sessions")
-    .select("id,user_id,title,session_type,planner_status,planner_profile_json,latest_draft_id")
+    .select(
+      "id,user_id,title,session_type,planner_status,planner_profile_json,latest_draft_id",
+    )
     .eq("id", sessionId)
     .single();
   const row = obj(data);
-  if (error || !data || str(row.user_id) !== userId) throw new Error("Session not found.");
+  if (error || !data || str(row.user_id) !== userId) {
+    throw new Error("Session not found.");
+  }
   return {
     id: str(row.id) || sessionId,
     user_id: userId,
@@ -471,7 +583,11 @@ async function getSession(
   };
 }
 
-async function requireUserMessage(supabase: SupabaseClient, sessionId: string, messageId: string) {
+async function requireUserMessage(
+  supabase: SupabaseClient,
+  sessionId: string,
+  messageId: string,
+) {
   const { data, error } = await supabase
     .from("chat_messages")
     .select("id")
@@ -482,10 +598,17 @@ async function requireUserMessage(supabase: SupabaseClient, sessionId: string, m
   if (error || !data) throw new Error("User message not found.");
 }
 
-async function getDraft(supabase: SupabaseClient, draftId: string, sessionId: string, userId: string) {
+async function getDraft(
+  supabase: SupabaseClient,
+  draftId: string,
+  sessionId: string,
+  userId: string,
+) {
   const { data, error } = await supabase
     .from("ai_plan_drafts")
-    .select("id,status,assistant_message,missing_fields,extracted_profile_json,plan_json")
+    .select(
+      "id,status,assistant_message,missing_fields,extracted_profile_json,plan_json",
+    )
     .eq("id", draftId)
     .eq("session_id", sessionId)
     .eq("user_id", userId)
@@ -512,14 +635,27 @@ async function existingAssistantReply(
     if (str(metadata.reply_to_message_id) !== messageId) continue;
     const turn = obj(metadata.turn_result);
     return {
-      assistant_message: str(turn.assistant_message) || str(messageRow.content) || "I could not generate a response right now.",
-      status: toStatus(str(turn.status) || str(metadata.planner_status)) || "general_response",
+      assistant_message: str(turn.assistant_message) ||
+        str(messageRow.content) || "I could not generate a response right now.",
+      status: toStatus(str(turn.status) || str(metadata.planner_status)) ||
+        "general_response",
       missing_fields: strings(turn.missing_fields || metadata.missing_fields),
-      extracted_profile: mergeProfileSources(turn.extracted_profile || metadata.extracted_profile, {}, {}, memoryRowsToPayload([])),
+      extracted_profile: mergeProfileSources(
+        turn.extracted_profile || metadata.extracted_profile,
+        {},
+        {},
+        memoryRowsToPayload([]),
+      ),
       plan: normalizePlan(turn.plan || metadata.plan),
-      conversation_mode: toConversationMode(str(turn.conversation_mode) || str(metadata.conversation_mode)) || "general_coaching",
-      personalization_used: strings(turn.personalization_used || metadata.personalization_used),
-      suggested_replies: strings(turn.suggested_replies || metadata.suggested_replies),
+      conversation_mode: toConversationMode(
+        str(turn.conversation_mode) || str(metadata.conversation_mode),
+      ) || "general_coaching",
+      personalization_used: strings(
+        turn.personalization_used || metadata.personalization_used,
+      ),
+      suggested_replies: strings(
+        turn.suggested_replies || metadata.suggested_replies,
+      ),
       draft_id: str(turn.draft_id || metadata.draft_id),
       assistant_message_id: str(messageRow.id) || undefined,
     };
@@ -568,27 +704,63 @@ async function getContext(
     memoryRes,
     sessionStateRes,
   ] = await Promise.all([
-    supabase.from("profiles").select("full_name,country,role_id,roles(code)").eq("user_id", userId).maybeSingle(),
-    supabase.from("member_profiles").select("*").eq("user_id", userId).maybeSingle(),
-    supabase.from("user_preferences").select("*").eq("user_id", userId).maybeSingle(),
-    supabase.from("member_weight_entries").select("weight_kg,recorded_at").eq("member_id", userId).order("recorded_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("member_body_measurements").select("recorded_at,waist_cm,chest_cm,hips_cm,arm_cm,thigh_cm,body_fat_percent").eq("member_id", userId).order("recorded_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("workout_sessions").select("title,performed_at,duration_minutes,workout_plan_id").eq("member_id", userId).order("performed_at", { ascending: false }).limit(12),
-    supabase.from("workout_plans").select("id,title,plan_json,start_date,end_date,plan_version,default_reminder_time,assigned_at").eq("member_id", userId).eq("source", "ai").eq("status", "active").order("assigned_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("profiles").select("full_name,country,role_id,roles(code)")
+      .eq("user_id", userId).maybeSingle(),
+    supabase.from("member_profiles").select("*").eq("user_id", userId)
+      .maybeSingle(),
+    supabase.from("user_preferences").select("*").eq("user_id", userId)
+      .maybeSingle(),
+    supabase.from("member_weight_entries").select("weight_kg,recorded_at").eq(
+      "member_id",
+      userId,
+    ).order("recorded_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("member_body_measurements").select(
+      "recorded_at,waist_cm,chest_cm,hips_cm,arm_cm,thigh_cm,body_fat_percent",
+    ).eq("member_id", userId).order("recorded_at", { ascending: false }).limit(
+      1,
+    ).maybeSingle(),
+    supabase.from("workout_sessions").select(
+      "title,performed_at,duration_minutes,workout_plan_id",
+    ).eq("member_id", userId).order("performed_at", { ascending: false }).limit(
+      12,
+    ),
+    supabase.from("workout_plans").select(
+      "id,title,plan_json,start_date,end_date,plan_version,default_reminder_time,assigned_at",
+    ).eq("member_id", userId).eq("source", "ai").eq("status", "active").order(
+      "assigned_at",
+      { ascending: false },
+    ).limit(1).maybeSingle(),
     str(session.latest_draft_id)
-      ? supabase.from("ai_plan_drafts").select("id,status,assistant_message,missing_fields,extracted_profile_json,plan_json").eq("id", String(session.latest_draft_id)).eq("user_id", userId).maybeSingle()
+      ? supabase.from("ai_plan_drafts").select(
+        "id,status,assistant_message,missing_fields,extracted_profile_json,plan_json",
+      ).eq("id", String(session.latest_draft_id)).eq("user_id", userId)
+        .maybeSingle()
       : Promise.resolve({ data: null }),
-    supabase.from("ai_user_memories").select("memory_key,memory_value_json").eq("user_id", userId).order("updated_at", { ascending: false }).limit(24),
-    supabase.from("ai_session_state").select("summary,open_loops,last_intent,last_conversation_mode,last_turn_json").eq("session_id", session.id).maybeSingle(),
+    supabase.from("ai_user_memories").select("memory_key,memory_value_json").eq(
+      "user_id",
+      userId,
+    ).order("updated_at", { ascending: false }).limit(24),
+    supabase.from("ai_session_state").select(
+      "summary,open_loops,last_intent,last_conversation_mode,last_turn_json",
+    ).eq("session_id", session.id).maybeSingle(),
   ]);
 
   const activePlan = compactPlan(obj(activePlanRes.data));
   const activePlanId = str(activePlan.id);
   const [taskRowsRes, taskLogsRes] = activePlanId
     ? await Promise.all([
-        supabase.from("workout_plan_tasks").select("id,scheduled_date,task_type,title,is_required").eq("workout_plan_id", activePlanId).eq("member_id", userId).order("scheduled_date", { ascending: false }).limit(60),
-        supabase.from("workout_task_logs").select("task_id,completion_status,completion_percent,logged_at").eq("member_id", userId).order("logged_at", { ascending: false }).limit(60),
-      ])
+      supabase.from("workout_plan_tasks").select(
+        "id,scheduled_date,task_type,title,is_required",
+      ).eq("workout_plan_id", activePlanId).eq("member_id", userId).order(
+        "scheduled_date",
+        { ascending: false },
+      ).limit(60),
+      supabase.from("workout_task_logs").select(
+        "task_id,completion_status,completion_percent,logged_at",
+      ).eq("member_id", userId).order("logged_at", { ascending: false }).limit(
+        60,
+      ),
+    ])
     : [{ data: [] }, { data: [] }];
 
   const memoryRows = Array.isArray(memoryRes.data)
@@ -604,9 +776,15 @@ async function getContext(
     memory,
   );
   const signals = deriveSignals({
-    recentSessions: Array.isArray(sessionsRes.data) ? sessionsRes.data.map((row: unknown) => obj(row)) : [],
-    activePlanTasks: Array.isArray(taskRowsRes.data) ? taskRowsRes.data.map((row: unknown) => obj(row)) : [],
-    taskLogs: Array.isArray(taskLogsRes.data) ? taskLogsRes.data.map((row: unknown) => obj(row)) : [],
+    recentSessions: Array.isArray(sessionsRes.data)
+      ? sessionsRes.data.map((row: unknown) => obj(row))
+      : [],
+    activePlanTasks: Array.isArray(taskRowsRes.data)
+      ? taskRowsRes.data.map((row: unknown) => obj(row))
+      : [],
+    taskLogs: Array.isArray(taskLogsRes.data)
+      ? taskLogsRes.data.map((row: unknown) => obj(row))
+      : [],
   });
   const profileBasics = {
     full_name: str(obj(profileRes.data).full_name),
@@ -634,7 +812,9 @@ async function getContext(
 }
 
 function generalPrompt(ctx: PlannerContext, mode: ConversationMode) {
-  const language = ctx.prior_profile.preferred_language === "ar" ? "Arabic" : "English";
+  const language = ctx.prior_profile.preferred_language === "ar"
+    ? "Arabic"
+    : "English";
   const measurement = ctx.prior_profile.measurement_unit || "metric";
   return [
     "You are GymUnity AI, a practical personalized fitness coach.",
@@ -660,7 +840,9 @@ function plannerPrompt(
   draftRef: Record<string, unknown> | null,
   mode: ConversationMode,
 ) {
-  const language = ctx.prior_profile.preferred_language === "ar" ? "Arabic" : "English";
+  const language = ctx.prior_profile.preferred_language === "ar"
+    ? "Arabic"
+    : "English";
   const measurement = ctx.prior_profile.measurement_unit || "metric";
   return [
     "You are GymUnity Planner, a production fitness planning assistant for members.",
@@ -704,11 +886,16 @@ function planOnlyPrompt(
     `Assigned conversation_mode: ${mode}.`,
     `Respond in ${language}. Use ${measurement} units.`,
     `Use this extracted profile JSON: ${JSON.stringify(profile)}`,
-    `Use this broader context JSON: ${JSON.stringify(promptContext(ctx, draftRef))}`,
+    `Use this broader context JSON: ${
+      JSON.stringify(promptContext(ctx, draftRef))
+    }`,
   ].join("\n");
 }
 
-function promptContext(ctx: PlannerContext, draftRef: Record<string, unknown> | null) {
+function promptContext(
+  ctx: PlannerContext,
+  draftRef: Record<string, unknown> | null,
+) {
   return {
     profile_basics: ctx.profile_basics,
     member_profile: ctx.member_profile,
@@ -726,202 +913,28 @@ function promptContext(ctx: PlannerContext, draftRef: Record<string, unknown> | 
   };
 }
 
-async function orchestrateStructuredJson(input: ProviderCallInput): Promise<ProviderResponse> {
-  const providers = availableProviders();
-  let lastError: Error | null = null;
-  for (const provider of providers) {
-    const attempts = provider.name === "gemini" ? 2 : 1;
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
-      try {
-        return await provider.call(input);
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        if (attempt === attempts - 1) break;
-      }
-    }
-  }
-  throw lastError || new Error("No AI providers configured.");
-}
-
-function availableProviders() {
-  const providers: Array<{
-    name: string;
-    call: (input: ProviderCallInput) => Promise<ProviderResponse>;
-  }> = [];
-  const geminiKey = optionalEnv("GEMINI_API_KEY");
-  const geminiModel = optionalEnv("GEMINI_MODEL") || "gemini-2.0-flash";
-  if (geminiKey) {
-    providers.push({
-      name: "gemini",
-      call: (input) => geminiJson({ apiKey: geminiKey, model: geminiModel, ...input }),
-    });
-  }
-  const groqKey = optionalEnv("GROQ_API_KEY");
-  const groqModel = optionalEnv("GROQ_MODEL") || "openai/gpt-oss-120b";
-  if (groqKey) {
-    providers.push({
-      name: "groq",
-      call: (input) => groqJson({ apiKey: groqKey, model: groqModel, ...input }),
-    });
-  }
-  if (!providers.length) {
-    throw new Error("No AI providers configured.");
-  }
-  return providers;
-}
-
-async function geminiJson(input: ProviderCallInput & { apiKey: string; model: string }): Promise<ProviderResponse> {
-  const contents = [
-    ...input.history.map((message) => ({
-      role: message.sender === "assistant" ? "model" : "user",
-      parts: [{ text: String(message.content || "") }],
-    })),
-    ...(input.extraUserInstruction
-      ? [{
-          role: "user",
-          parts: [{ text: input.extraUserInstruction }],
-        }]
-      : []),
-  ];
-  const response = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:generateContent?key=${input.apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: {
-          role: "system",
-          parts: [{ text: input.systemPrompt }],
-        },
-        contents: contents.isEmpty
-            ? [
-                {
-                  role: "user",
-                  parts: [{ text: "Return a valid JSON response." }],
-                },
-              ]
-            : contents,
-        generationConfig: {
-          temperature: input.temperature,
-          maxOutputTokens: input.maxTokens,
-          responseMimeType: "application/json",
-        },
-      }),
-    },
-    25000,
-  );
-  const body = await response.text();
-  if (!response.ok) throw new Error(`Gemini request failed: ${body}`);
-  const payload = parseTurn(geminiText(parseJson(body)));
-  if (!Object.keys(payload).length) {
-    throw new Error("Gemini returned an empty structured payload.");
-  }
-  return { payload, provider: "gemini", model: input.model };
-}
-
-async function groqJson(input: ProviderCallInput & { apiKey: string; model: string }): Promise<ProviderResponse> {
-  const base = await groqRequest(input.apiKey, {
-    model: input.model,
-    messages: [
-      { role: "system", content: input.systemPrompt },
-      ...input.history.map((message) => ({
-        role: message.sender === "user" ? "user" : "assistant",
-        content: String(message.content || ""),
-      })),
-      ...(input.extraUserInstruction ? [{ role: "user", content: input.extraUserInstruction }] : []),
-    ],
-    temperature: input.temperature,
-    max_tokens: input.maxTokens,
-    include_reasoning: false,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "gymunity_turn",
-        strict: false,
-        schema: input.schema,
-      },
-    },
-  });
-  const body = await base.text();
-  if (!base.ok) throw new Error(`Groq request failed: ${body}`);
-  const text = choiceText(parseJson(body));
-  const direct = text ? parseTurn(text) : null;
-  if (direct && Object.keys(direct).length) {
-    return { payload: direct, provider: "groq", model: input.model };
-  }
-  const repair = await groqRequest(input.apiKey, {
-    model: input.model,
-    messages: [
-      {
-        role: "system",
-        content: "Repair malformed JSON into valid JSON matching the required schema. Return only JSON.",
-      },
-      { role: "user", content: `Malformed JSON:\n${text || body}` },
-    ],
-    temperature: 0,
-    max_tokens: input.maxTokens,
-    include_reasoning: false,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "gymunity_turn_repair",
-        strict: false,
-        schema: input.schema,
-      },
-    },
-  });
-  const repairBody = await repair.text();
-  if (!repair.ok) throw new Error(`Groq repair request failed: ${repairBody}`);
-  const repaired = choiceText(parseJson(repairBody));
-  const parsed = repaired ? parseTurn(repaired) : null;
-  if (!parsed || !Object.keys(parsed).length) throw new Error("Groq returned malformed structured output.");
-  return { payload: parsed, provider: "groq", model: input.model };
-}
-
-async function groqRequest(apiKey: string, payload: Record<string, unknown>): Promise<Response> {
-  let attempt = 0;
-  while (true) {
-    const response = await fetchWithTimeout(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      },
-      25000,
-    );
-    if (response.status !== 429 || attempt >= 2) {
-      return response;
-    }
-    const waitMs = retryDelayMs(response.headers.get("retry-after"), attempt);
-    await sleep(waitMs);
-    attempt += 1;
-  }
-}
-
-function retryDelayMs(retryAfter: string | null, attempt: number) {
-  const parsedSeconds = Number(retryAfter);
-  if (Number.isFinite(parsedSeconds) && parsedSeconds > 0) {
-    return Math.round(parsedSeconds * 1000);
-  }
-  return 1500 * (attempt + 1);
+async function orchestrateStructuredJson(
+  input: ProviderCallInput,
+): Promise<ProviderResponse> {
+  return await azureFoundryJson(input);
 }
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort("timed out"), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error("Provider request timed out.");
+      throw new Error("Azure Foundry request timed out.");
     }
     throw error;
   } finally {
@@ -929,40 +942,250 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
-function geminiText(data: unknown): string {
-  const candidates = Array.isArray(obj(data).candidates) ? obj(data).candidates as unknown[] : [];
-  for (const candidate of candidates) {
-    const content = obj(obj(candidate).content);
-    const parts = Array.isArray(content.parts) ? content.parts as unknown[] : [];
-    const text = parts
-      .map((part: unknown) => str(obj(part).text))
-      .filter(Boolean)
-      .join("\n")
-      .trim();
-    if (text) return text;
+async function azureFoundryJson(
+  input: ProviderCallInput,
+): Promise<ProviderResponse> {
+  const endpoint = env("AZURE_FOUNDRY_PROJECT_ENDPOINT").replace(/\/+$/, "");
+  const apiVersion = optionalEnv("AZURE_FOUNDRY_API_VERSION") || "2025-05-01";
+  const agentId = optionalEnv("AZURE_FOUNDRY_AGENT_ID") ||
+    await resolveAgentIdByName(endpoint, apiVersion);
+  if (!agentId) {
+    throw new Error(
+      "Missing required env var: AZURE_FOUNDRY_AGENT_ID or AZURE_FOUNDRY_AGENT_NAME",
+    );
+  }
+
+  const token = await azureBearerToken();
+  const thread = await azureJson(
+    `${endpoint}/threads?api-version=${encodeURIComponent(apiVersion)}`,
+    token,
+    { method: "POST", body: "" },
+  );
+  const threadId = str(obj(thread).id);
+  if (!threadId) throw new Error("Azure Foundry did not create a thread.");
+
+  await azureJson(
+    `${endpoint}/threads/${encodeURIComponent(threadId)}/messages?api-version=${
+      encodeURIComponent(apiVersion)
+    }`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        role: "user",
+        content: JSON.stringify({
+          system_prompt: input.systemPrompt,
+          conversation_history: input.history,
+          extra_user_instruction: input.extraUserInstruction,
+          required_json_schema: input.schema,
+          generation: {
+            max_tokens: input.maxTokens,
+            temperature: input.temperature,
+          },
+        }),
+      }),
+    },
+  );
+
+  const run = await azureJson(
+    `${endpoint}/threads/${encodeURIComponent(threadId)}/runs?api-version=${
+      encodeURIComponent(apiVersion)
+    }`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        assistant_id: agentId,
+        additional_instructions:
+          "You are the GymUnity TAIYO chat orchestrator. Follow system_prompt exactly and return only one valid JSON object matching required_json_schema. Do not include markdown or prose outside JSON.",
+      }),
+    },
+  );
+  const runId = str(obj(run).id);
+  if (!runId) throw new Error("Azure Foundry did not create a run.");
+
+  await waitForRun(endpoint, apiVersion, token, threadId, runId);
+  const messages = await azureJson(
+    `${endpoint}/threads/${encodeURIComponent(threadId)}/messages?api-version=${
+      encodeURIComponent(apiVersion)
+    }`,
+    token,
+    { method: "GET" },
+  );
+  const text = extractAssistantText(messages);
+  if (!text) throw new Error("Azure Foundry returned no assistant text.");
+  const payload = parseTurn(text);
+  if (!Object.keys(payload).length) {
+    throw new Error("Azure Foundry returned malformed structured output.");
+  }
+  return {
+    payload,
+    provider: "azure_foundry",
+    model: optionalEnv("AZURE_FOUNDRY_AGENT_NAME") || agentId,
+  };
+}
+
+async function resolveAgentIdByName(endpoint: string, apiVersion: string) {
+  const agentName = optionalEnv("AZURE_FOUNDRY_AGENT_NAME");
+  if (!agentName) return "";
+  const token = await azureBearerToken();
+  const response = await azureJson(
+    `${endpoint}/assistants?api-version=${encodeURIComponent(apiVersion)}`,
+    token,
+    { method: "GET" },
+  );
+  const agents = Array.isArray(obj(response).data)
+    ? obj(response).data as unknown[]
+    : [];
+  const match = agents.map(obj).find((agent) => str(agent.name) === agentName);
+  return str(match?.id) || "";
+}
+
+async function azureBearerToken() {
+  const tenantId = optionalEnv("AZURE_TENANT_ID");
+  const clientId = optionalEnv("AZURE_CLIENT_ID");
+  const clientSecret = optionalEnv("AZURE_CLIENT_SECRET");
+  if (tenantId && clientId && clientSecret) {
+    return await azureClientCredentialsToken(tenantId, clientId, clientSecret);
+  }
+
+  const staticToken = optionalEnv("AZURE_FOUNDRY_API_KEY") ||
+    optionalEnv("AZURE_FOUNDRY_AGENT_TOKEN") ||
+    optionalEnv("AGENT_TOKEN");
+  if (staticToken) return staticToken;
+
+  throw new Error(
+    "Missing Azure auth env vars: provide Entra credentials or an agent bearer token.",
+  );
+}
+
+async function azureClientCredentialsToken(
+  tenantId: string,
+  clientId: string,
+  clientSecret: string,
+) {
+  const body = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: "client_credentials",
+    scope: "https://ai.azure.com/.default",
+  });
+  const response = await fetchWithTimeout(
+    `https://login.microsoftonline.com/${
+      encodeURIComponent(tenantId)
+    }/oauth2/v2.0/token`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    },
+    15000,
+  );
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(
+      `Azure token request failed with status ${response.status}.`,
+    );
+  }
+  const accessToken = str(obj(parseJson(text)).access_token);
+  if (!accessToken) {
+    throw new Error("Azure token response did not include an access token.");
+  }
+  return accessToken;
+}
+
+async function waitForRun(
+  endpoint: string,
+  apiVersion: string,
+  token: string,
+  threadId: string,
+  runId: string,
+) {
+  const started = Date.now();
+  const timeoutMs = Number(optionalEnv("AZURE_FOUNDRY_RUN_TIMEOUT_MS")) ||
+    60000;
+  while (Date.now() - started < timeoutMs) {
+    const run = obj(
+      await azureJson(
+        `${endpoint}/threads/${encodeURIComponent(threadId)}/runs/${
+          encodeURIComponent(runId)
+        }?api-version=${encodeURIComponent(apiVersion)}`,
+        token,
+        { method: "GET" },
+      ),
+    );
+    const status = str(run.status) || "";
+    if (status === "completed") return;
+    if (["failed", "cancelled", "expired"].includes(status)) {
+      throw new Error(`Azure Foundry run ended with status ${status}.`);
+    }
+    if (status === "requires_action") {
+      throw new Error(
+        "Azure Foundry run requires tool action that this Edge Function does not handle.",
+      );
+    }
+    await sleep(1200);
+  }
+  throw new Error("Azure Foundry run timed out.");
+}
+
+async function azureJson(
+  url: string,
+  bearerToken: string,
+  init: { method: string; body?: BodyInit | null },
+) {
+  const response = await fetchWithTimeout(
+    url,
+    {
+      method: init.method,
+      headers: {
+        "Authorization": `Bearer ${bearerToken}`,
+        "Content-Type": "application/json",
+      },
+      body: init.body,
+    },
+    20000,
+  );
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(
+      `Azure Foundry request failed with status ${response.status}.`,
+    );
+  }
+  return text ? parseJson(text) : {};
+}
+
+function extractAssistantText(messages: unknown) {
+  const rows = Array.isArray(obj(messages).data)
+    ? obj(messages).data as unknown[]
+    : [];
+  for (const row of rows.map(obj)) {
+    if (str(row.role) !== "assistant") continue;
+    const content = row.content;
+    if (typeof content === "string") return content;
+    for (const part of arrContent(content)) {
+      const item = obj(part);
+      const text = obj(item.text);
+      const value = str(text.value) || str(item.text) || str(item.content);
+      if (value) return value;
+    }
   }
   return "";
 }
 
-function choiceText(data: unknown): string {
-  const choices = Array.isArray(obj(data).choices) ? obj(data).choices as unknown[] : [];
-  for (const choice of choices) {
-    const message = obj(obj(choice).message);
-    const direct = str(message.content);
-    if (direct) return direct;
-    const contentParts = Array.isArray(message.content) ? message.content as unknown[] : [];
-    const text = contentParts
-      .map((part: unknown) => str(obj(part).text))
-      .filter(Boolean)
-      .join("\n")
-      .trim();
-    if (text) return text;
-  }
-  return "";
+function arrContent(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function parseTurn(text: string): Record<string, unknown> {
-  return obj(parseJson(text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim()));
+  return obj(
+    parseJson(
+      text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(
+        /```$/i,
+        "",
+      ).trim(),
+    ),
+  );
 }
 
 function sanitizeGeneral(
@@ -970,10 +1193,16 @@ function sanitizeGeneral(
   ctx: PlannerContext,
   inferredMode: ConversationMode,
 ): TurnResult {
-  const extractedProfile = mergeProfileSources(raw.extracted_profile, ctx.member_profile, ctx.preferences, ctx.memory);
+  const extractedProfile = mergeProfileSources(
+    raw.extracted_profile,
+    ctx.member_profile,
+    ctx.preferences,
+    ctx.memory,
+  );
   const mode = toConversationMode(str(raw.conversation_mode)) || inferredMode;
   return {
-    assistant_message: str(raw.assistant_message) || "I could not generate a response right now.",
+    assistant_message: str(raw.assistant_message) ||
+      "I could not generate a response right now.",
     status: "general_response",
     missing_fields: [],
     extracted_profile: extractedProfile,
@@ -985,10 +1214,10 @@ function sanitizeGeneral(
     suggested_replies: strings(raw.suggested_replies).length
       ? strings(raw.suggested_replies)
       : buildSuggestedReplies({
-          conversationMode: mode,
-          missingFields: [],
-          ctx,
-        }),
+        conversationMode: mode,
+        missingFields: [],
+        ctx,
+      }),
   };
 }
 
@@ -998,8 +1227,15 @@ function sanitizePlanner(
   regenerated: boolean,
   inferredMode: ConversationMode,
 ): TurnResult {
-  const profile = mergeProfileSources(raw.extracted_profile, ctx.member_profile, ctx.preferences, ctx.memory);
-  const missing = Array.from(new Set([...criticalMissing(profile), ...strings(raw.missing_fields)]));
+  const profile = mergeProfileSources(
+    raw.extracted_profile,
+    ctx.member_profile,
+    ctx.preferences,
+    ctx.memory,
+  );
+  const missing = Array.from(
+    new Set([...criticalMissing(profile), ...strings(raw.missing_fields)]),
+  );
   let status = toStatus(str(raw.status)) || "needs_more_info";
   let mode = toConversationMode(str(raw.conversation_mode)) || inferredMode;
   let plan = normalizePlan(raw.plan);
@@ -1031,10 +1267,10 @@ function sanitizePlanner(
       : strings(raw.suggested_replies).length
       ? strings(raw.suggested_replies)
       : buildSuggestedReplies({
-          conversationMode: mode,
-          missingFields: missing,
-          ctx,
-        }),
+        conversationMode: mode,
+        missingFields: missing,
+        ctx,
+      }),
   };
 }
 
@@ -1083,8 +1319,8 @@ function normalizePlan(raw: unknown): NormalizedPlan | null {
   const r = obj(raw);
   const weeks = Array.isArray(r.weekly_structure)
     ? r.weekly_structure
-        .map((week: unknown, index: number) => normalizeWeek(week, index + 1))
-        .filter((week): week is PlanWeek => week !== null)
+      .map((week: unknown, index: number) => normalizeWeek(week, index + 1))
+      .filter((week): week is PlanWeek => week !== null)
     : [];
   if (!weeks.length) return null;
   return {
@@ -1108,18 +1344,24 @@ function normalizeWeek(raw: unknown, fallbackWeek: number): PlanWeek | null {
   const weekNumber = clamp(posInt(r.week_number) || fallbackWeek, 1, 24);
   const days = Array.isArray(r.days)
     ? r.days
-        .map((day: unknown, index: number) => normalizeDay(day, weekNumber, index + 1))
-        .filter((day): day is PlanDay => day !== null)
+      .map((day: unknown, index: number) =>
+        normalizeDay(day, weekNumber, index + 1)
+      )
+      .filter((day): day is PlanDay => day !== null)
     : [];
   return days.length ? { week_number: weekNumber, days } : null;
 }
 
-function normalizeDay(raw: unknown, weekNumber: number, fallbackDay: number): PlanDay | null {
+function normalizeDay(
+  raw: unknown,
+  weekNumber: number,
+  fallbackDay: number,
+): PlanDay | null {
   const r = obj(raw);
   const tasks = Array.isArray(r.tasks)
     ? r.tasks
-        .map((task: unknown) => normalizeTask(task))
-        .filter((task): task is PlanTask => task !== null)
+      .map((task: unknown) => normalizeTask(task))
+      .filter((task): task is PlanTask => task !== null)
     : [];
   return {
     week_number: clamp(posInt(r.week_number) || weekNumber, 1, 24),
@@ -1134,7 +1376,17 @@ function normalizeTask(raw: unknown): PlanTask | null {
   const r = obj(raw);
   const title = str(r.title);
   if (!title) return null;
-  const type = ["workout", "cardio", "mobility", "nutrition", "hydration", "sleep", "steps", "recovery", "measurement"].includes(String(r.type || "").trim().toLowerCase())
+  const type = [
+      "workout",
+      "cardio",
+      "mobility",
+      "nutrition",
+      "hydration",
+      "sleep",
+      "steps",
+      "recovery",
+      "measurement",
+    ].includes(String(r.type || "").trim().toLowerCase())
     ? String(r.type).trim().toLowerCase()
     : "workout";
   return {
@@ -1167,7 +1419,9 @@ async function saveDraft(
     extracted_profile_json: turn.extracted_profile,
     plan_json: turn.plan || {},
   }).select("id").single();
-  if (error || !data?.id) throw new Error(error?.message || "Unable to persist AI plan draft.");
+  if (error || !data?.id) {
+    throw new Error(error?.message || "Unable to persist AI plan draft.");
+  }
   return String(data.id);
 }
 
@@ -1179,10 +1433,14 @@ async function updateSession(
   history: HistoryMessage[],
 ) {
   const defaultTitles = new Set(["New chat", "AI Plan", "AI Planner"]);
-  const latestUser = [...history].reverse().find((message) => message.sender === "user");
-  const nextTitle = turn.plan?.title
-    || (!defaultTitles.has(session.title || "") ? session.title : latestUser?.content)
-    || (session.session_type === "planner" ? "AI Planner" : "New chat");
+  const latestUser = [...history].reverse().find((message) =>
+    message.sender === "user"
+  );
+  const nextTitle = turn.plan?.title ||
+    (!defaultTitles.has(session.title || "")
+      ? session.title
+      : latestUser?.content) ||
+    (session.session_type === "planner" ? "AI Planner" : "New chat");
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
     title: nextTitle?.slice(0, 80) || "New chat",
@@ -1192,7 +1450,10 @@ async function updateSession(
     patch.latest_draft_id = draftId;
     patch.planner_profile_json = turn.extracted_profile;
   }
-  const { error } = await supabase.from("chat_sessions").update(patch).eq("id", session.id);
+  const { error } = await supabase.from("chat_sessions").update(patch).eq(
+    "id",
+    session.id,
+  );
   if (error) throw new Error(error.message);
 }
 

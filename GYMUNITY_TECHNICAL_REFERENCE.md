@@ -1138,10 +1138,8 @@ Edge Function behavior:
 - Verifies session ownership.
 - Allows planner sessions only for member role.
 - Reads profile, member profile, preferences, latest progress, sessions, active AI plan, drafts, memory, session state, tasks, and logs.
-- Uses Gemini if `GEMINI_API_KEY` exists; otherwise can use Groq if `GROQ_API_KEY` exists.
-- Defaults:
-  - `GEMINI_MODEL=gemini-2.0-flash`
-  - `GROQ_MODEL=openai/gpt-oss-120b`
+- Uses Azure Foundry through `AZURE_FOUNDRY_PROJECT_ENDPOINT` and the configured TAIYO agent.
+- Requires Azure agent identity through `AZURE_FOUNDRY_AGENT_ID` or `AZURE_FOUNDRY_AGENT_NAME`.
 - Saves assistant messages, planner drafts, memories, and session state.
 
 Status:
@@ -1150,8 +1148,7 @@ Status:
 
 Risks:
 
-- `.env.example` references `OPENAI_MODEL`, but the current Edge Function code uses Gemini/Groq provider envs. This is documentation/config drift.
-- AI quality, safety, and provider availability depend on Edge Function secrets not visible in this repo.
+- AI quality, safety, and Azure Foundry availability depend on Edge Function secrets not visible in this repo.
 
 ### 8.10 TAIYO Coach
 
@@ -1795,7 +1792,7 @@ Live deployment note:
 `ai-chat`:
 
 - Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
-- Optional provider envs: `GEMINI_API_KEY`, `GEMINI_MODEL`, `GROQ_API_KEY`, `GROQ_MODEL`.
+- Requires Azure Foundry envs: `AZURE_FOUNDRY_PROJECT_ENDPOINT`, `AZURE_FOUNDRY_AGENT_ID` or `AZURE_FOUNDRY_AGENT_NAME`, plus either Entra credentials or `AZURE_FOUNDRY_AGENT_TOKEN`.
 - Authenticates user bearer token.
 - Supports `reply` and `regenerate_plan`.
 - Persists chat messages, planner drafts, memory, and session state.
@@ -2052,7 +2049,7 @@ Member opens chat from TAIYO Coach or another AI entry point
   -> user message inserted into chat_messages
   -> ChatRepository invokes ai-chat Edge Function
   -> Edge Function builds context from profile/progress/plans/memory
-  -> provider call to Gemini or Groq
+  -> Azure Foundry TAIYO agent run
   -> assistant reply persisted
   -> session metadata/memory updated
   -> UI stream displays ordered messages
