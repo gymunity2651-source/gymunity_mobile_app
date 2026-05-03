@@ -19,8 +19,10 @@ function config(): PaymobConfig {
     currency: "EGP",
     platformFeeBps: 1500,
     payoutHoldDays: 0,
-    redirectUrl: "https://example.supabase.co/functions/v1/paymob-payment-response",
-    notificationUrl: "https://example.supabase.co/functions/v1/paymob-transaction-callback",
+    redirectUrl:
+      "https://example.supabase.co/functions/v1/paymob-payment-response",
+    notificationUrl:
+      "https://example.supabase.co/functions/v1/paymob-transaction-callback",
   };
 }
 
@@ -78,7 +80,10 @@ Deno.test("Paymob callback rejects invalid HMAC and records unverified transacti
 
   assertEquals(response.status, 401);
   assertEquals(supabase.rpcCalls.length, 1);
-  assertEquals(supabase.rpcCalls[0].fn, "process_coach_paymob_callback");
+  assertEquals(
+    supabase.rpcCalls[0].fn,
+    "process_coach_paymob_callback_as_service",
+  );
   assertEquals(supabase.rpcCalls[0].params.input_hmac_verified, false);
 });
 
@@ -100,8 +105,14 @@ Deno.test("Paymob callback sends verified transaction fields to processor", asyn
 
   assertEquals(response.status, 200);
   assertEquals(supabase.rpcCalls[0].params.input_hmac_verified, true);
-  assertEquals(supabase.rpcCalls[0].params.input_paymob_transaction_id, "12345");
+  assertEquals(
+    supabase.rpcCalls[0].params.input_paymob_transaction_id,
+    "12345",
+  );
   assertEquals(supabase.rpcCalls[0].params.input_paymob_order_id, "777");
-  assertEquals(supabase.rpcCalls[0].params.input_special_reference, "gymunity_coach_sub_abc");
+  assertEquals(
+    supabase.rpcCalls[0].params.input_special_reference,
+    "gymunity_coach_sub_abc",
+  );
   assertEquals(supabase.rpcCalls[0].params.input_amount_cents, 10000);
 });

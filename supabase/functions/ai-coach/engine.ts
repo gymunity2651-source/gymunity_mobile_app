@@ -9,6 +9,8 @@ export const memoryAllowlist = [
   "preferred_coaching_tone",
 ] as const;
 
+const memoryAllowlistSet = new Set<string>(memoryAllowlist);
+
 export type CoachContext = Record<string, unknown>;
 
 export function obj(value: unknown): Record<string, unknown> {
@@ -55,7 +57,10 @@ export function startOfWeek(value: Date | string | null | undefined): string {
   return dateOnly(base);
 }
 
-export function signalsForBrief(context: CoachContext): {
+export function signalsForBrief(
+  context: CoachContext,
+  asOfDate: string | Date = new Date(),
+): {
   readinessScore: number;
   intensityBand: "green" | "yellow" | "red";
   adherenceRatio: number;
@@ -79,12 +84,15 @@ export function signalsForBrief(context: CoachContext): {
     ? "yellow"
     : "red";
 
+  const asOfTime = typeof asOfDate === "string"
+    ? new Date(`${asOfDate}T23:59:59Z`).getTime()
+    : asOfDate.getTime();
   const recent7dLogs = recentTaskLogs.filter((log) => {
     const loggedAt = str(log.logged_at);
     if (!loggedAt) return false;
     const logged = new Date(loggedAt);
-    const daysAgo = (Date.now() - logged.getTime()) / 86400000;
-    return daysAgo <= 7;
+    const daysAgo = (asOfTime - logged.getTime()) / 86400000;
+    return daysAgo >= 0 && daysAgo <= 7;
   });
   const completedWeight = recent7dLogs.reduce((sum, log) => {
     const status = (str(log.completion_status) || "").toLowerCase();
@@ -127,7 +135,7 @@ export function signalsForBrief(context: CoachContext): {
 }
 
 export function buildDailyBrief(context: CoachContext, targetDate: string) {
-  const signals = signalsForBrief(context);
+  const signals = signalsForBrief(context, targetDate);
   const todayDay = obj(context.today_day);
   const todayTasks = arr(context.today_tasks).map(obj);
   const nutrition = obj(context.nutrition);
@@ -139,7 +147,8 @@ export function buildDailyBrief(context: CoachContext, targetDate: string) {
   const loggedMeals = intish(nutrition.meal_logs_today) ?? 0;
   const hydrationMl = intish(nutrition.hydration_ml_today) ?? 0;
   const hydrationTarget = intish(target.hydration_ml) ?? 2500;
-  const focus = str(todayDay.focus) || str(primaryTask.title) || "Daily movement";
+  const focus = str(todayDay.focus) || str(primaryTask.title) ||
+    "Daily movement";
   const durationMinutes = clamp(
     intish(obj(context.readiness).available_minutes) ??
       intish(primaryTask.duration_minutes) ??
@@ -180,14 +189,25 @@ export function buildDailyBrief(context: CoachContext, targetDate: string) {
     };
 
   const completed = todayTasks
-    .filter((task) => ["completed", "partial"].includes((str(task.completion_status) || str(task.effective_status) || "").toLowerCase()))
+    .filter((task) =>
+      ["completed", "partial"].includes(
+        (str(task.completion_status) || str(task.effective_status) || "")
+          .toLowerCase(),
+      )
+    )
     .map((task) => str(task.title) || "Completed task");
   const missed = todayTasks
-    .filter((task) => ["missed", "skipped"].includes((str(task.completion_status) || str(task.effective_status) || "").toLowerCase()))
+    .filter((task) =>
+      ["missed", "skipped"].includes(
+        (str(task.completion_status) || str(task.effective_status) || "")
+          .toLowerCase(),
+      )
+    )
     .map((task) => str(task.title) || "Missed task");
 
   const recommendedWorkout = {
-    "title": str(primaryTask.title) || str(todayDay.label) || "Recovery session",
+    "title": str(primaryTask.title) || str(todayDay.label) ||
+      "Recovery session",
     "focus": focus,
     "duration_minutes": durationMinutes,
     "task_id": str(primaryTask.id),
@@ -235,7 +255,9 @@ export function buildDailyBrief(context: CoachContext, targetDate: string) {
     "why_short": whyShort,
     "signals_used": compactStrings([
       "daily readiness",
-      signals.missedLast7d >= 3 ? "recent adherence drop" : "recent consistency",
+      signals.missedLast7d >= 3
+        ? "recent adherence drop"
+        : "recent consistency",
       hydrationMl < Math.round(hydrationTarget * 0.4)
         ? "hydration status"
         : loggedMeals < plannedMeals
@@ -258,7 +280,7 @@ export function buildAccountabilityNudges(
   context: CoachContext,
   targetDate: string,
 ) {
-  const signals = signalsForBrief(context);
+  const signals = signalsForBrief(context, targetDate);
   const activePlan = obj(context.active_plan);
   const todayDay = obj(context.today_day);
   const nutrition = obj(context.nutrition);
@@ -278,7 +300,8 @@ export function buildAccountabilityNudges(
         "plan_id": str(activePlan.id),
         "day_id": str(todayDay.id),
       },
-      "why_short": "Recent adherence is sliding, so the next best move is to reduce friction.",
+      "why_short":
+        "Recent adherence is sliding, so the next best move is to reduce friction.",
       "signals_used": ["missed workout streak", "recent adherence drop"],
       "confidence": 0.9,
       "external_key": `coach-nudge:${targetDate}:restart_week`,
@@ -287,7 +310,8 @@ export function buildAccountabilityNudges(
 
   if (
     mealLogs < plannedMeals &&
-    (plannedMeals > 0 || (intish(lastNutritionCheckin.adherence_score) ?? 100) < 60)
+    (plannedMeals > 0 ||
+      (intish(lastNutritionCheckin.adherence_score) ?? 100) < 60)
   ) {
     nudges.push({
       "nudge_type": "nutrition_inconsistency",
@@ -296,7 +320,8 @@ export function buildAccountabilityNudges(
         "Keep today simple: log the next meal and close the gap before it turns into another missed day.",
       "action_type": "log_meal",
       "action_payload_json": { "target_date": targetDate },
-      "why_short": "Meal completion is inconsistent, so TAIYO is pushing the smallest useful action.",
+      "why_short":
+        "Meal completion is inconsistent, so TAIYO is pushing the smallest useful action.",
       "signals_used": ["meal adherence", "nutrition check-in"],
       "confidence": 0.84,
       "external_key": `coach-nudge:${targetDate}:nutrition_inconsistency`,
@@ -314,14 +339,17 @@ export function buildAccountabilityNudges(
         "plan_id": str(activePlan.id),
         "day_id": str(todayDay.id),
       },
-      "why_short": "Daily readiness suggests that pushing volume today will cost tomorrow.",
+      "why_short":
+        "Daily readiness suggests that pushing volume today will cost tomorrow.",
       "signals_used": ["daily readiness", "recent fatigue"],
       "confidence": 0.88,
       "external_key": `coach-nudge:${targetDate}:recovery_recommendation`,
     });
   }
 
-  if (nudges.length === 0 && new Date(`${targetDate}T00:00:00Z`).getUTCDay() === 0) {
+  if (
+    nudges.length === 0 && new Date(`${targetDate}T00:00:00Z`).getUTCDay() === 0
+  ) {
     nudges.push({
       "nudge_type": "weekly_reflection",
       "title": "Close the week on purpose",
@@ -329,7 +357,8 @@ export function buildAccountabilityNudges(
         "Take 60 seconds to review the week so TAIYO can tighten next week around your real adherence pattern.",
       "action_type": "share_weekly_summary",
       "action_payload_json": { "week_start": startOfWeek(targetDate) },
-      "why_short": "Weekly reflection helps TAIYO adjust structure instead of just generating more content.",
+      "why_short":
+        "Weekly reflection helps TAIYO adjust structure instead of just generating more content.",
       "signals_used": ["weekly cadence"],
       "confidence": 0.76,
       "external_key": `coach-nudge:${targetDate}:weekly_reflection`,
@@ -373,7 +402,8 @@ export function buildWorkoutPrompt(input: {
     "title": `${dayLabel} prompt`,
     "message":
       `${paceLine} Today is about ${focus.toLowerCase()}, and TAIYO is keeping intensity ${signals.intensityBand}.`,
-    "why_short": "The prompt is based on pace, readiness, and today\'s training focus.",
+    "why_short":
+      "The prompt is based on pace, readiness, and today's training focus.",
     "signals_used": compactStrings([
       paceDelta == null ? null : "pace vs usual",
       "daily readiness",
@@ -402,7 +432,9 @@ export function buildMemoryUpserts(context: CoachContext) {
     const status = (str(log.completion_status) || "").toLowerCase();
     return status === "missed" || status === "skipped";
   }).length;
-  const swapHeavy = recentTaskLogs.filter((log) => boolish(log.was_substituted));
+  const swapHeavy = recentTaskLogs.filter((log) =>
+    boolish(log.was_substituted)
+  );
   const mealLogs = intish(nutrition.meal_logs_today) ?? 0;
   const plannedMeals = intish(nutrition.planned_meals_today) ?? 0;
 
@@ -422,14 +454,18 @@ export function buildMemoryUpserts(context: CoachContext) {
     });
     rows.push({
       "memory_key": "schedule_constraints",
-      "memory_value_json": { "value": "Shorter sessions work better on busy weeks." },
+      "memory_value_json": {
+        "value": "Shorter sessions work better on busy weeks.",
+      },
       "confidence": 0.8,
     });
   }
   if (mealLogs < plannedMeals) {
     rows.push({
       "memory_key": "nutrition_issues",
-      "memory_value_json": { "value": "Meal completion becomes inconsistent on training days." },
+      "memory_value_json": {
+        "value": "Meal completion becomes inconsistent on training days.",
+      },
       "confidence": 0.75,
     });
   }
@@ -439,7 +475,9 @@ export function buildMemoryUpserts(context: CoachContext) {
       "memory_value_json": {
         "values": compactStrings(
           swapHeavy
-            .map((log) => str(log.actual_exercise_title) || str(log.swap_reason))
+            .map((log) =>
+              str(log.actual_exercise_title) || str(log.swap_reason)
+            )
             .slice(0, 3),
         ),
       },
@@ -462,11 +500,15 @@ export function buildMemoryUpserts(context: CoachContext) {
     "memory_value_json": { "value": "direct and concise" },
     "confidence": 0.66,
   });
-  return rows.filter((row) => memoryAllowlist.includes(String(row.memory_key)));
+  return rows.filter((row) => memoryAllowlistSet.has(String(row.memory_key)));
 }
 
 export function compactStrings(values: Array<string | null | undefined>) {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value && value.trim()))));
+  return Array.from(
+    new Set(
+      values.filter((value): value is string => Boolean(value && value.trim())),
+    ),
+  );
 }
 
 export function clamp(value: number, min: number, max: number) {

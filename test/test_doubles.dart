@@ -15,6 +15,7 @@ import 'package:my_app/features/auth/domain/entities/auth_provider_type.dart';
 import 'package:my_app/features/auth/domain/entities/otp_flow.dart';
 import 'package:my_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_app/features/coach/domain/entities/coach_entity.dart';
+import 'package:my_app/features/coach/domain/entities/coach_taiyo_entity.dart';
 import 'package:my_app/features/coach/domain/entities/coach_workspace_entity.dart';
 import 'package:my_app/features/coach/domain/entities/subscription_entity.dart';
 import 'package:my_app/features/coach/domain/entities/workout_plan_entity.dart';
@@ -34,6 +35,7 @@ import 'package:my_app/features/news/domain/repositories/news_repository.dart';
 import 'package:my_app/features/planner/domain/entities/planner_entities.dart';
 import 'package:my_app/features/planner/domain/repositories/planner_repository.dart';
 import 'package:my_app/features/seller/domain/entities/seller_profile_entity.dart';
+import 'package:my_app/features/seller/domain/entities/seller_taiyo_entity.dart';
 import 'package:my_app/features/seller/domain/repositories/seller_repository.dart';
 import 'package:my_app/features/store/domain/entities/cart_entity.dart';
 import 'package:my_app/features/store/domain/entities/order_entity.dart';
@@ -229,6 +231,25 @@ class FakeAdminRepository implements AdminRepository {
     secretKeyConfigured: true,
     hmacKeyConfigured: true,
   );
+  AdminTaiyoBriefEntity taiyoBrief = const AdminTaiyoBriefEntity(
+    requestType: 'admin_ops_brief',
+    status: 'success',
+    issueType: 'dashboard',
+    statusSummary: 'Payments and payouts are stable.',
+    riskLevel: 'low',
+    recommendedAdminAction: '',
+    actionLabel: '',
+    reason: 'No urgent admin action is needed.',
+    auditNotes: <String>['Sensitive data excluded.'],
+    confidence: 'high',
+  );
+  int requestTaiyoAdminOpsBriefCalls = 0;
+  String? lastTaiyoAdminRequestType;
+  String? lastTaiyoAdminPaymentOrderId;
+  String? lastTaiyoAdminSubscriptionId;
+  String? lastTaiyoAdminPayoutId;
+  int? lastTaiyoAdminLimit;
+  Object? taiyoError;
   final List<Map<String, dynamic>> calls = <Map<String, dynamic>>[];
 
   @override
@@ -307,6 +328,24 @@ class FakeAdminRepository implements AdminRepository {
 
   @override
   Future<AdminSettingsEntity> getSettings() async => settings;
+
+  @override
+  Future<AdminTaiyoBriefEntity> requestTaiyoAdminOpsBrief({
+    String requestType = 'admin_ops_brief',
+    String? paymentOrderId,
+    String? subscriptionId,
+    String? payoutId,
+    int? limit,
+  }) async {
+    requestTaiyoAdminOpsBriefCalls++;
+    lastTaiyoAdminRequestType = requestType;
+    lastTaiyoAdminPaymentOrderId = paymentOrderId;
+    lastTaiyoAdminSubscriptionId = subscriptionId;
+    lastTaiyoAdminPayoutId = payoutId;
+    lastTaiyoAdminLimit = limit;
+    if (taiyoError != null) throw taiyoError!;
+    return taiyoBrief;
+  }
 
   @override
   Future<void> markPayoutReady(String payoutId, {String? note}) async {
@@ -1085,6 +1124,22 @@ class FakeCoachRepository implements CoachRepository {
     required int rating,
     required String reviewText,
   }) async {}
+
+  @override
+  Future<CoachTaiyoClientBriefEntity> requestTaiyoCoachClientBrief({
+    required String clientId,
+    required String subscriptionId,
+    String requestType = 'coach_client_brief',
+  }) async {
+    return CoachTaiyoClientBriefEntity(
+      requestType: requestType,
+      status: 'success',
+      clientStatus: 'on_track',
+      summary: 'Client is steady.',
+      suggestedAction: 'Review the latest shared check-in.',
+      riskLevel: 'low',
+    );
+  }
 
   @override
   Future<CoachWorkspaceEntity> getWorkspaceSummary() async {
@@ -2651,6 +2706,22 @@ class FakeSellerRepository implements SellerRepository {
         )
         .toList(growable: false);
   }
+
+  @override
+  Future<SellerTaiyoCopilotEntity> requestSellerCopilot({
+    String requestType = 'seller_dashboard_brief',
+    String? productId,
+    String? orderId,
+  }) async {
+    return SellerTaiyoCopilotEntity(
+      requestType: requestType,
+      status: 'success',
+      summary: 'Seller dashboard is steady.',
+      priorityActions: const <String>['Review pending orders.'],
+      riskLevel: 'low',
+      confidence: 'medium',
+    );
+  }
 }
 
 class FakeNewsRepository implements NewsRepository {
@@ -2925,6 +2996,12 @@ class FakePlannerRepository implements PlannerRepository {
   final Map<String, PlannerDraftEntity> drafts = <String, PlannerDraftEntity>{};
   final Map<String, PlanDetailEntity> plans = <String, PlanDetailEntity>{};
   List<PlanTaskEntity> todayAgenda = const <PlanTaskEntity>[];
+  PlannerTurnResult? nextTaiyoPlanResult;
+  int requestTaiyoWorkoutPlanDraftCalls = 0;
+  Map<String, dynamic>? lastTaiyoPlannerAnswers;
+  String? lastTaiyoPlannerSessionId;
+  String? lastTaiyoPlannerDraftId;
+  String? lastTaiyoPlannerRequestType;
 
   @override
   Future<PlanActivationResultEntity> activateDraft({
@@ -2942,6 +3019,30 @@ class FakePlannerRepository implements PlannerRepository {
   @override
   Future<PlannerDraftEntity?> getLatestDraft(String sessionId) async {
     return latestDraft;
+  }
+
+  @override
+  Future<PlannerTurnResult> requestTaiyoWorkoutPlanDraft({
+    required Map<String, dynamic> plannerAnswers,
+    String? sessionId,
+    String? draftId,
+    String requestType = 'workout_plan_draft',
+  }) async {
+    requestTaiyoWorkoutPlanDraftCalls++;
+    lastTaiyoPlannerAnswers = Map<String, dynamic>.from(plannerAnswers);
+    lastTaiyoPlannerSessionId = sessionId;
+    lastTaiyoPlannerDraftId = draftId;
+    lastTaiyoPlannerRequestType = requestType;
+    if (nextTaiyoPlanResult != null) {
+      final result = nextTaiyoPlanResult!;
+      nextTaiyoPlanResult = null;
+      return result;
+    }
+    return PlannerTurnResult(
+      assistantMessage: 'TAIYO prepared your workout plan draft.',
+      status: requestType == 'plan_review' ? 'plan_updated' : 'plan_ready',
+      draftId: draftId ?? 'draft-taiyo',
+    );
   }
 
   @override

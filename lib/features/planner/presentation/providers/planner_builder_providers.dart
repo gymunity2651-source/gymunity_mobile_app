@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
@@ -170,10 +168,12 @@ class PlannerBuilderController extends StateNotifier<PlannerBuilderState> {
               title: 'AI Builder Plan',
               type: ChatSessionType.planner,
             )).id;
-      final result = await chatRepository.sendMessage(
-        sessionId: sessionId,
-        message: _buildGenerationPrompt(),
-      );
+      final result = await _ref
+          .read(plannerRepositoryProvider)
+          .requestTaiyoWorkoutPlanDraft(
+            sessionId: sessionId,
+            plannerAnswers: _plannerAnswersJson(),
+          );
 
       if (result.isPlanReady && result.draftId != null) {
         state = state.copyWith(
@@ -292,13 +292,11 @@ class PlannerBuilderController extends StateNotifier<PlannerBuilderState> {
     return null;
   }
 
-  String _buildGenerationPrompt() {
-    final payload = <String, dynamic>{
+  Map<String, dynamic> _plannerAnswersJson() {
+    return <String, dynamic>{
       'source': 'gymunity_guided_builder',
-      'instruction':
-          'The member completed a structured guided builder. Use the saved member context available server-side plus this intake. Generate a full structured workout plan if safe. Do not continue as a chat conversation unless a critical field is truly missing.',
-      'critical_profile': _criticalProfileJson(),
-      'preferences': _optionalPreferencesJson(),
+      ..._criticalProfileJson(),
+      ..._optionalPreferencesJson(),
       'active_plan': state.context?.activeAiPlan == null
           ? null
           : <String, dynamic>{
@@ -307,8 +305,15 @@ class PlannerBuilderController extends StateNotifier<PlannerBuilderState> {
               'status': state.context!.activeAiPlan!.status,
             },
       'seed_prompt': state.context?.seedPrompt,
-    };
-    return 'GYMUNITY_AI_BUILDER_REQUEST\n${jsonEncode(payload)}';
+    }..removeWhere((key, value) {
+      if (value == null) {
+        return true;
+      }
+      if (value is List && value.isEmpty) {
+        return true;
+      }
+      return false;
+    });
   }
 
   Map<String, dynamic> _criticalProfileJson() {

@@ -36,6 +36,67 @@ class AdminUserEntity {
   }
 }
 
+class AdminTaiyoBriefEntity {
+  const AdminTaiyoBriefEntity({
+    this.requestType = 'admin_ops_brief',
+    this.status = 'error',
+    this.issueType = '',
+    this.statusSummary = '',
+    this.riskLevel = 'low',
+    this.recommendedAdminAction = '',
+    this.actionLabel = '',
+    this.reason = '',
+    this.auditNotes = const <String>[],
+    this.manualConfirmationRequired = true,
+    this.sensitiveDataExcluded = true,
+    this.missingFields = const <String>[],
+    this.confidence = 'low',
+    this.generatedAt,
+  });
+
+  final String requestType;
+  final String status;
+  final String issueType;
+  final String statusSummary;
+  final String riskLevel;
+  final String recommendedAdminAction;
+  final String actionLabel;
+  final String reason;
+  final List<String> auditNotes;
+  final bool manualConfirmationRequired;
+  final bool sensitiveDataExcluded;
+  final List<String> missingFields;
+  final String confidence;
+  final DateTime? generatedAt;
+
+  bool get isSecurityBlocked => status == 'blocked_for_security';
+  bool get needsMoreContext => status == 'needs_more_context';
+  bool get hasRecommendedAction => recommendedAdminAction.trim().isNotEmpty;
+
+  factory AdminTaiyoBriefEntity.fromMap(Map<String, dynamic> map) {
+    final result = _map(map['result']);
+    final dataQuality = _map(map['data_quality']);
+    final metadata = _map(map['metadata']);
+    return AdminTaiyoBriefEntity(
+      requestType: _string(map['request_type'], fallback: 'admin_ops_brief'),
+      status: _string(map['status'], fallback: 'error'),
+      issueType: _string(result['issue_type']),
+      statusSummary: _string(result['status_summary']),
+      riskLevel: _riskLevel(result['risk_level']),
+      recommendedAdminAction: _string(result['recommended_admin_action']),
+      actionLabel: _string(result['action_label']),
+      reason: _string(result['reason']),
+      auditNotes: _stringList(result['audit_notes']),
+      manualConfirmationRequired:
+          result['manual_confirmation_required'] as bool? ?? true,
+      sensitiveDataExcluded: result['sensitive_data_excluded'] as bool? ?? true,
+      missingFields: _stringList(dataQuality['missing_fields']),
+      confidence: _confidence(dataQuality['confidence']),
+      generatedAt: _date(metadata['generated_at']),
+    );
+  }
+}
+
 class AdminDashboardSummaryEntity {
   const AdminDashboardSummaryEntity({
     this.mode = 'test',
@@ -600,6 +661,30 @@ List<dynamic> _list(dynamic value) {
 Map<String, bool> _boolMap(dynamic value) {
   final map = _map(value);
   return map.map((key, value) => MapEntry(key, value == true));
+}
+
+List<String> _stringList(dynamic value) {
+  return _list(value)
+      .map((item) => item.toString().trim())
+      .where((item) => item.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
+}
+
+String _riskLevel(dynamic value) {
+  final text = _string(value, fallback: 'low');
+  return switch (text) {
+    'high' || 'medium' || 'low' => text,
+    _ => 'low',
+  };
+}
+
+String _confidence(dynamic value) {
+  final text = _string(value, fallback: 'low');
+  return switch (text) {
+    'high' || 'medium' || 'low' => text,
+    _ => 'low',
+  };
 }
 
 Map<String, num> _numMap(dynamic value) {

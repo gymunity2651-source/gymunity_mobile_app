@@ -1,6 +1,7 @@
 import '../../../../core/result/paged.dart';
 import '../../../member/domain/entities/coaching_engagement_entity.dart';
 import '../entities/coach_entity.dart';
+import '../entities/coach_taiyo_entity.dart';
 import '../entities/coach_workspace_entity.dart';
 import '../entities/subscription_entity.dart';
 import '../entities/workout_plan_entity.dart';
@@ -347,5 +348,11 @@ abstract class CoachRepository {
     required String subscriptionId,
     required int rating,
     required String reviewText,
+  });
+
+  Future<CoachTaiyoClientBriefEntity> requestTaiyoCoachClientBrief({
+    required String clientId,
+    required String subscriptionId,
+    String requestType = 'coach_client_brief',
   });
 }

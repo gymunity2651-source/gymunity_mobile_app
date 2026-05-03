@@ -9,7 +9,10 @@ import '../../../../core/utils/historical_record_utils.dart';
 import '../../../store/domain/entities/order_entity.dart';
 import '../../../store/domain/entities/product_entity.dart';
 import '../../domain/entities/seller_profile_entity.dart';
+import '../../domain/entities/seller_taiyo_entity.dart';
 import '../../domain/repositories/seller_repository.dart';
+
+const String kTaiyoSellerCopilotFunctionName = 'taiyo-seller-copilot';
 
 class SellerRepositoryImpl implements SellerRepository {
   SellerRepositoryImpl(this._client);
@@ -335,6 +338,67 @@ class SellerRepositoryImpl implements SellerRepository {
     }
   }
 
+  @override
+  Future<SellerTaiyoCopilotEntity> requestSellerCopilot({
+    String requestType = 'seller_dashboard_brief',
+    String? productId,
+    String? orderId,
+  }) async {
+    final accessToken = _client.auth.currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const AuthFailure(message: 'No authenticated seller found.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        kTaiyoSellerCopilotFunctionName,
+        headers: <String, String>{'Authorization': 'Bearer $accessToken'},
+        body: sellerCopilotRequestBody(
+          requestType: requestType,
+          productId: productId,
+          orderId: orderId,
+        ),
+      );
+      return sellerTaiyoCopilotFromResponse(response.data);
+    } on FunctionException catch (error, stackTrace) {
+      if (error.status == 401) {
+        throw AuthFailure(
+          message: 'Please sign in again to use TAIYO seller copilot.',
+          code: error.status.toString(),
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      if (error.status == 403) {
+        throw AuthFailure(
+          message:
+              'TAIYO seller copilot is available for seller accounts only.',
+          code: error.status.toString(),
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      throw NetworkFailure(
+        message: _functionErrorMessage(
+          error,
+          'TAIYO could not prepare seller guidance right now.',
+        ),
+        code: error.status.toString(),
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    } catch (error, stackTrace) {
+      if (error is AppFailure) {
+        rethrow;
+      }
+      throw NetworkFailure(
+        message: 'TAIYO could not prepare seller guidance right now.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   Future<List<OrderEntity>> _enrichOrders(List<OrderEntity> summaries) async {
     if (summaries.isEmpty) {
       return const <OrderEntity>[];
@@ -571,4 +635,46 @@ class SellerRepositoryImpl implements SellerRepository {
       stackTrace: stackTrace,
     );
   }
+}
+
+Map<String, dynamic> sellerCopilotRequestBody({
+  required String requestType,
+  String? productId,
+  String? orderId,
+}) {
+  return <String, dynamic>{
+    'request_type': requestType,
+    if ((productId ?? '').trim().isNotEmpty) 'product_id': productId,
+    if ((orderId ?? '').trim().isNotEmpty) 'order_id': orderId,
+  };
+}
+
+SellerTaiyoCopilotEntity sellerTaiyoCopilotFromResponse(dynamic value) {
+  final map = _responseMap(value);
+  if (map.isEmpty) {
+    throw const NetworkFailure(
+      message: 'TAIYO returned an empty seller copilot response.',
+    );
+  }
+  return SellerTaiyoCopilotEntity.fromMap(map);
+}
+
+String _functionErrorMessage(FunctionException error, String fallback) {
+  final details = _responseMap(error.details);
+  return details['message']?.toString() ??
+      details['error']?.toString() ??
+      error.details?.toString() ??
+      fallback;
+}
+
+Map<String, dynamic> _responseMap(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return value.map(
+      (dynamic key, dynamic rowValue) => MapEntry(key.toString(), rowValue),
+    );
+  }
+  return const <String, dynamic>{};
 }

@@ -24,15 +24,17 @@ const trustedSource: NewsSourceRow = {
   source_weight: 1,
 };
 
-function article(overrides: Partial<NormalizedArticle> = {}): NormalizedArticle {
+function article(
+  overrides: Partial<NormalizedArticle> = {},
+): NormalizedArticle {
   return {
     canonicalUrl: "https://example.org/article",
     externalId: "external-1",
     title: "Strength training study highlights protein timing and muscle gains",
     summary:
-      "Researchers reviewed resistance training outcomes, protein intake, and recovery markers in adults.",
+      "Researchers reviewed resistance training outcomes, protein intake, recovery markers, and practical nutrition habits in adults training consistently.",
     content:
-      "A new study examined resistance training, muscle protein synthesis, recovery, and healthy eating patterns.",
+      "A new study examined resistance training, muscle protein synthesis, recovery, healthy eating patterns, and how structured meal timing supports long-term strength progress for active adults.",
     authorName: "GymUnity Test",
     imageUrl: "https://example.org/image.jpg",
     publishedAt: "2026-03-15T12:00:00Z",
@@ -51,8 +53,14 @@ Deno.test("classifyArticle maps muscle and nutrition articles to member goals sa
   assertEquals(result.evidenceLevel, "expert_reviewed");
   assertEquals(result.targetRoles.includes("member"), true);
   assertEquals(result.targetGoals.includes("muscle_gain"), true);
-  assertEquals(result.topics.some((topic) => topic.topicCode === "muscle_gain"), true);
-  assertEquals(result.topics.some((topic) => topic.topicCode === "nutrition_basics"), true);
+  assertEquals(
+    result.topics.some((topic) => topic.topicCode === "muscle_gain"),
+    true,
+  );
+  assertEquals(
+    result.topics.some((topic) => topic.topicCode === "nutrition_basics"),
+    true,
+  );
   assertEquals(result.trustScore >= 90, true);
   assertEquals(result.qualityScore >= 70, true);
 });
@@ -62,8 +70,10 @@ Deno.test("classifyArticle flags obviously unsafe miracle-cure claims as restric
     trustedSource,
     article({
       title: "Miracle cure claims you can drop 20 pounds in 7 days",
-      summary: "This extreme diet says it can replace your doctor and detox everything instantly.",
-      content: "A miracle cure and detox tea plan promises rapid results and asks readers to self-diagnose.",
+      summary:
+        "This extreme diet says it can replace your doctor and detox everything instantly.",
+      content:
+        "A miracle cure and detox tea plan promises rapid results and asks readers to self-diagnose.",
     }),
   );
 
@@ -76,14 +86,18 @@ Deno.test("classifyArticle detects beginner-friendly mobility guidance", () => {
     trustedSource,
     article({
       title: "Beginner mobility routine helps improve range of motion",
-      summary: "New to exercise? A beginner stretching routine can support joint health and recovery.",
-      content: "This beginner routine covers stretching, flexibility, warm-up habits, and safe progression.",
+      summary:
+        "New to exercise? A beginner stretching routine can support joint health and recovery.",
+      content:
+        "This beginner routine covers stretching, flexibility, warm-up habits, and safe progression.",
       rawCategory: "health_education",
     }),
   );
 
   assertExists(result.topics.find((topic) => topic.topicCode === "mobility"));
-  assertExists(result.topics.find((topic) => topic.topicCode === "beginner_training"));
+  assertExists(
+    result.topics.find((topic) => topic.topicCode === "beginner_training"),
+  );
   assertEquals(result.targetLevels.includes("beginner"), true);
   assertEquals(result.targetRoles.includes("member"), true);
 });
@@ -99,7 +113,8 @@ Deno.test("classifyArticle keeps broad public-health crisis reporting out of fit
       trust_score: 90,
     },
     article({
-      title: "Sudan: 1000 days of war deepen the world’s worst health and humanitarian crisis",
+      title:
+        "Sudan: 1000 days of war deepen the world’s worst health and humanitarian crisis",
       summary:
         "Over 20 million people now need health assistance and food support as the conflict continues across Sudan.",
       content:

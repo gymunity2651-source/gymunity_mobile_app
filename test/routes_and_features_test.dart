@@ -301,6 +301,11 @@ void main() {
     ) async {
       await _pumpScreen(tester, const SellerDashboardScreen());
 
+      expect(
+        find.textContaining('Seller dashboard is steady.'),
+        findsOneWidget,
+      );
+
       await tester.tap(find.text('Add Product'));
       await tester.pumpAndSettle();
 
@@ -385,7 +390,7 @@ void main() {
         chatRepository: chatRepository,
       );
 
-      await tester.ensureVisible(find.text('Strength plan'));
+      await tester.scrollUntilVisible(find.text('Strength plan'), 320);
       await tester.tap(find.text('Strength plan'));
       await tester.pumpAndSettle();
 

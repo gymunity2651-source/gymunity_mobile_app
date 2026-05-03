@@ -4,6 +4,7 @@ import '../../../../core/di/providers.dart';
 import '../../../store/domain/entities/order_entity.dart';
 import '../../../store/domain/entities/product_entity.dart';
 import '../../domain/entities/seller_profile_entity.dart';
+import '../../domain/entities/seller_taiyo_entity.dart';
 
 final sellerProfileProvider = FutureProvider<SellerProfileEntity?>((ref) async {
   final repo = ref.watch(sellerRepositoryProvider);
@@ -33,3 +34,9 @@ final sellerOrderDetailsProvider = FutureProvider.family<OrderEntity?, String>((
   final repo = ref.watch(sellerRepositoryProvider);
   return repo.getOrderDetails(orderId);
 });
+
+final sellerTaiyoDashboardBriefProvider =
+    FutureProvider<SellerTaiyoCopilotEntity>((ref) async {
+      final repo = ref.watch(sellerRepositoryProvider);
+      return repo.requestSellerCopilot();
+    });

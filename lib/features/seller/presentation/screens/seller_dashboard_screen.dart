@@ -9,6 +9,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../store/domain/entities/order_entity.dart';
 import '../../../store/presentation/store_ui_utils.dart';
 import '../../domain/entities/seller_profile_entity.dart';
+import '../../domain/entities/seller_taiyo_entity.dart';
 import '../providers/seller_providers.dart';
 
 const Color _surface = Color(0xFFFAF9F6);
@@ -32,6 +33,7 @@ class SellerDashboardScreen extends ConsumerWidget {
     final profileAsync = ref.watch(sellerProfileProvider);
     final summaryAsync = ref.watch(sellerDashboardSummaryProvider);
     final ordersAsync = ref.watch(sellerOrdersProvider);
+    final taiyoBriefAsync = ref.watch(sellerTaiyoDashboardBriefProvider);
 
     return Scaffold(
       backgroundColor: _surface,
@@ -46,10 +48,12 @@ class SellerDashboardScreen extends ConsumerWidget {
                 ref.invalidate(sellerProfileProvider);
                 ref.invalidate(sellerDashboardSummaryProvider);
                 ref.invalidate(sellerOrdersProvider);
+                ref.invalidate(sellerTaiyoDashboardBriefProvider);
                 await Future.wait<dynamic>([
                   ref.read(sellerProfileProvider.future),
                   ref.read(sellerDashboardSummaryProvider.future),
                   ref.read(sellerOrdersProvider.future),
+                  ref.read(sellerTaiyoDashboardBriefProvider.future),
                 ]);
               },
               child: ListView(
@@ -102,6 +106,8 @@ class SellerDashboardScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 52),
                   _SummaryBlock(summaryAsync: summaryAsync),
+                  const SizedBox(height: 22),
+                  _TaiyoSellerBriefBlock(briefAsync: taiyoBriefAsync),
                   const SizedBox(height: 44),
                   _RecentOrdersBlock(ordersAsync: ordersAsync),
                 ],
@@ -169,6 +175,109 @@ class SellerDashboardScreen extends ConsumerWidget {
       context,
       AppRoutes.login,
       (route) => false,
+    );
+  }
+}
+
+class _TaiyoSellerBriefBlock extends StatelessWidget {
+  const _TaiyoSellerBriefBlock({required this.briefAsync});
+
+  final AsyncValue<SellerTaiyoCopilotEntity> briefAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return briefAsync.when(
+      loading: () => const _MetricSkeleton(),
+      error: (error, _) => _DashboardMessage(
+        message: describeStoreError(
+          error,
+          fallbackMessage: 'TAIYO could not prepare seller guidance right now.',
+        ),
+      ),
+      data: (brief) {
+        final action = brief.priorityActions.isNotEmpty
+            ? brief.priorityActions.first
+            : brief.recommendedNextStep;
+        final opportunity = brief.productOpportunities.isNotEmpty
+            ? brief.productOpportunities.first
+            : '';
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+          decoration: BoxDecoration(
+            color: _surfaceLowest.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(34),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: _ambientShadow,
+                blurRadius: 40,
+                spreadRadius: -7,
+                offset: Offset(0, 18),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'TAIYO SELLER',
+                    style: GoogleFonts.manrope(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2.1,
+                      color: _primary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    brief.riskLevel == 'high'
+                        ? Icons.warning_amber_rounded
+                        : Icons.auto_awesome_rounded,
+                    color: _primary,
+                    size: 18,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                brief.summary.isEmpty
+                    ? 'TAIYO is waiting for more seller activity.'
+                    : brief.summary,
+                style: GoogleFonts.notoSerif(
+                  fontSize: 20,
+                  height: 1.25,
+                  fontWeight: FontWeight.w700,
+                  color: _onSurface,
+                ),
+              ),
+              if (action.trim().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  action,
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    height: 1.45,
+                    color: _onSurfaceVariant,
+                  ),
+                ),
+              ],
+              if (opportunity.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  opportunity,
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: _secondary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -56,8 +56,8 @@ void main() {
           durationMinutes: 45,
         ),
       ];
-    final chatRepository = FakeChatRepository()
-      ..nextSendMessageResult = const PlannerTurnResult(
+    final plannerRepository = FakePlannerRepository()
+      ..nextTaiyoPlanResult = const PlannerTurnResult(
         assistantMessage: 'I need your equipment before generating.',
         status: 'needs_more_info',
         draftId: 'draft-1',
@@ -67,7 +67,7 @@ void main() {
     await _pumpBuilder(
       tester,
       memberRepository: memberRepository,
-      chatRepository: chatRepository,
+      plannerRepository: plannerRepository,
     );
 
     await tester.tap(
@@ -97,10 +97,9 @@ void main() {
 
     expect(find.text('Review available equipment'), findsOneWidget);
     expect(find.byType(PlannerBuilderScreen), findsOneWidget);
-    expect(
-      chatRepository.lastSentMessage,
-      contains('GYMUNITY_AI_BUILDER_REQUEST'),
-    );
+    expect(plannerRepository.requestTaiyoWorkoutPlanDraftCalls, 1);
+    expect(plannerRepository.lastTaiyoPlannerRequestType, 'workout_plan_draft');
+    expect(plannerRepository.lastTaiyoPlannerAnswers?['goal'], 'weight_loss');
   });
 }
 
@@ -108,6 +107,7 @@ Future<void> _pumpBuilder(
   WidgetTester tester, {
   required FakeMemberRepository memberRepository,
   FakeChatRepository? chatRepository,
+  FakePlannerRepository? plannerRepository,
 }) async {
   tester.view.physicalSize = const Size(1000, 1400);
   tester.view.devicePixelRatio = 1.0;
@@ -122,6 +122,9 @@ Future<void> _pumpBuilder(
         memberRepositoryProvider.overrideWithValue(memberRepository),
         chatRepositoryProvider.overrideWithValue(
           chatRepository ?? FakeChatRepository(),
+        ),
+        plannerRepositoryProvider.overrideWithValue(
+          plannerRepository ?? FakePlannerRepository(),
         ),
       ],
       child: MaterialApp(

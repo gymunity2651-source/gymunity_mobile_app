@@ -109,6 +109,69 @@ class AiDailyBriefEntity {
     );
   }
 
+  factory AiDailyBriefEntity.fromTaiyoDailyBriefResponse(
+    Map<String, dynamic> map, {
+    DateTime? briefDate,
+  }) {
+    final result = _map(map['result']);
+    final dataQuality = _map(map['data_quality']);
+    final metadata = _map(map['metadata']);
+    final normalizedDate = _dateOnly(briefDate ?? DateTime.now());
+    final status = _stringValue(map['status']) ?? 'error';
+    final riskLevel = _stringValue(result['risk_level']) ?? 'medium';
+    final workoutFocus = _stringValue(result['workout_focus']) ?? '';
+    final trainingDecision =
+        _stringValue(result['training_decision']) ?? 'Review today\'s plan';
+    final nutritionFocus = _stringValue(result['nutrition_focus']) ?? '';
+    final motivationMessage =
+        _stringValue(result['motivation_message']) ??
+        'Stay consistent with the next useful action.';
+    final safetyNotes = _stringList(result['safety_notes']);
+    final missingFields = _stringList(dataQuality['missing_fields']);
+
+    return AiDailyBriefEntity(
+      id: 'taiyo-daily-brief-${_dateWire(normalizedDate)}',
+      briefDate: normalizedDate,
+      readinessScore: _readinessScoreForRisk(riskLevel),
+      intensityBand: _intensityBandForRisk(riskLevel),
+      coachMode: status == 'blocked_for_safety',
+      recommendedWorkout: <String, dynamic>{
+        'title': trainingDecision,
+        if (workoutFocus.isNotEmpty) 'focus': workoutFocus,
+        'risk_level': riskLevel,
+      },
+      habitFocus: <String, dynamic>{
+        'title': 'TAIYO focus',
+        'body': motivationMessage,
+      },
+      nutritionPriority: <String, dynamic>{
+        'title': 'Nutrition focus',
+        if (nutritionFocus.isNotEmpty) 'body': nutritionFocus,
+      },
+      recap: <String, dynamic>{
+        if (safetyNotes.isNotEmpty) 'safety_notes': safetyNotes,
+      },
+      recommendedActions: <String>[
+        if (workoutFocus.isNotEmpty) 'review_workout',
+        if (nutritionFocus.isNotEmpty) 'review_nutrition',
+        if (safetyNotes.isNotEmpty) 'review_safety_notes',
+      ],
+      whyShort: motivationMessage,
+      signalsUsed: <String>[
+        'taiyo_daily_brief',
+        if (missingFields.isNotEmpty) 'missing_context',
+      ],
+      confidence: _confidenceFromDataQuality(dataQuality['confidence']),
+      sourceContext: <String, dynamic>{
+        'request_type': map['request_type'],
+        'status': status,
+        'data_quality': dataQuality,
+        'metadata': metadata,
+        'raw_result_keys': result.keys.toList(growable: false),
+      },
+    );
+  }
+
   String get workoutTitle =>
       _stringValue(recommendedWorkout['title']) ??
       _stringValue(recommendedWorkout['label']) ??
@@ -475,4 +538,46 @@ DateTime? _parseDateTime(dynamic value) {
 
 DateTime _dateOnly(DateTime value) {
   return DateTime(value.year, value.month, value.day);
+}
+
+String _dateWire(DateTime value) {
+  return _dateOnly(value).toIso8601String().split('T').first;
+}
+
+String _intensityBandForRisk(String riskLevel) {
+  switch (riskLevel.trim().toLowerCase()) {
+    case 'low':
+      return 'green';
+    case 'high':
+      return 'red';
+    case 'medium':
+    default:
+      return 'yellow';
+  }
+}
+
+int _readinessScoreForRisk(String riskLevel) {
+  switch (riskLevel.trim().toLowerCase()) {
+    case 'low':
+      return 72;
+    case 'high':
+      return 35;
+    case 'medium':
+    default:
+      return 55;
+  }
+}
+
+double _confidenceFromDataQuality(dynamic value) {
+  final confidence = _stringValue(value)?.toLowerCase();
+  switch (confidence) {
+    case 'high':
+      return 0.9;
+    case 'medium':
+      return 0.7;
+    case 'low':
+      return 0.45;
+    default:
+      return 0.6;
+  }
 }

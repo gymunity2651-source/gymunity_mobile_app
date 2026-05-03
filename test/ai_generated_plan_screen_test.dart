@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/core/di/providers.dart';
 import 'package:my_app/core/theme/app_theme.dart';
+import 'package:my_app/features/ai_chat/domain/entities/planner_turn_result.dart';
 import 'package:my_app/features/planner/domain/entities/planner_entities.dart';
 import 'package:my_app/features/planner/presentation/screens/ai_generated_plan_screen.dart';
 
@@ -13,6 +14,11 @@ void main() {
     tester,
   ) async {
     final plannerRepository = FakePlannerRepository()
+      ..nextTaiyoPlanResult = const PlannerTurnResult(
+        assistantMessage: 'The planner refreshed your draft.',
+        status: 'plan_updated',
+        draftId: 'draft-1',
+      )
       ..drafts['draft-1'] = PlannerDraftEntity(
         id: 'draft-1',
         userId: 'member-1',
@@ -65,6 +71,11 @@ void main() {
     await tester.ensureVisible(find.text('Improve plan'));
     expect(find.text('Improve plan'), findsOneWidget);
     expect(find.text('Edit builder answers'), findsOneWidget);
+    await tester.tap(find.text('Improve plan'));
+    await tester.pumpAndSettle();
+    expect(plannerRepository.requestTaiyoWorkoutPlanDraftCalls, 1);
+    expect(plannerRepository.lastTaiyoPlannerRequestType, 'plan_review');
+    expect(plannerRepository.lastTaiyoPlannerDraftId, 'draft-1');
 
     await tester.ensureVisible(find.text('Approve and activate'));
     expect(find.text('Approve and activate'), findsOneWidget);

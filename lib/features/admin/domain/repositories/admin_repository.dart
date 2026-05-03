@@ -31,6 +31,14 @@ abstract class AdminRepository {
 
   Future<AdminSettingsEntity> getSettings();
 
+  Future<AdminTaiyoBriefEntity> requestTaiyoAdminOpsBrief({
+    String requestType = 'admin_ops_brief',
+    String? paymentOrderId,
+    String? subscriptionId,
+    String? payoutId,
+    int? limit,
+  });
+
   Future<void> markPayoutReady(String payoutId, {String? note});
   Future<void> holdPayout(String payoutId, {required String reason});
   Future<void> releasePayout(String payoutId, {String? note});

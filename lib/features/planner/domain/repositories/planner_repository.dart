@@ -1,9 +1,17 @@
+import '../../../ai_chat/domain/entities/planner_turn_result.dart';
 import '../entities/planner_entities.dart';
 
 abstract class PlannerRepository {
   Future<PlannerDraftEntity?> getLatestDraft(String sessionId);
 
   Future<PlannerDraftEntity?> getDraft(String draftId);
+
+  Future<PlannerTurnResult> requestTaiyoWorkoutPlanDraft({
+    required Map<String, dynamic> plannerAnswers,
+    String? sessionId,
+    String? draftId,
+    String requestType = 'workout_plan_draft',
+  });
 
   Future<PlanActivationResultEntity> activateDraft({
     required String draftId,

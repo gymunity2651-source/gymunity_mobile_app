@@ -4,6 +4,8 @@ import '../../../../core/error/app_failure.dart';
 import '../../domain/entities/admin_entities.dart';
 import '../../domain/repositories/admin_repository.dart';
 
+const String kTaiyoAdminOpsBriefFunctionName = 'taiyo-admin-ops-brief';
+
 class AdminRepositoryImpl implements AdminRepository {
   AdminRepositoryImpl(this._client);
 
@@ -128,6 +130,66 @@ class AdminRepositoryImpl implements AdminRepository {
       throw NetworkFailure(
         message: _functionErrorMessage(error),
         code: error.status.toString(),
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  @override
+  Future<AdminTaiyoBriefEntity> requestTaiyoAdminOpsBrief({
+    String requestType = 'admin_ops_brief',
+    String? paymentOrderId,
+    String? subscriptionId,
+    String? payoutId,
+    int? limit,
+  }) async {
+    final accessToken = _client.auth.currentSession?.accessToken;
+    if (!_hasText(accessToken)) {
+      throw const AuthFailure(message: 'Admin sign-in is required.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        kTaiyoAdminOpsBriefFunctionName,
+        headers: <String, String>{'Authorization': 'Bearer $accessToken'},
+        body: adminTaiyoOpsBriefRequestBody(
+          requestType: requestType,
+          paymentOrderId: paymentOrderId,
+          subscriptionId: subscriptionId,
+          payoutId: payoutId,
+          limit: limit,
+        ),
+      );
+      return adminTaiyoBriefFromResponse(response.data);
+    } on FunctionException catch (error, stackTrace) {
+      if (error.status == 401 || error.status == 403) {
+        throw AuthFailure(
+          message: _functionErrorMessage(
+            error,
+            'TAIYO Admin/Ops is available for admins only.',
+          ),
+          code: error.status.toString(),
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      throw NetworkFailure(
+        message: _functionErrorMessage(
+          error,
+          'TAIYO could not prepare the admin operations brief right now.',
+        ),
+        code: error.status.toString(),
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    } catch (error, stackTrace) {
+      if (error is AppFailure) {
+        rethrow;
+      }
+      throw NetworkFailure(
+        message:
+            'TAIYO could not prepare the admin operations brief right now.',
         cause: error,
         stackTrace: stackTrace,
       );
@@ -286,7 +348,10 @@ class AdminRepositoryImpl implements AdminRepository {
     );
   }
 
-  String _functionErrorMessage(FunctionException error) {
+  String _functionErrorMessage(
+    FunctionException error, [
+    String fallback = 'Admin settings are unavailable.',
+  ]) {
     final details = error.details;
     if (details is Map) {
       final message = details['error'] ?? details['message'];
@@ -295,7 +360,7 @@ class AdminRepositoryImpl implements AdminRepository {
       }
     }
     final text = details?.toString().trim() ?? '';
-    return text.isEmpty ? 'Admin settings are unavailable.' : text;
+    return text.isEmpty ? fallback : text;
   }
 
   bool _hasText(String? value) => value != null && value.trim().isNotEmpty;
@@ -317,4 +382,51 @@ class AdminRepositoryImpl implements AdminRepository {
     }
     return const <Map<String, dynamic>>[];
   }
+}
+
+Map<String, dynamic> adminTaiyoOpsBriefRequestBody({
+  required String requestType,
+  String? paymentOrderId,
+  String? subscriptionId,
+  String? payoutId,
+  int? limit,
+}) {
+  final body = <String, dynamic>{'request_type': requestType};
+  if (_hasBodyText(paymentOrderId)) {
+    body['payment_order_id'] = paymentOrderId!.trim();
+  }
+  if (_hasBodyText(subscriptionId)) {
+    body['subscription_id'] = subscriptionId!.trim();
+  }
+  if (_hasBodyText(payoutId)) {
+    body['payout_id'] = payoutId!.trim();
+  }
+  if (limit != null) {
+    body['limit'] = limit;
+  }
+  return body;
+}
+
+AdminTaiyoBriefEntity adminTaiyoBriefFromResponse(dynamic value) {
+  final map = _responseMap(value);
+  if (map.isEmpty) {
+    throw const NetworkFailure(
+      message: 'TAIYO returned an empty admin operations response.',
+    );
+  }
+  return AdminTaiyoBriefEntity.fromMap(map);
+}
+
+bool _hasBodyText(String? value) => value != null && value.trim().isNotEmpty;
+
+Map<String, dynamic> _responseMap(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return value.map(
+      (dynamic key, dynamic rowValue) => MapEntry(key.toString(), rowValue),
+    );
+  }
+  return const <String, dynamic>{};
 }

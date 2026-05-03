@@ -29,6 +29,6 @@ void main() {
     await tester.pump();
 
     expect(find.text('Trusted read'), findsNothing);
-    expect(find.byIcon(Icons.health_and_safety_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.auto_stories_rounded), findsOneWidget);
   });
 }

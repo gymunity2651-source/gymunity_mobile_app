@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/providers.dart';
 import '../../domain/entities/coach_entity.dart';
 import '../../domain/entities/coach_payment_entity.dart';
+import '../../domain/entities/coach_taiyo_entity.dart';
 import '../../domain/entities/coach_workspace_entity.dart';
 import '../../domain/entities/subscription_entity.dart';
 import '../../domain/entities/workout_plan_entity.dart';
@@ -75,6 +76,21 @@ final coachClientWorkspaceProvider =
     ) async {
       final repo = ref.watch(coachRepositoryProvider);
       return repo.getClientWorkspace(subscriptionId);
+    });
+
+final taiyoCoachClientBriefProvider =
+    FutureProvider.family<CoachTaiyoClientBriefEntity, String>((
+      ref,
+      subscriptionId,
+    ) async {
+      final repo = ref.watch(coachRepositoryProvider);
+      final workspace = await ref.watch(
+        coachClientWorkspaceProvider(subscriptionId).future,
+      );
+      return repo.requestTaiyoCoachClientBrief(
+        clientId: workspace.client.memberId,
+        subscriptionId: subscriptionId,
+      );
     });
 
 final coachCheckinInboxProvider = FutureProvider((ref) async {

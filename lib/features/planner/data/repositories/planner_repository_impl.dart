@@ -2,9 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/app_failure.dart';
+import '../../../ai_chat/domain/entities/planner_turn_result.dart';
 import '../../../coach/domain/entities/workout_plan_entity.dart';
 import '../../domain/entities/planner_entities.dart';
 import '../../domain/repositories/planner_repository.dart';
+
+const String kTaiyoWorkoutPlannerFunctionName = 'taiyo-workout-planner';
 
 class PlannerRepositoryImpl implements PlannerRepository {
   PlannerRepositoryImpl(this._client);
@@ -61,6 +64,69 @@ class PlannerRepositoryImpl implements PlannerRepository {
       throw NetworkFailure(
         message: e.message,
         code: e.code,
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<PlannerTurnResult> requestTaiyoWorkoutPlanDraft({
+    required Map<String, dynamic> plannerAnswers,
+    String? sessionId,
+    String? draftId,
+    String requestType = 'workout_plan_draft',
+  }) async {
+    final accessToken = _client.auth.currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const AuthFailure(message: 'No authenticated member found.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        kTaiyoWorkoutPlannerFunctionName,
+        headers: <String, String>{'Authorization': 'Bearer $accessToken'},
+        body: <String, dynamic>{
+          'request_type': requestType,
+          'planner_answers': plannerAnswers,
+          if ((sessionId ?? '').trim().isNotEmpty) 'session_id': sessionId,
+          if ((draftId ?? '').trim().isNotEmpty) 'draft_id': draftId,
+        },
+      );
+      return plannerTurnResultFromTaiyoWorkoutPlannerResponse(response.data);
+    } on FunctionException catch (e, st) {
+      if (e.status == 401) {
+        throw AuthFailure(
+          message: 'Please sign in again to use TAIYO workout planner.',
+          code: e.status.toString(),
+          cause: e,
+          stackTrace: st,
+        );
+      }
+      if (e.status == 403) {
+        throw AuthFailure(
+          message:
+              'TAIYO workout planner is available for member accounts only.',
+          code: e.status.toString(),
+          cause: e,
+          stackTrace: st,
+        );
+      }
+      throw NetworkFailure(
+        message: _functionErrorMessage(
+          e,
+          'TAIYO could not generate this workout plan right now.',
+        ),
+        code: e.status.toString(),
+        cause: e,
+        stackTrace: st,
+      );
+    } catch (e, st) {
+      if (e is AppFailure) {
+        rethrow;
+      }
+      throw NetworkFailure(
+        message: 'TAIYO could not generate this workout plan right now.',
         cause: e,
         stackTrace: st,
       );
@@ -170,7 +236,9 @@ class PlannerRepositoryImpl implements PlannerRepository {
                 .maybeSingle();
       if (row == null) {
         assert(() {
-          debugPrint('[planner] getPlanDetail no active plan for planId=$planId');
+          debugPrint(
+            '[planner] getPlanDetail no active plan for planId=$planId',
+          );
           return true;
         }());
         return null;
@@ -395,4 +463,92 @@ class PlannerRepositoryImpl implements PlannerRepository {
     final utc = DateTime.utc(value.year, value.month, value.day);
     return utc.toIso8601String().split('T').first;
   }
+}
+
+PlannerTurnResult plannerTurnResultFromTaiyoWorkoutPlannerResponse(
+  dynamic value,
+) {
+  final map = _asMap(value);
+  if (map.isEmpty) {
+    throw const NetworkFailure(
+      message: 'TAIYO returned an empty workout planner response.',
+    );
+  }
+  final status = map['status']?.toString() ?? 'error';
+  final result = _asMap(map['result']);
+  final metadata = _asMap(map['metadata']);
+  final dataQuality = _asMap(map['data_quality']);
+  final requestType = map['request_type']?.toString();
+  final planMap = _asMap(metadata['plan_json']);
+  final extractedProfile = _asMap(metadata['extracted_profile']);
+  final draftId =
+      metadata['draft_id']?.toString() ?? map['draft_id']?.toString();
+
+  final turnStatus = switch (status) {
+    'success' => requestType == 'plan_review' ? 'plan_updated' : 'plan_ready',
+    'blocked_for_safety' => 'unsafe_request',
+    'needs_more_context' => 'needs_more_info',
+    _ => 'error',
+  };
+
+  final message = _firstNonEmpty(<String?>[
+    result['summary']?.toString(),
+    (result['safety_notes'] is List &&
+            (result['safety_notes'] as List).isNotEmpty)
+        ? (result['safety_notes'] as List).join(' ')
+        : null,
+    status == 'blocked_for_safety'
+        ? 'TAIYO found safety flags that need attention before planning.'
+        : null,
+    status == 'needs_more_context'
+        ? 'TAIYO needs a little more planner detail before drafting.'
+        : null,
+  ]);
+
+  final missingFields = dataQuality['missing_fields'] is List
+      ? (dataQuality['missing_fields'] as List)
+            .map((dynamic item) => item.toString())
+            .toList(growable: false)
+      : const <String>[];
+
+  return PlannerTurnResult(
+    assistantMessage: message,
+    status: turnStatus,
+    draftId: draftId,
+    missingFields: missingFields,
+    extractedProfile: PlannerProfileSnapshotEntity.fromMap(extractedProfile),
+    plan: planMap.isEmpty ? null : GeneratedPlanEntity.fromMap(planMap),
+    conversationMode: requestType,
+    personalizationUsed: const <String>['TAIYO workout planner'],
+  );
+}
+
+String _functionErrorMessage(FunctionException error, String fallback) {
+  final details = _asMap(error.details);
+  return details['message']?.toString() ??
+      details['error']?.toString() ??
+      error.details?.toString() ??
+      fallback;
+}
+
+Map<String, dynamic> _asMap(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return value.map(
+      (dynamic key, dynamic rowValue) => MapEntry(key.toString(), rowValue),
+    );
+  }
+  return const <String, dynamic>{};
+}
+
+String _firstNonEmpty(List<String?> values) {
+  for (final value in values) {
+    final trimmed = value?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      return trimmed;
+    }
+  }
+  return 'TAIYO prepared your workout plan draft.';
 }

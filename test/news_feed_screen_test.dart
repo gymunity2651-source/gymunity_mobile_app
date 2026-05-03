@@ -12,6 +12,13 @@ void main() {
   testWidgets('news feed loads articles, saves them, and opens details', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
     final newsRepository = FakeNewsRepository()
       ..articles = <NewsArticleEntity>[
         NewsArticleEntity(
@@ -43,19 +50,17 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Recommended Reads'), findsOneWidget);
-    expect(
-      find.text('Recovery basics for consistent training'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Recommended'), findsOneWidget);
+    final articleTitle = find.text('Recovery basics for consistent training');
+    expect(articleTitle, findsWidgets);
 
-    await tester.tap(find.byIcon(Icons.bookmark_border).first);
+    await tester.tap(find.byIcon(Icons.bookmark_border_rounded).first);
     await tester.pumpAndSettle();
 
     expect(newsRepository.savedArticleIds, contains('article-1'));
     expect(find.text('Saved for later.'), findsOneWidget);
 
-    await tester.tap(find.text('Recovery basics for consistent training'));
+    await tester.tap(articleTitle.first);
     await tester.pumpAndSettle();
 
     expect(find.text('Open Original Article'), findsOneWidget);

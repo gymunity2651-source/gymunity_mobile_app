@@ -9,10 +9,10 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/atelier_theme.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_reveal.dart';
+import '../../../../core/di/providers.dart';
 import '../../domain/entities/planner_entities.dart';
 import '../providers/planner_providers.dart';
 import '../route_args.dart';
-import '../../../ai_chat/presentation/providers/chat_controller.dart';
 
 class AiGeneratedPlanScreen extends ConsumerStatefulWidget {
   const AiGeneratedPlanScreen({
@@ -33,12 +33,13 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
   late DateTime _selectedStartDate;
   late TimeOfDay _selectedReminderTime;
   bool _initialized = false;
+  bool _isRegenerating = false;
+  String? _regenerateErrorMessage;
 
   @override
   Widget build(BuildContext context) {
     final draftAsync = ref.watch(plannerDraftProvider(widget.draftId));
     final actionState = ref.watch(plannerActionControllerProvider);
-    final chatState = ref.watch(chatControllerProvider);
 
     return Theme(
       data: AtelierTheme.light,
@@ -249,16 +250,26 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
                           ),
                         ),
                       ),
+                    if (_regenerateErrorMessage != null)
+                      AppReveal(
+                        delay: revealDelay(6),
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _InlineErrorMessage(
+                            message: _regenerateErrorMessage!,
+                          ),
+                        ),
+                      ),
                     AppReveal(
                       delay: revealDelay(7),
                       child: Row(
                         children: [
                           Expanded(
                             child: _SecondaryPlanButton(
-                              onPressed: chatState.isRegenerating
+                              onPressed: _isRegenerating
                                   ? null
                                   : _regenerateDraft,
-                              label: chatState.isRegenerating
+                              label: _isRegenerating
                                   ? 'Improving...'
                                   : 'Improve plan',
                             ),
@@ -326,35 +337,49 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
   }
 
   Future<void> _regenerateDraft() async {
-    final result = await ref
-        .read(chatControllerProvider.notifier)
-        .regeneratePlan(sessionId: widget.sessionId, draftId: widget.draftId);
-    ref.invalidate(plannerDraftProvider(widget.draftId));
-    ref.invalidate(latestPlannerDraftProvider(widget.sessionId));
-    if (!mounted) {
-      return;
+    setState(() {
+      _isRegenerating = true;
+      _regenerateErrorMessage = null;
+    });
+    try {
+      final result = await ref
+          .read(plannerRepositoryProvider)
+          .requestTaiyoWorkoutPlanDraft(
+            requestType: 'plan_review',
+            sessionId: widget.sessionId,
+            draftId: widget.draftId,
+            plannerAnswers: const <String, dynamic>{},
+          );
+      ref.invalidate(plannerDraftProvider(widget.draftId));
+      ref.invalidate(latestPlannerDraftProvider(widget.sessionId));
+      if (!mounted) {
+        return;
+      }
+      final nextDraftId = result.draftId ?? widget.draftId;
+      if (nextDraftId != widget.draftId) {
+        Navigator.pushReplacementNamed(
+          context,
+          AppRoutes.aiGeneratedPlan,
+          arguments: AiGeneratedPlanArgs(
+            sessionId: widget.sessionId,
+            draftId: nextDraftId,
+          ),
+        );
+        return;
+      }
+      showAppFeedback(context, 'The AI Builder plan draft has been refreshed.');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      final message = 'GymUnity could not regenerate the plan right now.';
+      setState(() => _regenerateErrorMessage = message);
+      showAppFeedback(context, message);
+    } finally {
+      if (mounted) {
+        setState(() => _isRegenerating = false);
+      }
     }
-    if (result == null) {
-      showAppFeedback(
-        context,
-        ref.read(chatControllerProvider).errorMessage ??
-            'GymUnity could not regenerate the plan right now.',
-      );
-      return;
-    }
-    final nextDraftId = result.draftId ?? widget.draftId;
-    if (nextDraftId != widget.draftId) {
-      Navigator.pushReplacementNamed(
-        context,
-        AppRoutes.aiGeneratedPlan,
-        arguments: AiGeneratedPlanArgs(
-          sessionId: widget.sessionId,
-          draftId: nextDraftId,
-        ),
-      );
-      return;
-    }
-    showAppFeedback(context, 'The AI Builder plan draft has been refreshed.');
   }
 
   Future<void> _activateDraft() async {

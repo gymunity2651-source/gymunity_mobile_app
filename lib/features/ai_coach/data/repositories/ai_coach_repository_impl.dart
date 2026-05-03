@@ -7,6 +7,8 @@ import '../../domain/repositories/ai_coach_repository.dart';
 const String kAiCoachBackendUnavailableMessage =
     'TAIYO Coach needs the latest backend update before this action can run.';
 
+const String _taiyoDailyBriefFunctionName = 'taiyo-daily-brief';
+
 const String _legacyCoachFallbackReason =
     'This summary is built from your active plan and nutrition progress while the full coach engine finishes syncing.';
 
@@ -61,6 +63,15 @@ bool isAiCoachBackendUnavailableFailure(AppFailure failure) {
 bool _matchesAiCoachBackendGapText(String text) {
   final normalized = text.toLowerCase();
   final hasMarker = _aiCoachBackendMarkers.any(normalized.contains);
+  final hasMissingPhrase = _missingSchemaPhrases.any(normalized.contains);
+  return hasMarker && hasMissingPhrase;
+}
+
+bool _matchesTaiyoDailyBriefBackendGapText(String text) {
+  final normalized = text.toLowerCase();
+  final hasMarker =
+      normalized.contains(_taiyoDailyBriefFunctionName) ||
+      normalized.contains('daily_member_brief');
   final hasMissingPhrase = _missingSchemaPhrases.any(normalized.contains);
   return hasMarker && hasMissingPhrase;
 }
@@ -130,15 +141,15 @@ class AiCoachRepositoryImpl implements AiCoachRepository {
   @override
   Future<AiDailyBriefEntity> refreshDailyBrief(DateTime date) async {
     try {
-      final response = await _invokeAiCoach(<String, dynamic>{
-        'mode': 'refresh_daily_brief',
-        'target_date': _dateWire(date),
+      final response = await _invokeTaiyoDailyBrief(<String, dynamic>{
+        'date': _dateWire(date),
       });
-      final briefMap = _rowMap(_rowMap(response)['brief']);
-      if (briefMap.isEmpty) {
-        return _buildLegacyDailyBrief(date);
-      }
-      return AiDailyBriefEntity.fromMap(briefMap);
+      final responseMap = _rowMap(response);
+      _validateTaiyoDailyBriefResponse(responseMap);
+      return AiDailyBriefEntity.fromTaiyoDailyBriefResponse(
+        responseMap,
+        briefDate: date,
+      );
     } catch (e, st) {
       if (e is AppFailure) {
         if (isAiCoachBackendUnavailableFailure(e)) {
@@ -422,6 +433,80 @@ class AiCoachRepositoryImpl implements AiCoachRepository {
         cause: e,
         stackTrace: st,
       );
+    }
+  }
+
+  Future<dynamic> _invokeTaiyoDailyBrief(Map<String, dynamic> body) async {
+    final accessToken = _client.auth.currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const AuthFailure(message: 'No authenticated member found.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        _taiyoDailyBriefFunctionName,
+        headers: <String, String>{'Authorization': 'Bearer $accessToken'},
+        body: body,
+      );
+      return response.data;
+    } on FunctionException catch (e, st) {
+      if (e.status == 401) {
+        throw AuthFailure(
+          message: 'Please sign in again to refresh your TAIYO daily brief.',
+          code: e.status.toString(),
+          cause: e,
+          stackTrace: st,
+        );
+      }
+      if (e.status == 403) {
+        throw AuthFailure(
+          message: 'TAIYO daily brief is available for member accounts only.',
+          code: e.status.toString(),
+          cause: e,
+          stackTrace: st,
+        );
+      }
+      final detailsText = e.details?.toString() ?? '';
+      final message =
+          e.status == 404 || _matchesTaiyoDailyBriefBackendGapText(detailsText)
+          ? kAiCoachBackendUnavailableMessage
+          : 'TAIYO could not refresh today\'s daily brief.';
+      throw NetworkFailure(
+        message: message,
+        code: e.status.toString(),
+        cause: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  void _validateTaiyoDailyBriefResponse(Map<String, dynamic> response) {
+    if (response.isEmpty || _rowMap(response['result']).isEmpty) {
+      throw const NetworkFailure(
+        message: 'TAIYO returned an unexpected daily brief response.',
+      );
+    }
+
+    final status = _nonEmptyString(response['status']) ?? 'error';
+    const allowedStatuses = <String>{
+      'success',
+      'needs_more_context',
+      'blocked_for_safety',
+    };
+    if (!allowedStatuses.contains(status)) {
+      throw NetworkFailure(
+        message: _taiyoDailyBriefStatusMessage(status),
+        code: status,
+      );
+    }
+  }
+
+  String _taiyoDailyBriefStatusMessage(String status) {
+    switch (status) {
+      case 'error':
+        return 'TAIYO could not generate today\'s daily brief.';
+      default:
+        return 'TAIYO returned an unsupported daily brief status.';
     }
   }
 

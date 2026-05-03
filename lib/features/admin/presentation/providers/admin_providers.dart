@@ -91,6 +91,31 @@ final adminSettingsProvider = FutureProvider<AdminSettingsEntity>((ref) async {
   return repo.getSettings();
 });
 
+final adminTaiyoOpsBriefProvider = FutureProvider<AdminTaiyoBriefEntity>((
+  ref,
+) async {
+  final repo = ref.watch(adminRepositoryProvider);
+  return repo.requestTaiyoAdminOpsBrief();
+});
+
+final adminTaiyoPaymentRiskProvider =
+    FutureProvider.family<AdminTaiyoBriefEntity, String>((ref, paymentOrderId) {
+      final repo = ref.watch(adminRepositoryProvider);
+      return repo.requestTaiyoAdminOpsBrief(
+        requestType: 'payment_order_risk',
+        paymentOrderId: paymentOrderId,
+      );
+    });
+
+final adminTaiyoPayoutReviewProvider =
+    FutureProvider.family<AdminTaiyoBriefEntity, String>((ref, payoutId) {
+      final repo = ref.watch(adminRepositoryProvider);
+      return repo.requestTaiyoAdminOpsBrief(
+        requestType: 'payout_review',
+        payoutId: payoutId,
+      );
+    });
+
 final adminActionsControllerProvider = Provider<AdminActionsController>((ref) {
   return AdminActionsController(ref);
 });

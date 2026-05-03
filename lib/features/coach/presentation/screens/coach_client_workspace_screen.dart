@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
 import '../../../member/domain/entities/coaching_engagement_entity.dart';
+import '../../domain/entities/coach_taiyo_entity.dart';
 import '../../domain/entities/coach_workspace_entity.dart';
 import '../providers/coach_providers.dart';
 
@@ -206,7 +207,10 @@ class _OverviewTab extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
-        _TaiyoCoachBrief(workspace: workspace),
+        _TaiyoCoachBrief(
+          workspace: workspace,
+          onReviewConsent: onReviewConsent,
+        ),
         const SizedBox(height: 14),
         _Timeline(workspace: workspace),
       ],
@@ -214,32 +218,78 @@ class _OverviewTab extends ConsumerWidget {
   }
 }
 
-class _TaiyoCoachBrief extends StatelessWidget {
-  const _TaiyoCoachBrief({required this.workspace});
+class _TaiyoCoachBrief extends ConsumerWidget {
+  const _TaiyoCoachBrief({
+    required this.workspace,
+    required this.onReviewConsent,
+  });
 
   final CoachClientWorkspaceEntity workspace;
+  final VoidCallback onReviewConsent;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final briefAsync = ref.watch(
+      taiyoCoachClientBriefProvider(workspace.client.subscriptionId),
+    );
+    return briefAsync.when(
+      loading: () => const _SimplePanel(
+        icon: Icons.auto_awesome_outlined,
+        title: 'TAIYO Coach Brief',
+        body: 'TAIYO is reviewing the shared client context.',
+      ),
+      error: (error, _) => _SimplePanel(
+        icon: Icons.cloud_off_outlined,
+        title: 'TAIYO Coach Brief',
+        body: 'TAIYO could not prepare this client brief right now.',
+        actionLabel: 'Retry',
+        onTap: () => ref.invalidate(
+          taiyoCoachClientBriefProvider(workspace.client.subscriptionId),
+        ),
+      ),
+      data: (brief) =>
+          _TaiyoCoachBriefPanel(brief: brief, onReviewConsent: onReviewConsent),
+    );
+  }
+}
+
+class _TaiyoCoachBriefPanel extends StatelessWidget {
+  const _TaiyoCoachBriefPanel({
+    required this.brief,
+    required this.onReviewConsent,
+  });
+
+  final CoachTaiyoClientBriefEntity brief;
+  final VoidCallback onReviewConsent;
 
   @override
   Widget build(BuildContext context) {
-    final latest = workspace.checkins.isEmpty ? null : workspace.checkins.first;
-    final adherence = latest == null
-        ? 'No check-in submitted yet.'
-        : 'Latest adherence ${latest.adherenceScore}%, workouts ${latest.workoutsCompleted ?? 0}, missed ${latest.missedWorkouts ?? 0}.';
-    final risk = latest?.painWarning?.trim().isNotEmpty == true
-        ? 'Pain warning: ${latest!.painWarning}'
-        : workspace.client.riskFlags.isEmpty
-        ? 'No active risk flags.'
-        : 'Risk flags: ${workspace.client.riskFlags.join(', ')}.';
-    final support = latest?.supportNeeded?.trim().isNotEmpty == true
-        ? 'Support needed: ${latest!.supportNeeded}'
-        : latest?.biggestObstacle?.trim().isNotEmpty == true
-        ? 'Obstacle: ${latest!.biggestObstacle}'
-        : 'Ask one clarifying question before changing the plan.';
+    if (brief.needsVisibilityPermission) {
+      return _SimplePanel(
+        icon: Icons.privacy_tip_outlined,
+        title: 'TAIYO Coach Brief',
+        body: brief.summary,
+        actionLabel: 'Review Privacy',
+        onTap: onReviewConsent,
+      );
+    }
+
+    final redFlags = brief.redFlags.isEmpty
+        ? 'No new red flags from shared data.'
+        : 'Red flags: ${brief.redFlags.join(', ')}.';
+    final action = brief.suggestedAction.trim().isEmpty
+        ? 'Review the brief before taking action.'
+        : brief.suggestedAction;
+    final draft = brief.hasDraftMessage
+        ? '\nDraft message: ${brief.suggestedMessage}'
+        : '';
     return _SimplePanel(
-      icon: Icons.auto_awesome_outlined,
+      icon: brief.riskLevel == 'high'
+          ? Icons.warning_amber_outlined
+          : Icons.auto_awesome_outlined,
       title: 'TAIYO Coach Brief',
       body:
-          '$adherence\n$risk\n$support\nDraft only: review the data, then approve or edit structured feedback before the member sees it.',
+          '${brief.summary.isEmpty ? 'TAIYO prepared a client brief.' : brief.summary}\n$redFlags\n$action$draft\nDraft only: review before the member sees anything.',
     );
   }
 }

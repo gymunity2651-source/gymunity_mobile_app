@@ -33,6 +33,9 @@ migrate_working_dir/
 node_modules/
 .deno/
 .env
+.env.*
+supabase/functions/.env
+supabase/functions/.env.*
 assets/config/local_env.json
 /build/
 /coverage/

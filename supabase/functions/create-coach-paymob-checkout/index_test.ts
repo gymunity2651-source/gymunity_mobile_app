@@ -15,8 +15,10 @@ function config(): PaymobConfig {
     currency: "EGP",
     platformFeeBps: 1500,
     payoutHoldDays: 0,
-    redirectUrl: "https://example.supabase.co/functions/v1/paymob-payment-response",
-    notificationUrl: "https://example.supabase.co/functions/v1/paymob-transaction-callback",
+    redirectUrl:
+      "https://example.supabase.co/functions/v1/paymob-payment-response",
+    notificationUrl:
+      "https://example.supabase.co/functions/v1/paymob-transaction-callback",
   };
 }
 
@@ -35,18 +37,24 @@ Deno.test("create Paymob checkout returns public pending checkout fields only", 
       supabase: supabase.client as never,
       paymobConfig: config(),
       fetch: async (_url, init) => {
-        const payload = JSON.parse(String(init?.body ?? "{}")) as JsonMap;
+        const requestInit = init as { body?: unknown } | undefined;
+        const payload = JSON.parse(
+          String(requestInit?.body ?? "{}"),
+        ) as JsonMap;
         assertEquals(payload.amount, 120000);
         assertEquals(payload.currency, "EGP");
         assertEquals(payload.payment_methods, [5629685]);
         assertEquals(payload.notification_url, config().notificationUrl);
         assertEquals(payload.redirection_url, config().redirectUrl);
-        return new Response(JSON.stringify({
-          id: "intention-1",
-          order_id: "paymob-order-1",
-          client_secret: "client-secret",
-          checkout_url: "https://accept.paymob.com/unifiedcheckout/",
-        }), { status: 200 });
+        return new Response(
+          JSON.stringify({
+            id: "intention-1",
+            order_id: "paymob-order-1",
+            client_secret: "client-secret",
+            checkout_url: "https://accept.paymob.com/unifiedcheckout/",
+          }),
+          { status: 200 },
+        );
       },
     },
   );
@@ -101,13 +109,18 @@ function mockSupabase() {
         return query;
       },
       single: () => Promise.resolve(singleResult(table, state)),
-      then: (resolve: (value: unknown) => unknown, reject: (reason?: unknown) => unknown) =>
-        Promise.resolve(listResult(table, state)).then(resolve, reject),
+      then: (
+        resolve: (value: unknown) => unknown,
+        reject: (reason?: unknown) => unknown,
+      ) => Promise.resolve(listResult(table, state)).then(resolve, reject),
     };
     return query;
   }
 
-  function singleResult(table: string, state: { op?: string; payload?: unknown }) {
+  function singleResult(
+    table: string,
+    state: { op?: string; payload?: unknown },
+  ) {
     if (table === "profiles") {
       return {
         data: {
@@ -161,7 +174,10 @@ function mockSupabase() {
       insertedOrders.push(row);
       return { data: { id: "order-1" }, error: null };
     }
-    return { data: null, error: new Error(`Unexpected single query: ${table}`) };
+    return {
+      data: null,
+      error: new Error(`Unexpected single query: ${table}`),
+    };
   }
 
   function listResult(table: string, state: { op?: string }) {

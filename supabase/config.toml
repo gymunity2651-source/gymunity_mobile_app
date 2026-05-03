@@ -150,6 +150,21 @@ max_indexes = 5
 [functions.ai-coach]
 verify_jwt = false
 
+[functions.taiyo-daily-brief]
+verify_jwt = false
+
+[functions.taiyo-workout-planner]
+verify_jwt = false
+
+[functions.taiyo-seller-copilot]
+verify_jwt = false
+
+[functions.taiyo-coach-client-brief]
+verify_jwt = false
+
+[functions.taiyo-admin-ops-brief]
+verify_jwt = false
+
 [functions.paymob-transaction-callback]
 verify_jwt = false
 

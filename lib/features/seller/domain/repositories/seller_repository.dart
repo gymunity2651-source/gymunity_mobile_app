@@ -1,6 +1,7 @@
 import '../../../store/domain/entities/order_entity.dart';
 import '../../../store/domain/entities/product_entity.dart';
 import '../entities/seller_profile_entity.dart';
+import '../entities/seller_taiyo_entity.dart';
 
 abstract class SellerRepository {
   Future<SellerProfileEntity?> getSellerProfile();
@@ -45,5 +46,11 @@ abstract class SellerRepository {
     required String orderId,
     required String newStatus,
     String? note,
+  });
+
+  Future<SellerTaiyoCopilotEntity> requestSellerCopilot({
+    String requestType = 'seller_dashboard_brief',
+    String? productId,
+    String? orderId,
   });
 }

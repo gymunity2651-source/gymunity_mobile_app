@@ -7,6 +7,7 @@ import '../../../../core/result/paged.dart';
 import '../../../../core/utils/historical_record_utils.dart';
 import '../../../member/domain/entities/coaching_engagement_entity.dart';
 import '../../domain/entities/coach_entity.dart';
+import '../../domain/entities/coach_taiyo_entity.dart';
 import '../../domain/entities/coach_workspace_entity.dart';
 import '../../domain/entities/subscription_entity.dart';
 import '../../domain/entities/workout_plan_entity.dart';
@@ -39,6 +40,8 @@ const List<String> _coachProfileMarketplaceColumns = <String>[
   'trial_price_egp',
   'remote_only',
 ];
+
+const String kTaiyoCoachClientBriefFunctionName = 'taiyo-coach-client-brief';
 
 Future<void> runSchemaCompatibleWrite({
   required List<Map<String, dynamic>> payloads,
@@ -770,6 +773,66 @@ class CoachRepositoryImpl implements CoachRepository {
         code: e.code,
         cause: e,
         stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<CoachTaiyoClientBriefEntity> requestTaiyoCoachClientBrief({
+    required String clientId,
+    required String subscriptionId,
+    String requestType = 'coach_client_brief',
+  }) async {
+    final accessToken = _client.auth.currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const AuthFailure(message: 'No authenticated coach found.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        kTaiyoCoachClientBriefFunctionName,
+        headers: <String, String>{'Authorization': 'Bearer $accessToken'},
+        body: coachTaiyoClientBriefRequestBody(
+          clientId: clientId,
+          subscriptionId: subscriptionId,
+          requestType: requestType,
+        ),
+      );
+      return coachTaiyoClientBriefFromResponse(response.data);
+    } on FunctionException catch (error, stackTrace) {
+      if (error.status == 401) {
+        throw AuthFailure(
+          message: 'Please sign in again to use TAIYO coach copilot.',
+          code: error.status.toString(),
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      if (error.status == 403) {
+        throw AuthFailure(
+          message: 'TAIYO coach copilot is available for coach accounts only.',
+          code: error.status.toString(),
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      throw NetworkFailure(
+        message: _coachFunctionErrorMessage(
+          error,
+          'TAIYO could not prepare this client brief right now.',
+        ),
+        code: error.status.toString(),
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    } catch (error, stackTrace) {
+      if (error is AppFailure) {
+        rethrow;
+      }
+      throw NetworkFailure(
+        message: 'TAIYO could not prepare this client brief right now.',
+        cause: error,
+        stackTrace: stackTrace,
       );
     }
   }
@@ -2402,4 +2465,46 @@ class CoachRepositoryImpl implements CoachRepository {
     final list = _asRows(rows);
     return list.isEmpty ? null : list.first;
   }
+}
+
+Map<String, dynamic> coachTaiyoClientBriefRequestBody({
+  required String clientId,
+  required String subscriptionId,
+  required String requestType,
+}) {
+  return <String, dynamic>{
+    'request_type': requestType,
+    'client_id': clientId,
+    'subscription_id': subscriptionId,
+  };
+}
+
+CoachTaiyoClientBriefEntity coachTaiyoClientBriefFromResponse(dynamic value) {
+  final map = _coachResponseMap(value);
+  if (map.isEmpty) {
+    throw const NetworkFailure(
+      message: 'TAIYO returned an empty coach client brief response.',
+    );
+  }
+  return CoachTaiyoClientBriefEntity.fromMap(map);
+}
+
+String _coachFunctionErrorMessage(FunctionException error, String fallback) {
+  final details = _coachResponseMap(error.details);
+  return details['message']?.toString() ??
+      details['error']?.toString() ??
+      error.details?.toString() ??
+      fallback;
+}
+
+Map<String, dynamic> _coachResponseMap(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return value.map(
+      (dynamic key, dynamic rowValue) => MapEntry(key.toString(), rowValue),
+    );
+  }
+  return const <String, dynamic>{};
 }

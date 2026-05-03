@@ -180,6 +180,7 @@ class _AdminDashboardShellState extends ConsumerState<AdminDashboardShell> {
     switch (_index) {
       case 0:
         ref.invalidate(adminDashboardSummaryProvider);
+        ref.invalidate(adminTaiyoOpsBriefProvider);
       case 1:
         ref.invalidate(adminPaymentOrdersProvider);
       case 2:
@@ -313,6 +314,7 @@ class _OverviewSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryAsync = ref.watch(adminDashboardSummaryProvider);
+    final taiyoAsync = ref.watch(adminTaiyoOpsBriefProvider);
     return summaryAsync.when(
       loading: () => const _LoadingPanel(),
       error: (error, _) => _ErrorPanel(
@@ -366,6 +368,12 @@ class _OverviewSection extends ConsumerWidget {
           children: [
             _ResponsiveGrid(children: cards),
             const SizedBox(height: 18),
+            _TaiyoAdminBriefPanel(
+              title: 'TAIYO Ops Brief',
+              briefAsync: taiyoAsync,
+              onRetry: () => ref.invalidate(adminTaiyoOpsBriefProvider),
+            ),
+            const SizedBox(height: 14),
             _Panel(
               title: 'Recent successful payments',
               child: _PaymentList(payments: summary.successfulPayments),
@@ -891,6 +899,7 @@ class _PaymentDetailsSheet extends ConsumerWidget {
     final detailsAsync = ref.watch(
       adminPaymentOrderDetailsProvider(paymentOrderId),
     );
+    final taiyoAsync = ref.watch(adminTaiyoPaymentRiskProvider(paymentOrderId));
     final admin = ref.watch(adminPermissionsProvider);
     return _SheetFrame(
       title: 'Payment details',
@@ -921,6 +930,13 @@ class _PaymentDetailsSheet extends ConsumerWidget {
             _DetailRow('Subscription status', order.subscriptionStatus ?? '-'),
             _DetailRow('Paymob order', order.paymobOrderId ?? '-'),
             _DetailRow('Paymob transaction', order.paymobTransactionId ?? '-'),
+            const SizedBox(height: 12),
+            _TaiyoAdminBriefPanel(
+              title: 'AI Risk Explanation',
+              briefAsync: taiyoAsync,
+              onRetry: () =>
+                  ref.invalidate(adminTaiyoPaymentRiskProvider(paymentOrderId)),
+            ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => ref
@@ -1011,6 +1027,7 @@ class _PayoutDetailsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final payoutAsync = ref.watch(adminPayoutDetailsProvider(payoutId));
+    final taiyoAsync = ref.watch(adminTaiyoPayoutReviewProvider(payoutId));
     return _SheetFrame(
       title: 'Payout details',
       child: payoutAsync.when(
@@ -1033,6 +1050,13 @@ class _PayoutDetailsSheet extends ConsumerWidget {
               payout.account.isEmpty
                   ? 'Missing'
                   : 'Masked ${payout.account['method'] ?? 'manual'} | verified ${payout.account['is_verified'] == true ? 'yes' : 'no'}',
+            ),
+            const SizedBox(height: 12),
+            _TaiyoAdminBriefPanel(
+              title: 'AI Payout Review',
+              briefAsync: taiyoAsync,
+              onRetry: () =>
+                  ref.invalidate(adminTaiyoPayoutReviewProvider(payoutId)),
             ),
             const SizedBox(height: 12),
             Text('Included payments', style: _titleStyle()),
@@ -1442,6 +1466,108 @@ class _Panel extends StatelessWidget {
   }
 }
 
+class _TaiyoAdminBriefPanel extends StatelessWidget {
+  const _TaiyoAdminBriefPanel({
+    required this.title,
+    required this.briefAsync,
+    required this.onRetry,
+  });
+
+  final String title;
+  final AsyncValue<AdminTaiyoBriefEntity> briefAsync;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return briefAsync.when(
+      loading: () => _AdminCard(
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 10),
+            Text(title, style: _titleStyle()),
+          ],
+        ),
+      ),
+      error: (error, _) => _AdminCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: _titleStyle()),
+            const SizedBox(height: 8),
+            Text(
+              'TAIYO admin guidance is unavailable.',
+              style: _secondaryStyle(),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+      data: (brief) => _AdminCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(title, style: _titleStyle())),
+                _RiskChip(level: brief.riskLevel),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              brief.statusSummary.isEmpty
+                  ? 'TAIYO returned no admin summary.'
+                  : brief.statusSummary,
+            ),
+            if (brief.reason.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(brief.reason, style: _secondaryStyle()),
+            ],
+            if (brief.hasRecommendedAction) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _InfoChip(
+                    brief.actionLabel.isEmpty
+                        ? brief.recommendedAdminAction
+                        : brief.actionLabel,
+                  ),
+                  const _InfoChip('Manual confirmation required'),
+                ],
+              ),
+            ],
+            if (brief.auditNotes.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ...brief.auditNotes
+                  .take(3)
+                  .map(
+                    (note) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text('- $note', style: _secondaryStyle()),
+                    ),
+                  ),
+            ],
+            const SizedBox(height: 8),
+            Text('Sensitive data excluded', style: _secondaryStyle()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _AdminCard extends StatelessWidget {
   const _AdminCard({required this.child});
 
@@ -1531,6 +1657,27 @@ class _StatusChip extends StatelessWidget {
     };
     return Chip(
       label: Text(label.replaceAll('_', ' ').toUpperCase()),
+      visualDensity: VisualDensity.compact,
+      side: BorderSide(color: color.withValues(alpha: 0.35)),
+      backgroundColor: color.withValues(alpha: 0.10),
+    );
+  }
+}
+
+class _RiskChip extends StatelessWidget {
+  const _RiskChip({required this.level});
+
+  final String level;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (level) {
+      'high' => AppColors.error,
+      'medium' => AppColors.warning,
+      _ => AppColors.success,
+    };
+    return Chip(
+      label: Text('${level.toUpperCase()} RISK'),
       visualDensity: VisualDensity.compact,
       side: BorderSide(color: color.withValues(alpha: 0.35)),
       backgroundColor: color.withValues(alpha: 0.10),
@@ -1661,7 +1808,7 @@ class _CenteredState extends StatelessWidget {
 
 class _AdminSection {
   const _AdminSection(this.label, this.icon, {String? shortLabel})
-      : shortLabel = shortLabel ?? label;
+    : shortLabel = shortLabel ?? label;
 
   final String label;
   final IconData icon;
