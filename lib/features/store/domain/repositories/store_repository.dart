@@ -3,6 +3,7 @@ import '../entities/cart_entity.dart';
 import '../entities/order_entity.dart';
 import '../entities/product_entity.dart';
 import '../entities/shipping_address_entity.dart';
+import '../entities/store_recommendation_entity.dart';
 
 abstract class StoreRepository {
   Future<Paged<ProductEntity>> listProducts({
@@ -55,4 +56,8 @@ abstract class StoreRepository {
   Future<List<OrderEntity>> listMyOrders();
 
   Future<OrderEntity?> getMyOrderDetails(String orderId);
+
+  Future<StoreRecommendationsEntity> requestTaiyoStoreRecommendations({
+    int limit = 3,
+  });
 }

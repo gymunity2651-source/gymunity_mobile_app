@@ -9,6 +9,7 @@ import '../../../../core/widgets/app_feedback.dart';
 import '../../../../core/widgets/app_shell_background.dart';
 import '../../../member/presentation/widgets/member_profile_shortcut_button.dart';
 import '../../domain/entities/product_entity.dart';
+import '../../domain/entities/store_recommendation_entity.dart';
 import '../providers/store_providers.dart';
 import '../store_ui_utils.dart';
 import '../widgets/store_product_image.dart';
@@ -42,6 +43,7 @@ class _StoreHomeScreenState extends ConsumerState<StoreHomeScreen> {
     final searchQuery = ref.watch(storeSearchQueryProvider);
     final productsAsync = ref.watch(storeProductsProvider);
     final products = ref.watch(filteredStoreProductsProvider);
+    final recommendationsAsync = ref.watch(taiyoStoreRecommendationsProvider);
     final favoriteIdsAsync = ref.watch(favoriteIdsProvider);
     final favoriteIds = favoriteIdsAsync.valueOrNull ?? const <String>{};
     final cartCount = ref.watch(storeCartCountProvider);
@@ -62,6 +64,7 @@ class _StoreHomeScreenState extends ConsumerState<StoreHomeScreen> {
           child: RefreshIndicator.adaptive(
             onRefresh: () async {
               ref.invalidate(storeProductsProvider);
+              ref.invalidate(taiyoStoreRecommendationsProvider);
               ref.invalidate(favoriteIdsProvider);
               ref.invalidate(storeCartControllerProvider);
               await ref.read(storeCartControllerProvider.future);
@@ -140,6 +143,13 @@ class _StoreHomeScreenState extends ConsumerState<StoreHomeScreen> {
                 _StoreHeroCard(
                   productCount: products.length,
                   cartCount: cartCount,
+                ),
+                const SizedBox(height: 18),
+                _TaiyoStoreRecommendationsSection(
+                  recommendationsAsync: recommendationsAsync,
+                  onRefresh: () =>
+                      ref.invalidate(taiyoStoreRecommendationsProvider),
+                  onOpenProduct: _openRecommendedProduct,
                 ),
                 const SizedBox(height: 18),
                 SearchBar(
@@ -303,6 +313,272 @@ class _StoreHomeScreenState extends ConsumerState<StoreHomeScreen> {
           fallbackMessage: 'Unable to update your cart.',
         ),
       );
+    }
+  }
+
+  Future<void> _openRecommendedProduct(String productId) async {
+    try {
+      final product = await ref
+          .read(storeProductDetailsProvider(productId).future);
+      if (!mounted) {
+        return;
+      }
+      if (product == null) {
+        showAppFeedback(context, 'This recommended product is unavailable.');
+        ref.invalidate(taiyoStoreRecommendationsProvider);
+        return;
+      }
+      Navigator.pushNamed(
+        context,
+        AppRoutes.productDetails,
+        arguments: product,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      showAppFeedback(
+        context,
+        describeStoreError(
+          error,
+          fallbackMessage: 'Unable to open this product.',
+        ),
+      );
+    }
+  }
+}
+
+class _TaiyoStoreRecommendationsSection extends StatelessWidget {
+  const _TaiyoStoreRecommendationsSection({
+    required this.recommendationsAsync,
+    required this.onRefresh,
+    required this.onOpenProduct,
+  });
+
+  final AsyncValue<StoreRecommendationsEntity> recommendationsAsync;
+  final VoidCallback onRefresh;
+  final ValueChanged<String> onOpenProduct;
+
+  @override
+  Widget build(BuildContext context) {
+    return recommendationsAsync.when(
+      loading: () => const _TaiyoRecommendationsShell(
+        child: LinearProgressIndicator(minHeight: 2),
+      ),
+      error: (error, stackTrace) => _TaiyoRecommendationsShell(
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text('TAIYO store picks are unavailable right now.'),
+            ),
+            TextButton(onPressed: onRefresh, child: const Text('Retry')),
+          ],
+        ),
+      ),
+      data: (recommendations) {
+        if (!recommendations.hasProducts) {
+          return _TaiyoRecommendationsShell(
+            child: Text(
+              'TAIYO needs more current store or fitness context before recommending products.',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          );
+        }
+        return _TaiyoRecommendationsShell(
+          title: 'Recommended for you',
+          subtitle: recommendations.reason,
+          child: Column(
+            children: [
+              for (int i = 0; i < recommendations.products.length; i++) ...[
+                _RecommendedProductTile(
+                  product: recommendations.products[i],
+                  onOpen: () =>
+                      onOpenProduct(recommendations.products[i].productId),
+                ),
+                if (i != recommendations.products.length - 1)
+                  const SizedBox(height: 10),
+              ],
+              const SizedBox(height: 10),
+              Text(
+                recommendations.disclaimer,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: AppColors.textMuted,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TaiyoRecommendationsShell extends StatelessWidget {
+  const _TaiyoRecommendationsShell({
+    required this.child,
+    this.title = 'TAIYO store picks',
+    this.subtitle = 'Products are matched to your current fitness context.',
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome_outlined, color: AppColors.aqua),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              height: 1.45,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _RecommendedProductTile extends StatelessWidget {
+  const _RecommendedProductTile({
+    required this.product,
+    required this.onOpen,
+  });
+
+  final StoreRecommendationProductEntity product;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onOpen,
+      borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfacePanel.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+          border: Border.all(color: AppColors.borderSoft),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.aqua.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+              ),
+              child: const Icon(
+                Icons.shopping_bag_outlined,
+                color: AppColors.aqua,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    product.whyRecommended,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  product.priority.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: _priorityColor(product.priority),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  product.price > 0
+                      ? '${product.currency} ${product.price.toStringAsFixed(0)}'
+                      : 'View',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _priorityColor(String priority) {
+    switch (priority) {
+      case 'high':
+        return AppColors.orangeLight;
+      case 'low':
+        return AppColors.textMuted;
+      default:
+        return AppColors.aqua;
     }
   }
 }

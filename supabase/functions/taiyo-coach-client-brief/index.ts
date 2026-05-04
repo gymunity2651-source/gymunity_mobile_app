@@ -4,15 +4,16 @@ import {
 } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { callFoundryOrchestrator } from "../_shared/foundry.ts";
 import {
   buildCoachClientContext,
   buildOrchestratorInput,
+  type CoachCopilotRequestType,
   needsVisibilityPermissionResponse,
   normalizeCoachCopilotResponse,
   obj,
   str,
   supportedRequestType,
-  type CoachCopilotRequestType,
 } from "./engine.ts";
 
 type AuthUser = { id: string };
@@ -74,8 +75,7 @@ export async function handleTaiyoCoachClientBriefRequest(
     const role = await getProfileRole(user.id);
     if (role !== "coach") {
       return jsonResponse({
-        error:
-          "TAIYO coach client brief is available for coach accounts only.",
+        error: "TAIYO coach client brief is available for coach accounts only.",
       }, 403);
     }
 
@@ -257,7 +257,9 @@ async function loadCoachClientContext(
   );
   const messagesRes = firstThreadId
     ? await supabase.from("coach_messages")
-      .select("id,thread_id,sender_user_id,sender_role,message_type,content,created_at")
+      .select(
+        "id,thread_id,sender_user_id,sender_role,message_type,content,created_at",
+      )
       .eq("thread_id", firstThreadId)
       .order("created_at", { ascending: false })
       .limit(12)
@@ -277,67 +279,10 @@ async function loadCoachClientContext(
 export async function callTaiyoOrchestrator(
   input: Record<string, unknown>,
 ): Promise<unknown> {
-  const endpoint = env("AZURE_FOUNDRY_PROJECT_ENDPOINT").replace(/\/+$/, "");
-  const apiVersion = optionalEnv("AZURE_FOUNDRY_API_VERSION") || "2025-05-01";
-  const agentId = optionalEnv("AZURE_FOUNDRY_AGENT_ID") ||
-    await resolveAgentIdByName(endpoint, apiVersion);
-  if (!agentId) {
-    throw new Error(
-      "Missing required env var: AZURE_FOUNDRY_AGENT_ID or AZURE_FOUNDRY_AGENT_NAME",
-    );
-  }
-
-  const token = await azureBearerToken();
-  const thread = await azureJson(
-    `${endpoint}/threads?api-version=${encodeURIComponent(apiVersion)}`,
-    token,
-    { method: "POST", body: "" },
-  );
-  const threadId = str(obj(thread).id);
-  if (!threadId) throw new Error("Azure Foundry did not create a thread.");
-
-  await azureJson(
-    `${endpoint}/threads/${encodeURIComponent(threadId)}/messages?api-version=${
-      encodeURIComponent(apiVersion)
-    }`,
-    token,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        role: "user",
-        content: JSON.stringify(input),
-      }),
-    },
-  );
-
-  const run = await azureJson(
-    `${endpoint}/threads/${encodeURIComponent(threadId)}/runs?api-version=${
-      encodeURIComponent(apiVersion)
-    }`,
-    token,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        assistant_id: agentId,
-        additional_instructions:
-          "You are the TAIYO Orchestrator. Return only one valid JSON object for coach_client_brief, checkin_reply_draft, or client_risk_summary. Do not include markdown. Draft suggestions only; never send messages. Respect visibility permissions and do not diagnose.",
-      }),
-    },
-  );
-  const runId = str(obj(run).id);
-  if (!runId) throw new Error("Azure Foundry did not create a run.");
-
-  await waitForRun(endpoint, apiVersion, token, threadId, runId);
-  const messages = await azureJson(
-    `${endpoint}/threads/${encodeURIComponent(threadId)}/messages?api-version=${
-      encodeURIComponent(apiVersion)
-    }`,
-    token,
-    { method: "GET" },
-  );
-  const text = extractAssistantText(messages);
-  if (!text) throw new Error("Azure Foundry returned no assistant text.");
-  return text;
+  return await callFoundryOrchestrator(input, {
+    additionalInstructions:
+      "You are the TAIYO Orchestrator. Return only one valid JSON object for coach_client_brief, checkin_reply_draft, or client_risk_summary. Do not include markdown. Draft suggestions only; never send messages. Respect visibility permissions and do not diagnose.",
+  });
 }
 
 async function resolveAgentIdByName(endpoint: string, apiVersion: string) {
@@ -364,8 +309,7 @@ async function azureBearerToken() {
     return await azureClientCredentialsToken(tenantId, clientId, clientSecret);
   }
 
-  const staticToken = optionalEnv("AZURE_FOUNDRY_API_KEY") ||
-    optionalEnv("AZURE_FOUNDRY_AGENT_TOKEN") ||
+  const staticToken = optionalEnv("AZURE_FOUNDRY_AGENT_TOKEN") ||
     optionalEnv("AGENT_TOKEN");
   if (staticToken) return staticToken;
 

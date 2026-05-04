@@ -411,6 +411,64 @@ class NutritionRepositoryImpl implements NutritionRepository {
     }
   }
 
+  @override
+  Future<NutritionGuidanceEntity> requestTaiyoNutritionGuidance({
+    DateTime? date,
+  }) async {
+    final accessToken = _client.auth.currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const AuthFailure(message: 'No authenticated member found.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        'taiyo-nutrition-context',
+        headers: <String, String>{'Authorization': 'Bearer $accessToken'},
+        body: <String, dynamic>{
+          'request_type': 'nutrition_guidance',
+          'date': dateWire(date ?? DateTime.now()),
+        },
+      );
+      return NutritionGuidanceEntity.fromResponse(response.data);
+    } on FunctionException catch (error, stackTrace) {
+      if (error.status == 401) {
+        throw AuthFailure(
+          message: 'Please sign in again to use TAIYO nutrition guidance.',
+          code: error.status.toString(),
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      if (error.status == 403) {
+        throw AuthFailure(
+          message:
+              'TAIYO nutrition guidance is available for member accounts only.',
+          code: error.status.toString(),
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      throw NetworkFailure(
+        message: _functionErrorMessage(
+          error,
+          'TAIYO could not prepare nutrition guidance right now.',
+        ),
+        code: error.status.toString(),
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    } catch (error, stackTrace) {
+      if (error is AppFailure) {
+        rethrow;
+      }
+      throw NetworkFailure(
+        message: 'TAIYO could not prepare nutrition guidance right now.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   Future<NutritionMealPlanEntity> _hydrateMealPlan(
     Map<String, dynamic> planRow,
   ) async {
@@ -482,5 +540,13 @@ class NutritionRepositoryImpl implements NutritionRepository {
       cause: e,
       stackTrace: st,
     );
+  }
+
+  String _functionErrorMessage(
+    FunctionException error,
+    String fallbackMessage,
+  ) {
+    final details = error.details?.toString() ?? '';
+    return details.trim().isEmpty ? fallbackMessage : details.trim();
   }
 }

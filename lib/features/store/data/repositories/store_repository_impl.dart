@@ -7,6 +7,7 @@ import '../../domain/entities/cart_entity.dart';
 import '../../domain/entities/order_entity.dart';
 import '../../domain/entities/product_entity.dart';
 import '../../domain/entities/shipping_address_entity.dart';
+import '../../domain/entities/store_recommendation_entity.dart';
 import '../../domain/repositories/store_repository.dart';
 
 class StoreRepositoryImpl implements StoreRepository {
@@ -582,6 +583,64 @@ class StoreRepositoryImpl implements StoreRepository {
     return null;
   }
 
+  @override
+  Future<StoreRecommendationsEntity> requestTaiyoStoreRecommendations({
+    int limit = 3,
+  }) async {
+    final accessToken = _client.auth.currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const AuthFailure(message: 'No authenticated member found.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        'taiyo-store-recommendations',
+        headers: <String, String>{'Authorization': 'Bearer $accessToken'},
+        body: <String, dynamic>{
+          'request_type': 'store_recommendations',
+          'limit': limit,
+        },
+      );
+      return StoreRecommendationsEntity.fromResponse(response.data);
+    } on FunctionException catch (error, stackTrace) {
+      if (error.status == 401) {
+        throw AuthFailure(
+          message: 'Please sign in again to use TAIYO store recommendations.',
+          code: error.status.toString(),
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      if (error.status == 403) {
+        throw AuthFailure(
+          message:
+              'TAIYO store recommendations are available for member accounts only.',
+          code: error.status.toString(),
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      throw NetworkFailure(
+        message: _functionErrorMessage(
+          error,
+          'TAIYO could not prepare store recommendations right now.',
+        ),
+        code: error.status.toString(),
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    } catch (error, stackTrace) {
+      if (error is AppFailure) {
+        rethrow;
+      }
+      throw NetworkFailure(
+        message: 'TAIYO could not prepare store recommendations right now.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> _ensureCartRow() async {
     final existing = await _client
         .from('store_carts')
@@ -942,5 +1001,13 @@ class StoreRepositoryImpl implements StoreRepository {
       cause: error,
       stackTrace: stackTrace,
     );
+  }
+
+  String _functionErrorMessage(
+    FunctionException error,
+    String fallbackMessage,
+  ) {
+    final details = error.details?.toString() ?? '';
+    return details.trim().isEmpty ? fallbackMessage : details.trim();
   }
 }

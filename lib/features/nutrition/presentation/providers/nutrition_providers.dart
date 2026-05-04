@@ -39,6 +39,12 @@ final nutritionCheckinsProvider = FutureProvider<List<NutritionCheckinEntity>>((
   return ref.watch(nutritionRepositoryProvider).listCheckins();
 });
 
+final taiyoNutritionGuidanceProvider =
+    FutureProvider<NutritionGuidanceEntity>((ref) {
+      final repo = ref.watch(nutritionRepositoryProvider);
+      return repo.requestTaiyoNutritionGuidance(date: DateTime.now());
+    });
+
 final calorieEngineProvider = Provider<CalorieEngine>((ref) {
   return const CalorieEngine(macroEngine: MacroEngine());
 });

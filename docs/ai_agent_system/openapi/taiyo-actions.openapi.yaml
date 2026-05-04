@@ -1,0 +1,87 @@
+openapi: 3.0.3
+info:
+  title: GymUnity TAIYO Supabase Actions
+  version: 1.0.0
+servers:
+  - url: https://pooelnnveljiikpdrvqw.functions.supabase.co
+security:
+  - TaiyoActionSecret: []
+paths:
+  /taiyo-member-context:
+    post:
+      operationId: get_member_context
+      summary: Get RLS-scoped member context for TAIYO.
+      parameters:
+        - $ref: '#/components/parameters/TaiyoContextToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Member context response.
+  /taiyo-nutrition-context:
+    post:
+      operationId: get_nutrition_context
+      summary: Get nutrition context or guidance.
+      parameters:
+        - $ref: '#/components/parameters/TaiyoContextToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_type:
+                  type: string
+                  enum: [nutrition_context, nutrition_guidance]
+                date:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Nutrition response.
+  /taiyo-store-recommendations:
+    post:
+      operationId: get_store_recommendations
+      summary: Get member store recommendations.
+      parameters:
+        - $ref: '#/components/parameters/TaiyoContextToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_type:
+                  type: string
+                  enum: [store_recommendations]
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 8
+      responses:
+        '200':
+          description: Store recommendations response.
+components:
+  securitySchemes:
+    TaiyoActionSecret:
+      type: apiKey
+      in: header
+      name: x-taiyo-action-secret
+  parameters:
+    TaiyoContextToken:
+      name: x-taiyo-context-token
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Short-lived signed token produced by GymUnity Edge Functions.

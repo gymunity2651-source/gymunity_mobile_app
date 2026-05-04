@@ -4,6 +4,7 @@ import {
 } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { callFoundryOrchestrator } from "../_shared/foundry.ts";
 import {
   buildOrchestratorInput,
   buildSellerContext,
@@ -220,15 +221,18 @@ async function loadSellerCopilotContext(
     ]);
 
   for (const result of [profileRes, dashboardRes, productsRes, ordersRes]) {
-    if ("error" in result && result.error) throw new Error(result.error.message);
+    if ("error" in result && result.error) {
+      throw new Error(result.error.message);
+    }
   }
 
   const dashboardRows = Array.isArray(dashboardRes.data)
     ? dashboardRes.data
     : [];
   const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
-  const orderIds = orders.map((row) => str(obj(row).id)).filter(Boolean) as
-    string[];
+  const orderIds = orders.map((row) => str(obj(row).id)).filter(
+    Boolean,
+  ) as string[];
 
   const [itemsRes, historyRes] = orderIds.length
     ? await Promise.all([
@@ -259,76 +263,17 @@ async function loadSellerCopilotContext(
     products: Array.isArray(productsRes.data) ? productsRes.data : [],
     orders,
     order_items: Array.isArray(itemsRes.data) ? itemsRes.data : [],
-    order_status_history: Array.isArray(historyRes.data)
-      ? historyRes.data
-      : [],
+    order_status_history: Array.isArray(historyRes.data) ? historyRes.data : [],
   };
 }
 
 export async function callTaiyoOrchestrator(
   input: Record<string, unknown>,
 ): Promise<unknown> {
-  const endpoint = env("AZURE_FOUNDRY_PROJECT_ENDPOINT").replace(/\/+$/, "");
-  const apiVersion = optionalEnv("AZURE_FOUNDRY_API_VERSION") || "2025-05-01";
-  const agentId = optionalEnv("AZURE_FOUNDRY_AGENT_ID") ||
-    await resolveAgentIdByName(endpoint, apiVersion);
-  if (!agentId) {
-    throw new Error(
-      "Missing required env var: AZURE_FOUNDRY_AGENT_ID or AZURE_FOUNDRY_AGENT_NAME",
-    );
-  }
-
-  const token = await azureBearerToken();
-  const thread = await azureJson(
-    `${endpoint}/threads?api-version=${encodeURIComponent(apiVersion)}`,
-    token,
-    { method: "POST", body: "" },
-  );
-  const threadId = str(obj(thread).id);
-  if (!threadId) throw new Error("Azure Foundry did not create a thread.");
-
-  await azureJson(
-    `${endpoint}/threads/${encodeURIComponent(threadId)}/messages?api-version=${
-      encodeURIComponent(apiVersion)
-    }`,
-    token,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        role: "user",
-        content: JSON.stringify(input),
-      }),
-    },
-  );
-
-  const run = await azureJson(
-    `${endpoint}/threads/${encodeURIComponent(threadId)}/runs?api-version=${
-      encodeURIComponent(apiVersion)
-    }`,
-    token,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        assistant_id: agentId,
-        additional_instructions:
-          "You are the TAIYO Orchestrator. Return only one valid JSON object for seller_dashboard_brief, seller_product_advice, or seller_order_brief. Do not include markdown. Recommendations and drafts only; do not modify products or orders.",
-      }),
-    },
-  );
-  const runId = str(obj(run).id);
-  if (!runId) throw new Error("Azure Foundry did not create a run.");
-
-  await waitForRun(endpoint, apiVersion, token, threadId, runId);
-  const messages = await azureJson(
-    `${endpoint}/threads/${encodeURIComponent(threadId)}/messages?api-version=${
-      encodeURIComponent(apiVersion)
-    }`,
-    token,
-    { method: "GET" },
-  );
-  const text = extractAssistantText(messages);
-  if (!text) throw new Error("Azure Foundry returned no assistant text.");
-  return text;
+  return await callFoundryOrchestrator(input, {
+    additionalInstructions:
+      "You are the TAIYO Orchestrator. Return only one valid JSON object for seller_dashboard_brief, seller_product_advice, or seller_order_brief. Do not include markdown. Recommendations and drafts only; do not modify products or orders.",
+  });
 }
 
 async function resolveAgentIdByName(endpoint: string, apiVersion: string) {
@@ -355,8 +300,7 @@ async function azureBearerToken() {
     return await azureClientCredentialsToken(tenantId, clientId, clientSecret);
   }
 
-  const staticToken = optionalEnv("AZURE_FOUNDRY_API_KEY") ||
-    optionalEnv("AZURE_FOUNDRY_AGENT_TOKEN") ||
+  const staticToken = optionalEnv("AZURE_FOUNDRY_AGENT_TOKEN") ||
     optionalEnv("AGENT_TOKEN");
   if (staticToken) return staticToken;
 

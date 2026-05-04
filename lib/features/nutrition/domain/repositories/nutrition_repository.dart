@@ -55,4 +55,8 @@ abstract class NutritionRepository {
     String? notes,
     Map<String, dynamic> suggestedAdjustment = const <String, dynamic>{},
   });
+
+  Future<NutritionGuidanceEntity> requestTaiyoNutritionGuidance({
+    DateTime? date,
+  });
 }

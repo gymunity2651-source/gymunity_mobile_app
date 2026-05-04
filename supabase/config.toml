@@ -153,7 +153,16 @@ verify_jwt = false
 [functions.taiyo-daily-brief]
 verify_jwt = false
 
+[functions.taiyo-member-context]
+verify_jwt = false
+
+[functions.taiyo-nutrition-context]
+verify_jwt = false
+
 [functions.taiyo-workout-planner]
+verify_jwt = false
+
+[functions.taiyo-store-recommendations]
 verify_jwt = false
 
 [functions.taiyo-seller-copilot]

@@ -57,6 +57,7 @@ class _NutritionHomeScreenState extends ConsumerState<NutritionHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final dashboardAsync = ref.watch(nutritionDashboardProvider);
+    final guidanceAsync = ref.watch(taiyoNutritionGuidanceProvider);
     final today = dateOnly(DateTime.now());
     final dayController = ref.watch(nutritionDayControllerProvider(today));
 
@@ -81,7 +82,11 @@ class _NutritionHomeScreenState extends ConsumerState<NutritionHomeScreen> {
       ),
       body: AppShellBackground(
         child: RefreshIndicator.adaptive(
-          onRefresh: () async => ref.refresh(nutritionDashboardProvider.future),
+          onRefresh: () async {
+            ref.invalidate(taiyoNutritionGuidanceProvider);
+            ref.invalidate(nutritionDashboardProvider);
+            await ref.read(nutritionDashboardProvider.future);
+          },
           child: dashboardAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stackTrace) => _NutritionState(
@@ -139,6 +144,8 @@ class _NutritionHomeScreenState extends ConsumerState<NutritionHomeScreen> {
                         ? () => _applyAdjustment(context, ref, dashboard)
                         : null,
                   ),
+                  const SizedBox(height: 14),
+                  _TaiyoNutritionFocusCard(guidanceAsync: guidanceAsync),
                   const SizedBox(height: 14),
                   MacroBreakdownCard(target: target, summary: summary),
                   const SizedBox(height: 14),
@@ -223,6 +230,124 @@ class _NutritionHomeScreenState extends ConsumerState<NutritionHomeScreen> {
         showAppFeedback(context, error.toString());
       }
     }
+  }
+}
+
+class _TaiyoNutritionFocusCard extends StatelessWidget {
+  const _TaiyoNutritionFocusCard({required this.guidanceAsync});
+
+  final AsyncValue<NutritionGuidanceEntity> guidanceAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: guidanceAsync.when(
+        loading: () => const LinearProgressIndicator(minHeight: 2),
+        error: (error, stackTrace) => Text(
+          'TAIYO nutrition focus is unavailable right now.',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        data: (guidance) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome_outlined, color: AppColors.aqua),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'TAIYO nutrition focus',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                Text(
+                  guidance.confidence.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _FocusLine(
+              icon: Icons.local_fire_department_outlined,
+              text: guidance.calorieGuidance,
+            ),
+            const SizedBox(height: 8),
+            _FocusLine(
+              icon: Icons.fitness_center_outlined,
+              text: guidance.proteinFocus,
+            ),
+            const SizedBox(height: 8),
+            _FocusLine(
+              icon: Icons.water_drop_outlined,
+              text: guidance.hydrationFocus,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              guidance.mealSuggestion,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              guidance.warning,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                height: 1.35,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FocusLine extends StatelessWidget {
+  const _FocusLine({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: AppColors.orangeLight),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              height: 1.35,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

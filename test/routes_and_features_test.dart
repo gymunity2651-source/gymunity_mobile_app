@@ -21,6 +21,7 @@ import 'package:my_app/features/seller/presentation/screens/seller_dashboard_scr
 import 'package:my_app/features/seller/presentation/screens/seller_product_editor_screen.dart';
 import 'package:my_app/features/store/presentation/screens/cart_screen.dart';
 import 'package:my_app/features/store/domain/entities/product_entity.dart';
+import 'package:my_app/features/store/domain/entities/store_recommendation_entity.dart';
 import 'package:my_app/features/store/presentation/screens/store_home_screen.dart';
 import 'package:my_app/features/user/domain/entities/profile_entity.dart';
 import 'package:my_app/features/user/domain/entities/user_entity.dart';
@@ -360,6 +361,49 @@ void main() {
 
       expect(find.textContaining('added to your cart'), findsOneWidget);
       expect(find.text('1'), findsOneWidget);
+    });
+
+    testWidgets('store home renders TAIYO recommendations', (tester) async {
+      final storeRepository = FakeStoreRepository()
+        ..products = const <ProductEntity>[
+          ProductEntity(
+            id: 'rec-1',
+            sellerId: 'seller-1',
+            name: 'Resistance Band',
+            description: 'Portable training support',
+            category: 'Equipment',
+            price: 30,
+            stockQty: 10,
+          ),
+        ]
+        ..taiyoRecommendations = const StoreRecommendationsEntity(
+          status: 'success',
+          recommendationType: 'equipment_gap',
+          reason: 'TAIYO found a practical training support item.',
+          products: <StoreRecommendationProductEntity>[
+            StoreRecommendationProductEntity(
+              productId: 'rec-1',
+              name: 'Resistance Band',
+              category: 'Equipment',
+              whyRecommended: 'Supports warm-ups and travel workouts.',
+              priority: 'high',
+              price: 30,
+              currency: 'EGP',
+            ),
+          ],
+          disclaimer:
+              'Recommendations are based on fitness context, not medical advice.',
+        );
+
+      await _pumpScreen(
+        tester,
+        const StoreHomeScreen(),
+        storeRepository: storeRepository,
+      );
+
+      expect(find.text('Recommended for you'), findsOneWidget);
+      expect(find.text('Resistance Band'), findsWidgets);
+      expect(find.textContaining('not medical advice'), findsOneWidget);
     });
 
     testWidgets('cart route resolves to functional cart screen', (

@@ -5,6 +5,7 @@ import '../../domain/entities/cart_entity.dart';
 import '../../domain/entities/order_entity.dart';
 import '../../domain/entities/product_entity.dart';
 import '../../domain/entities/shipping_address_entity.dart';
+import '../../domain/entities/store_recommendation_entity.dart';
 
 final selectedStoreCategoryProvider = StateProvider<int>((ref) => 0);
 final storeSearchQueryProvider = StateProvider<String>((ref) => '');
@@ -210,3 +211,9 @@ final myOrderDetailsProvider = FutureProvider.family<OrderEntity?, String>((
   final repo = ref.watch(storeRepositoryProvider);
   return repo.getMyOrderDetails(orderId);
 });
+
+final taiyoStoreRecommendationsProvider =
+    FutureProvider<StoreRecommendationsEntity>((ref) {
+      final repo = ref.watch(storeRepositoryProvider);
+      return repo.requestTaiyoStoreRecommendations(limit: 3);
+    });

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_shell_background.dart';
+import '../../domain/entities/nutrition_entities.dart';
 import '../providers/nutrition_providers.dart';
 import '../widgets/nutrition_widgets.dart';
 
@@ -14,6 +15,7 @@ class NutritionInsightsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardAsync = ref.watch(nutritionDashboardProvider);
+    final guidanceAsync = ref.watch(taiyoNutritionGuidanceProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -28,6 +30,8 @@ class NutritionInsightsScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(AppSizes.screenPadding),
               children: [
                 NutritionInsightCard(insight: dashboard.insight),
+                const SizedBox(height: 14),
+                _TaiyoInsightGuidanceCard(guidanceAsync: guidanceAsync),
                 const SizedBox(height: 14),
                 if (target != null)
                   Container(
@@ -79,6 +83,71 @@ class NutritionInsightsScreen extends ConsumerWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _TaiyoInsightGuidanceCard extends StatelessWidget {
+  const _TaiyoInsightGuidanceCard({required this.guidanceAsync});
+
+  final AsyncValue<NutritionGuidanceEntity> guidanceAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: guidanceAsync.when(
+        loading: () => const LinearProgressIndicator(minHeight: 2),
+        error: (error, stackTrace) => Text(
+          'TAIYO nutrition guidance is unavailable right now.',
+          style: GoogleFonts.inter(color: AppColors.textSecondary),
+        ),
+        data: (guidance) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'TAIYO focus',
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              guidance.calorieGuidance,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${guidance.proteinFocus} ${guidance.hydrationFocus}',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              guidance.warning,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                height: 1.35,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
         ),
       ),
     );

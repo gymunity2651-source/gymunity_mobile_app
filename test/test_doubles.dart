@@ -41,6 +41,7 @@ import 'package:my_app/features/store/domain/entities/cart_entity.dart';
 import 'package:my_app/features/store/domain/entities/order_entity.dart';
 import 'package:my_app/features/store/domain/entities/product_entity.dart';
 import 'package:my_app/features/store/domain/entities/shipping_address_entity.dart';
+import 'package:my_app/features/store/domain/entities/store_recommendation_entity.dart';
 import 'package:my_app/features/store/domain/repositories/store_repository.dart';
 import 'package:my_app/features/user/domain/entities/app_role.dart';
 import 'package:my_app/features/user/domain/entities/account_status.dart';
@@ -2311,6 +2312,15 @@ class FakeStoreRepository implements StoreRepository {
   final Set<String> favoriteIds = <String>{};
   final Map<String, int> _cartQuantities = <String, int>{};
   final List<ShippingAddressEntity> _addresses = <ShippingAddressEntity>[];
+  StoreRecommendationsEntity taiyoRecommendations =
+      const StoreRecommendationsEntity(
+        status: 'success',
+        recommendationType: 'fitness_support',
+        reason: 'TAIYO matched products to current context.',
+        products: <StoreRecommendationProductEntity>[],
+        disclaimer:
+            'Recommendations are based on fitness context, not medical advice.',
+      );
   int _addressCounter = 0;
 
   @override
@@ -2545,6 +2555,13 @@ class FakeStoreRepository implements StoreRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  Future<StoreRecommendationsEntity> requestTaiyoStoreRecommendations({
+    int limit = 3,
+  }) async {
+    return taiyoRecommendations;
   }
 }
 

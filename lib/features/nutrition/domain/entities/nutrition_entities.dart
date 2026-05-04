@@ -654,6 +654,53 @@ class NutritionInsightEntity {
   bool get hasAdjustment => calorieAdjustment != null && calorieAdjustment != 0;
 }
 
+class NutritionGuidanceEntity {
+  const NutritionGuidanceEntity({
+    required this.nutritionStatus,
+    required this.calorieGuidance,
+    required this.proteinFocus,
+    required this.hydrationFocus,
+    required this.mealSuggestion,
+    required this.warning,
+    this.confidence = 'medium',
+  });
+
+  final String nutritionStatus;
+  final String calorieGuidance;
+  final String proteinFocus;
+  final String hydrationFocus;
+  final String mealSuggestion;
+  final String warning;
+  final String confidence;
+
+  factory NutritionGuidanceEntity.fromResponse(dynamic response) {
+    final map = _jsonMap(response);
+    final result = _jsonMap(map['result']);
+    return NutritionGuidanceEntity(
+      nutritionStatus:
+          result['nutrition_status'] as String? ?? 'needs_context',
+      calorieGuidance:
+          result['calorie_guidance'] as String? ??
+          'Keep intake close to your active target.',
+      proteinFocus:
+          result['protein_focus'] as String? ??
+          'Prioritize a protein-forward meal.',
+      hydrationFocus:
+          result['hydration_focus'] as String? ??
+          'Keep water intake steady.',
+      mealSuggestion:
+          result['meal_suggestion'] as String? ??
+          'Choose a simple balanced meal.',
+      warning:
+          result['warning'] as String? ??
+          'General fitness nutrition guidance only, not medical advice.',
+      confidence: _confidence(
+        result['confidence'] ?? _jsonMap(map['data_quality'])['confidence'],
+      ),
+    );
+  }
+}
+
 DateTime dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
 
 String dateWire(DateTime date) {
@@ -661,6 +708,13 @@ String dateWire(DateTime date) {
   final month = normalized.month.toString().padLeft(2, '0');
   final day = normalized.day.toString().padLeft(2, '0');
   return '${normalized.year}-$month-$day';
+}
+
+String _confidence(dynamic value) {
+  final text = value?.toString().trim().toLowerCase();
+  return text == 'low' || text == 'medium' || text == 'high'
+      ? text!
+      : 'medium';
 }
 
 DateTime? _parseDateOnly(dynamic value) {
