@@ -12,6 +12,7 @@ import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/theme/atelier_theme.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../ai_coach/presentation/widgets/taiyo_ai_widgets.dart';
 import '../../../monetization/presentation/providers/monetization_providers.dart';
 import '../../../planner/domain/entities/planner_entities.dart';
 import '../../../planner/presentation/providers/planner_providers.dart';
@@ -934,14 +935,34 @@ class _AssistantLabel extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Text(
-          'TAIYO AI',
-          style: GoogleFonts.notoSerif(
-            fontSize: 18,
-            fontStyle: FontStyle.italic,
-            fontWeight: FontWeight.w600,
-            color: AtelierColors.primary,
-          ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'TAIYO AI',
+                  style: GoogleFonts.notoSerif(
+                    fontSize: 18,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w600,
+                    color: AtelierColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const TaiyoPulsingDot(color: Color(0xFF4ADE80), size: 5),
+              ],
+            ),
+            Text(
+              'Multi-Agent System',
+              style: GoogleFonts.manrope(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: AtelierColors.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1444,16 +1465,34 @@ class _SoftTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AtelierColors.surfaceContainer,
+        color: const Color(0xFF4ADE80).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(9999),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.manrope(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: AtelierColors.onSurfaceVariant,
+        border: Border.all(
+          color: const Color(0xFF4ADE80).withValues(alpha: 0.2),
+          width: 0.5,
         ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 4,
+            height: 4,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF4ADE80),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.manrope(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AtelierColors.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1466,27 +1505,31 @@ class _ThinkingRibbon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: const BoxDecoration(
-            color: AtelierColors.primaryContainer,
-            shape: BoxShape.circle,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AtelierColors.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const TaiyoThinkingDots(
+            color: AtelierColors.primary,
+            size: 5,
           ),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          label.toUpperCase(),
-          style: GoogleFonts.manrope(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.4,
-            color: AtelierColors.textMuted,
+          const SizedBox(width: 10),
+          Text(
+            label.toUpperCase(),
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+              color: AtelierColors.primary,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -1,4 +1,743 @@
-# GymUnity Technical Reference
+﻿# GymUnity Technical Reference
+
+## 0. Current Project Reference - 2026-05-05
+
+This section is the current operational reference for GymUnity based on the code in this workspace on 2026-05-05. The older English audit that follows is still useful as historical detail, but this section is the newest starting point for understanding the project.
+
+Security note: a Supabase personal access token was shared in chat. I did not use it in any command, and it is not documented here. Rotate that token in Supabase because any token shared in a conversation should be treated as exposed.
+
+### 0.1 Product Summary
+
+GymUnity is a Flutter fitness platform backed by Supabase. It is a multi-role product that connects training, coaching, commerce, nutrition, news, payments, and AI assistance.
+
+| Role or actor | Purpose |
+| --- | --- |
+| `member` | Uses the app to create workout plans, track progress, manage nutrition, talk to coaches, buy products, read news, and use TAIYO AI. |
+| `coach` | Publishes coaching services and packages, manages clients, reviews check-ins, sends programs/resources, manages sessions/bookings, and reviews payments. |
+| `seller` | Manages a store profile, product catalog, product images, and order fulfillment. |
+| Admin | Not part of `AppRole`; implemented through `app_admins` and `/admin-dashboard` for coach payment operations, payouts, Paymob settings, audit events, and TAIYO Ops reviews. |
+
+The important product idea is that every role has a separate workspace, but the data is connected:
+
+- A member buys from a seller, creating orders that the member tracks and the seller fulfills.
+- A member subscribes to a coach, creating a subscription, messaging thread, Coach Hub, check-ins, bookings, and resources.
+- A coach sees clients in a pipeline/workspace, reviews check-ins, sends feedback, assigns programs/resources, and manages billing.
+- A member controls what data a coach can see through visibility settings.
+- TAIYO uses member, planner, nutrition, store, coach, seller, and admin context to provide AI assistance.
+- Admins monitor coach payments, Paymob callbacks, payouts, settlement risk, and audit history.
+
+### 0.2 Repository Architecture
+
+| Layer | Location | Responsibility |
+| --- | --- | --- |
+| App shell | `lib/main.dart`, `lib/app/app.dart` | Initializes Flutter, runtime config, Supabase, Riverpod, lifecycle bootstrap services, localization, theme, and routes. |
+| Routing | `lib/app/routes.dart` | Central route registry and route argument handling. |
+| Core | `lib/core/` | Config, constants, theme, Supabase initialization, auth callbacks, dependency injection, shared widgets, and utilities. |
+| Features | `lib/features/` | Product modules, usually split into `domain`, `data`, and `presentation`. |
+| Backend schema | `supabase/migrations/` | PostgreSQL tables, RLS policies, storage policies, and RPC functions. Latest local migration: `20260504000040_taiyo_store_recommendation_payload.sql`. |
+| Edge Functions | `supabase/functions/` | Deno functions for AI, billing, Paymob, news sync, payment callbacks, and account deletion. |
+| Tests | `test/` | Unit, repository, entity, route, and widget tests. |
+| Runtime scripts | `scripts/` | Local run/build/test helpers that load `.env` into Flutter runtime configuration. |
+
+The dependency injection hub is `lib/core/di/providers.dart`. It wires the Supabase client and app services to these repositories:
+
+- `AuthRepository`, `UserRepository`
+- `MemberRepository`, `CoachRepository`, `SellerRepository`
+- `StoreRepository`, `PlannerRepository`, `NutritionRepository`
+- `ChatRepository`, `AiCoachRepository`
+- `AdminRepository`, `CoachPaymentRepository`
+- `BillingRepository`, `EntitlementRepository`
+- `NewsRepository`, `CoachMemberInsightsRepository`
+
+### 0.3 Startup Flow
+
+The startup chain is:
+
+1. `main()` calls `WidgetsFlutterBinding.ensureInitialized()`.
+2. `LocalRuntimeConfigLoader.primeIfNeeded()` tries to load `assets/config/local_env.json` if compile-time `--dart-define` values are missing.
+3. If `AppConfig.current.validationErrorMessage == null`, `SupabaseInitializer.initialize()` runs.
+4. `runApp(const ProviderScope(child: GymUnityApp()))` starts the Flutter/Riverpod app.
+5. `GymUnityApp` starts these bootstrap services after the first frame:
+   - `monetizationBootstrapProvider.start()`
+   - `plannerReminderBootstrapProvider.start()`
+   - `aiCoachBootProvider.start()`
+6. The app starts at `/`, which renders `SplashScreen`.
+7. `AppBootstrapController` validates config, initializes Supabase, starts deep-link bootstrap, reads the current user, and checks account status.
+8. `AuthRouteResolver` chooses the first screen:
+   - No session: `/welcome`
+   - User without profile or role: `/role-selection`
+   - Incomplete onboarding: role-specific onboarding screen
+   - Completed onboarding: role-specific dashboard
+
+When the app resumes from the background, `GymUnityApp.didChangeAppLifecycleState()` refreshes monetization entitlements, syncs planner reminders, and refreshes TAIYO Coach state.
+
+### 0.4 Runtime Configuration
+
+GymUnity does not rely on raw `flutter run` reading `.env` automatically. The expected path is to pass config through `--dart-define` or the local helper scripts.
+
+Important `AppConfig` keys:
+
+| Key | Purpose |
+| --- | --- |
+| `APP_ENV` | `dev`, `staging`, or `prod`. |
+| `SUPABASE_URL` | Supabase project URL. |
+| `SUPABASE_ANON_KEY` | Client anon key. |
+| `AUTH_REDIRECT_SCHEME` | Custom OAuth callback scheme. |
+| `AUTH_REDIRECT_HOST` | OAuth callback host, defaulting to `auth-callback`. |
+| `ENABLE_COACH_ROLE` | Enables coach role selection and flows. |
+| `ENABLE_SELLER_ROLE` | Enables seller role selection and flows. |
+| `ENABLE_APPLE_SIGN_IN` | Enables Apple sign-in. |
+| `ENABLE_STORE_PURCHASES` | Enables store purchasing. |
+| `ENABLE_COACH_SUBSCRIPTIONS` | Enables coach subscription flows. |
+| `ENABLE_COACH_PAYMOB_PAYMENTS` | Enables Paymob for coach payments. |
+| `ENABLE_COACH_MANUAL_PAYMENT_PROOFS` | Enables manual payment proof uploads. |
+| `ENABLE_AI_PREMIUM` | Enables TAIYO Premium paywall and entitlement gating. |
+| Store product/base plan IDs | Required when AI Premium is enabled. |
+
+Edge Function secrets such as `SUPABASE_SERVICE_ROLE_KEY`, Azure Foundry credentials, TAIYO action secrets, and Paymob secrets must live in Supabase secrets, not Flutter config and not committed files.
+
+### 0.5 Role Model
+
+The user-facing app roles are defined as:
+
+```dart
+enum AppRole { member, coach, seller }
+```
+
+| Role | Code | Role ID | Dashboard | Onboarding |
+| --- | --- | --- | --- | --- |
+| Member | `member` | 1 | `/member-home` | `/member-onboarding` |
+| Coach | `coach` | 2 | `/coach-dashboard` | `/coach-onboarding` |
+| Seller | `seller` | 3 | `/seller-dashboard` | `/seller-onboarding` |
+
+Admin is intentionally separate from `AppRole`. Admin access uses `app_admins` plus RPCs such as `current_admin`, `admin_has_permission`, and `admin_assert_permission`.
+
+### 0.6 Main Route Map
+
+Routes are centralized in `lib/app/routes.dart`.
+
+| Area | Routes |
+| --- | --- |
+| Auth | `/`, `/welcome`, `/login`, `/register`, `/forgot-password`, `/reset-password`, `/otp`, `/auth-callback`, `/role-selection` |
+| Member | `/member-home`, `/member-profile`, `/edit-profile`, `/progress`, `/my-subscriptions`, `/my-coach`, `/coach-kickoff`, `/coach-habits`, `/coach-resources-member`, `/coach-sessions-member`, `/member-checkins`, `/member-messages`, `/member-thread` |
+| AI and planner | `/ai-chat-home`, `/ai-conversation`, `/ai-planner-builder`, `/ai-generated-plan`, `/workout-plan`, `/workout-details`, `/active-workout-session`, `/ai-premium` |
+| Nutrition | `/nutrition`, `/nutrition-setup`, `/nutrition-meal-plan`, `/nutrition-preferences`, `/nutrition-insights` |
+| Store | `/store-home`, `/product-list`, `/product-details`, `/favorites`, `/cart`, `/checkout`, `/orders` |
+| Coach marketplace | `/coaches`, `/coach-details`, `/subscription-packages` |
+| Seller | `/seller-dashboard`, `/product-management`, `/add-product`, `/edit-product`, `/seller-orders`, `/seller-profile` |
+| Coach workspace | `/coach-dashboard`, `/clients`, `/coach-client-workspace`, `/coach-checkins`, `/coach-calendar`, `/coach-billing`, `/coach-program-library`, `/coach-onboarding-flows`, `/coach-resources`, `/packages`, `/add-package`, `/coach-profile` |
+| Insights and privacy | `/coach-member-insights`, `/member-coach-visibility` |
+| Admin, settings, news | `/admin-dashboard`, `/settings`, `/notifications`, `/delete-account`, `/help-support`, `/privacy-policy`, `/terms`, `/news-feed`, `/news-article-details`, `/subscription-management` |
+
+Some routes require arguments. If they are opened without arguments, the app shows an explicit `FeaturePlaceholderScreen` instead of crashing. Examples include workout day details, generated plan review, coach client workspace, member message threads, and member-coach visibility settings.
+
+### 0.7 Member Journey
+
+A normal member flow looks like this:
+
+1. Open the app and authenticate through OAuth or an existing Supabase session.
+2. Choose the `member` role if the profile has no role yet.
+3. Complete `MemberOnboardingScreen`.
+4. Land in `MemberHomeScreen`, which acts as the main member shell.
+5. Maintain member profile, preferences, weight entries, body measurements, and workout sessions.
+6. Use TAIYO Plan Builder to create an AI workout draft.
+7. Review the generated plan in `AiGeneratedPlanScreen`.
+8. Activate the draft into `workout_plans`, `workout_plan_days`, and `workout_plan_tasks`.
+9. Follow the daily agenda, log task status, and start active workout sessions.
+10. Use nutrition setup, targets, generated meal plans, hydration logs, meal logs, and check-ins.
+11. Browse coaches, open coach details, choose a package, and request or pay for a subscription.
+12. Use Coach Hub after activation: agenda, kickoff, habits, resources, sessions, check-ins, and messages.
+13. Manage privacy through member-coach visibility settings.
+14. Browse store products, favorite items, manage cart, checkout, and track orders.
+15. Use news feed and personalized reads.
+
+### 0.8 Coach Journey
+
+A normal coach flow looks like this:
+
+1. Authenticate and choose the `coach` role.
+2. Complete `CoachOnboardingScreen` and create/update `coach_profiles`.
+3. Use `CoachDashboardScreen` for summary metrics, action items, and quick actions.
+4. Create and edit coach packages.
+5. Become discoverable in the coach marketplace.
+6. Review subscription requests or active clients in the client pipeline.
+7. Open `CoachClientWorkspaceScreen` for a subscription and manage:
+   - client record
+   - notes
+   - messages
+   - check-ins
+   - programs
+   - resources
+   - billing
+   - insights
+8. Build program templates, exercises, habit assignments, onboarding templates, and resources.
+9. Manage session types and bookings/calendar.
+10. Review manual payment receipts or Paymob payment state.
+11. Request TAIYO coach-client briefs while respecting member visibility permissions.
+
+### 0.9 Seller Journey
+
+A normal seller flow looks like this:
+
+1. Authenticate and choose the `seller` role.
+2. Complete `SellerOnboardingScreen`.
+3. Use `SellerDashboardScreen` for store summary and quick actions.
+4. Update `seller_profiles`.
+5. Add or edit products in `SellerProductManagementScreen`.
+6. Upload product images to the `product-images` storage bucket.
+7. Archive/delete products where allowed.
+8. Review orders in `SellerOrdersScreen`.
+9. Update order status through `update_store_order_status`.
+10. Request TAIYO Seller Copilot briefs for product/order decisions.
+
+### 0.10 Admin Journey
+
+Admins use `/admin-dashboard`, protected by `AdminAccessGate`.
+
+Admin capabilities include:
+
+- Read current admin identity and permissions.
+- View dashboard KPIs.
+- Filter and inspect coach payment orders.
+- Inspect Paymob payloads where permissions allow.
+- Manage payouts: ready, hold, release, processing, paid, failed, canceled.
+- Review coach balances and subscriptions.
+- Verify coach payout accounts.
+- Reconcile payment orders.
+- Mark payments as needing review.
+- Cancel unpaid checkouts.
+- Request TAIYO Admin Ops, payment risk, and payout review briefs.
+- Read admin audit events.
+- Read sanitized Paymob settings through `admin-payment-settings`.
+
+### 0.11 TAIYO AI System
+
+TAIYO is the in-app AI system name. The brand constants live in `lib/core/constants/ai_branding.dart`.
+
+| Surface or function | Purpose |
+| --- | --- |
+| `ai-chat` | General or planner-aware AI chat. |
+| `taiyo-workout-planner` | Generates workout plan drafts from member context and structured answers. |
+| `ai-coach` | Daily brief, accountability scan, workout prompt, weekly summary, and memory maintenance. |
+| `taiyo-daily-brief` | Foundry-backed daily member brief. |
+| `taiyo-member-context` | Member context endpoint for TAIYO tool/action workflows. |
+| `taiyo-nutrition-context` | Nutrition context and guidance. |
+| `taiyo-store-recommendations` | Member product recommendations with persisted recommendation payloads. |
+| `taiyo-coach-client-brief` | Coach copilot for a specific client/subscription with visibility checks. |
+| `taiyo-seller-copilot` | Seller copilot for product/order operations. |
+| `taiyo-admin-ops-brief` | Admin copilot for payment, payout, settlement, and operational risk reviews. |
+
+TAIYO must follow the safety and domain rules under `docs/ai_agent_system/knowledge/`, especially `taiyo_safety_rules.md`.
+
+### 0.12 Planner and Workout System
+
+The planner system includes:
+
+- `PlannerBuilderScreen`: structured questionnaire for goals, experience, days per week, equipment, time, and limitations.
+- `taiyo-workout-planner`: Edge Function that creates the normalized draft.
+- `ai_plan_drafts`: draft storage.
+- `AiGeneratedPlanScreen`: review and activation UI.
+- `activate_ai_workout_plan`: RPC that turns a draft into an active plan.
+- `workout_plans`, `workout_plan_days`, `workout_plan_tasks`: activated plan tables.
+- `workout_task_logs`: task completion tracking.
+- `PlannerReminderBootstrapService`: local reminder synchronization.
+- `ActiveWorkoutSessionScreen`: guided active workout experience.
+
+Task completion states include `pending`, `completed`, `partial`, `skipped`, and `missed`.
+
+### 0.13 Nutrition System
+
+Nutrition uses:
+
+- `nutrition_profiles` for member nutrition setup.
+- `nutrition_targets` for calorie and macro targets.
+- `nutrition_meal_templates` for reusable meal templates.
+- `member_meal_plans`, `member_meal_plan_days`, and `member_planned_meals` for generated plans.
+- `meal_logs` for quick meals and completed planned meals.
+- `hydration_logs` for water intake.
+- `nutrition_checkins` for periodic review.
+- `taiyo-nutrition-context` for AI guidance.
+
+Main screens are `NutritionSetupScreen`, `NutritionHomeScreen`, `MealPlanScreen`, `NutritionPreferencesScreen`, and `NutritionInsightsScreen`.
+
+### 0.14 Store and Orders
+
+The store includes:
+
+- Public product catalog from `products`.
+- Product details.
+- Favorites via `product_favorites`.
+- Cart state via `store_carts` and `store_cart_items`.
+- Shipping addresses via `shipping_addresses`.
+- Checkout through `create_store_order`.
+- Orders, items, and status history through `orders`, `order_items`, and `order_status_history`.
+- Seller order management through `list_seller_orders_detailed` and `update_store_order_status`.
+- TAIYO recommendations through `member_product_recommendations`.
+
+Main screens are `StoreHomeScreen`, `StoreCatalogScreen`, `ProductDetailsScreen`, `FavoritesScreen`, `CartScreen`, `CheckoutScreen`, `MyOrdersScreen`, and `OrderDetailsScreen`.
+
+### 0.15 Coach Marketplace and Coach-Member Relationship
+
+Marketplace data uses:
+
+- `list_coach_directory`, `list_coach_directory_v2`
+- `get_coach_public_profile`
+- `list_coach_public_packages`
+- `list_coach_public_reviews`
+- `coach_packages`
+- `coach_reviews`
+
+The coach-member relationship uses:
+
+- `subscriptions` as the primary link between member, coach, and package.
+- `request_coach_subscription`, `create_coach_checkout`, and payment confirmation for activation paths.
+- `coach_member_threads` and `coach_messages` for messaging.
+- `weekly_checkins` and `progress_photos` for coaching feedback loops.
+- `coach_subscription_kickoffs` for relationship kickoff data.
+- `coach_resource_assignments`, `member_habit_assignments`, and `member_habit_logs` for program delivery.
+- `coach_bookings` and `coach_session_types` for scheduling.
+
+Privacy and insights use:
+
+- `coach_member_visibility_settings`
+- `coach_member_visibility_audit`
+- `get_coach_member_insight`
+- `list_coach_member_insight_summaries`
+
+Members control which plan, progress, nutrition, and store signals are visible to coaches.
+
+### 0.16 Paymob and Coach Payments
+
+Paymob is currently scoped to coach subscription payments, not the full product store.
+
+| Edge Function | Purpose |
+| --- | --- |
+| `create-coach-paymob-checkout` | Creates a Paymob checkout session for a coach package. |
+| `paymob-transaction-callback` | Receives Paymob callbacks and verifies HMAC. |
+| `paymob-payment-response` | Handles payment return/redirect UX. |
+| `sync-paymob-payment-status` | Intentionally stubbed for MVP test mode; callbacks are the source of truth. |
+| `admin-payment-settings` | Returns sanitized Paymob config state for admins. |
+
+Important tables:
+
+- `coach_payment_orders`
+- `coach_payment_transactions`
+- `coach_payout_accounts`
+- `coach_payouts`
+- `coach_payout_items`
+- `admin_audit_events`
+- `app_admins`
+
+Paymob secrets are listed as placeholders in `.env.example` and must be configured through Supabase secrets.
+
+### 0.17 Monetization and TAIYO Premium
+
+The app uses `in_app_purchase` for AI Premium and entitlement state.
+
+Tables:
+
+- `billing_products`
+- `billing_customers`
+- `store_transactions`
+- `subscription_entitlements`
+- `billing_sync_events`
+
+Edge Functions:
+
+- `billing-verify-apple`
+- `billing-verify-google`
+- `billing-apple-notifications`
+- `billing-google-rtdn`
+- `billing-refresh-entitlement`
+
+Flutter surfaces/providers:
+
+- `AiPremiumPaywallScreen`
+- `SubscriptionManagementScreen`
+- `aiPremiumGateProvider`
+- `currentSubscriptionSummaryProvider`
+
+When `ENABLE_AI_PREMIUM=true`, real store product IDs and base plan IDs are required or startup config validation fails.
+
+### 0.18 News
+
+The personalized news system uses:
+
+- `news_sources`
+- `news_articles`
+- `news_article_topics`
+- `news_article_interactions`
+- `news_article_bookmarks`
+- `user_news_interests`
+
+The `sync-news-feeds` Edge Function reads feeds, classifies articles, upserts news, supports dry runs, and can backfill missing images. The main screens are `NewsFeedScreen` and `NewsArticleDetailsScreen`.
+
+### 0.19 Current Supabase Schema
+
+Latest local migration:
+
+```text
+20260504000040_taiyo_store_recommendation_payload.sql
+```
+
+The local repo has 40 migrations.
+
+| Group | Tables |
+| --- | --- |
+| Identity | `roles`, `users`, `profiles`, `member_profiles`, `seller_profiles`, `coach_profiles`, `user_preferences` |
+| Member progress | `member_weight_entries`, `member_body_measurements`, `workout_sessions`, `member_daily_readiness_logs` |
+| Planner/workouts | `ai_plan_drafts`, `workout_plans`, `workout_plan_days`, `workout_plan_tasks`, `workout_task_logs` |
+| TAIYO Member OS | `member_ai_daily_briefs`, `member_ai_plan_adaptations`, `member_ai_nudges`, `member_active_workout_sessions`, `member_active_workout_events`, `member_ai_weekly_summaries` |
+| AI memory/chat | `chat_sessions`, `chat_messages`, `ai_user_memories`, `ai_session_state` |
+| Store | `products`, `store_carts`, `store_cart_items`, `product_favorites`, `shipping_addresses`, `orders`, `order_items`, `order_status_history`, `store_checkout_requests`, `member_product_recommendations` |
+| Billing/entitlements | `billing_products`, `billing_customers`, `store_transactions`, `subscription_entitlements`, `billing_sync_events` |
+| Coach marketplace | `coach_packages`, `coach_reviews`, `coach_availability_slots`, `coach_verifications`, `coach_referrals`, `coach_payouts` |
+| Coach workspace | `coach_client_records`, `coach_client_notes`, `coach_automation_events`, `coach_thread_reads`, `coach_program_templates`, `coach_exercise_library`, `coach_habit_templates`, `member_habit_assignments`, `member_habit_logs` |
+| Coach resources/calendar | `coach_onboarding_templates`, `coach_onboarding_applications`, `coach_resources`, `coach_resource_assignments`, `coach_session_types`, `coach_bookings` |
+| Coach relationship | `subscriptions`, `coach_member_threads`, `coach_messages`, `weekly_checkins`, `progress_photos`, `coach_subscription_kickoffs` |
+| Privacy/insights | `coach_member_visibility_settings`, `coach_member_visibility_audit` |
+| Nutrition | `nutrition_profiles`, `nutrition_targets`, `nutrition_meal_templates`, `member_meal_plans`, `member_meal_plan_days`, `member_planned_meals`, `meal_logs`, `hydration_logs`, `nutrition_checkins` |
+| Paymob/admin | `app_admins`, `admin_audit_events`, `coach_payment_orders`, `coach_payment_transactions`, `coach_payout_accounts`, `coach_payout_items`, `coach_payment_receipts`, `coach_payment_audit_events` |
+| News/notifications | `news_sources`, `news_articles`, `news_article_topics`, `news_article_interactions`, `news_article_bookmarks`, `user_news_interests`, `device_tokens`, `notifications` |
+
+### 0.20 Current Edge Functions
+
+`supabase/functions/` contains:
+
+- `admin-payment-settings`
+- `ai-chat`
+- `ai-coach`
+- `billing-apple-notifications`
+- `billing-google-rtdn`
+- `billing-refresh-entitlement`
+- `billing-verify-apple`
+- `billing-verify-google`
+- `create-coach-paymob-checkout`
+- `delete-account`
+- `paymob-payment-response`
+- `paymob-transaction-callback`
+- `sync-news-feeds`
+- `sync-paymob-payment-status`
+- `taiyo-admin-ops-brief`
+- `taiyo-coach-client-brief`
+- `taiyo-daily-brief`
+- `taiyo-member-context`
+- `taiyo-nutrition-context`
+- `taiyo-seller-copilot`
+- `taiyo-store-recommendations`
+- `taiyo-workout-planner`
+- `_shared`
+
+### 0.21 Key RPC Functions
+
+| Area | RPCs |
+| --- | --- |
+| Account | `soft_delete_account`, `prepare_account_for_hard_delete`, `current_role` |
+| Coach marketplace | `list_coach_directory`, `list_coach_directory_v2`, `get_coach_public_profile`, `list_coach_public_packages`, `list_coach_public_reviews` |
+| Coach subscriptions | `request_coach_subscription`, `update_coach_subscription_status`, `activate_coach_subscription_with_starter_plan`, `pause_coach_subscription`, `confirm_coach_payment` |
+| Store | `create_store_order`, `update_store_order_status`, `list_member_orders_detailed`, `list_seller_orders_detailed` |
+| Planner | `activate_ai_workout_plan`, `list_member_plan_agenda`, `upsert_workout_task_log`, `update_ai_plan_reminder_time`, `sync_member_task_notifications` |
+| TAIYO Member OS | `get_member_ai_coach_context`, `upsert_member_readiness_log`, `apply_member_ai_adjustment`, `start_member_active_workout`, `record_member_active_workout_event`, `complete_member_active_workout`, `build_member_ai_weekly_summary`, `share_member_ai_weekly_summary` |
+| Coach workspace | `coach_workspace_summary`, `list_coach_action_items`, `dismiss_coach_action_item`, `list_coach_client_pipeline`, `get_coach_client_workspace`, `upsert_coach_client_record`, `add_coach_client_note`, `mark_coach_thread_read` |
+| Program delivery | `list_coach_program_templates`, `save_coach_program_template`, `assign_program_template_to_client`, `list_coach_exercises`, `save_coach_exercise`, `assign_client_habits` |
+| Onboarding/resources/calendar | `list_coach_onboarding_templates`, `save_coach_onboarding_template`, `apply_coach_onboarding_flow`, `save_coach_resource`, `assign_resource_to_client`, `list_coach_session_types`, `save_coach_session_type`, `list_coach_bookable_slots`, `create_coach_booking`, `update_coach_booking_status` |
+| Coach Hub/outcomes | `get_member_coach_hub`, `submit_coach_kickoff`, `list_member_assigned_habits`, `log_member_assigned_habit`, `list_member_assigned_resources`, `mark_member_resource_progress`, `list_member_bookable_session_types`, `list_member_coach_agenda` |
+| Privacy/insights | `get_coach_member_insight`, `list_coach_member_insight_summaries`, `get_member_visibility_settings`, `upsert_coach_member_visibility`, `list_visibility_audit` |
+| News | `list_personalized_news`, `track_news_interaction`, `save_news_article`, `dismiss_news_article`, `sync_member_news_interests` |
+| Admin/Paymob | `current_admin`, `admin_dashboard_summary`, `admin_list_payment_orders`, `admin_get_payment_order_details`, `admin_list_payouts`, `admin_get_payout_details`, `admin_mark_payout_paid`, `admin_reconcile_payment_order`, `process_coach_paymob_callback_as_service` |
+
+### 0.22 Storage Buckets
+
+| Bucket | Usage |
+| --- | --- |
+| `avatars` | User avatar images. |
+| `product-images` | Seller product images. |
+| `coach-payment-receipts` | Manual coach subscription payment proofs. |
+| `coach-resources` | Coach-uploaded resources shared with clients. |
+
+Storage policies restrict access by object owner, seller, or subscription participants depending on the bucket.
+
+### 0.23 Test Coverage
+
+The test suite covers:
+
+- App routing and explicit placeholder behavior.
+- Auth callback utilities and OAuth flow screens.
+- Initial route resolution by session/profile/role.
+- Member home shell on phone-sized viewports.
+- TAIYO home, AI chat, and planner builder flows.
+- AI generated plan review, workout plan, workout day details, and active workout UI.
+- Planner reminders and notification IDs.
+- Nutrition and store recommendation entity mapping.
+- Store, cart, checkout, and orders routes.
+- Coach dashboard, packages, client workspace, messages, billing, and check-ins.
+- Coach member insights and visibility entities.
+- Admin dashboard, payment order filters, payout permissions, and TAIYO risk cards.
+- Paymob payment entity mapping.
+- Repository response mapping and Edge Function error handling.
+
+Preferred local command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\flutter_test_dev.ps1
+```
+
+### 0.24 Local Run and Build Commands
+
+Use the helper scripts instead of raw `flutter run` when the app needs `.env`-backed config.
+
+```powershell
+flutter pub get
+powershell -ExecutionPolicy Bypass -File .\scripts\flutter_run_dev.ps1 -DeviceId emulator-5554
+powershell -ExecutionPolicy Bypass -File .\scripts\flutter_build_apk_dev.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\flutter_build_appbundle_dev.ps1
+```
+
+### 0.25 Supporting Documentation
+
+| File | Purpose |
+| --- | --- |
+| `docs/gymunity_project_full_documentation.md` | Earlier broad project documentation. |
+| `docs/admin_coach_payment_settlement.md` | Admin/payment/payout settlement documentation. |
+| `docs/paymob_test_mode_setup.md` | Paymob test mode setup. |
+| `docs/paymob_coach_payments_test_mode.md` | Coach Paymob payment test mode notes. |
+| `docs/coach_relationship_backend_parity_audit.md` | Coach/client relationship backend parity audit. |
+| `docs/coach_client_relationship_full_discovery.txt` | Full discovery notes for the coach-member relationship. |
+| `docs/store_orders/store_and_orders_audit.md` | Store and orders audit. |
+| `docs/release_gate_qa_checklist.md` | Release gate QA checklist. |
+| `docs/ai_agent_system/` | TAIYO prompts, schemas, OpenAPI, and knowledge files. |
+
+### 0.26 Feature Map
+
+| Feature | Contents |
+| --- | --- |
+| `admin` | Admin dashboard, payment orders, payouts, settings, audit events, and TAIYO Ops briefs. |
+| `ai_chat` | General and planner-aware TAIYO chat sessions. |
+| `ai_coach` | TAIYO daily brief, readiness, nudges, active workout, and weekly summaries. |
+| `auth` | Login, register, OAuth, OTP, reset password, callback handling, and bootstrap. |
+| `coach` | Coach dashboard, workspace, marketplace entities, packages, resources, billing, programs, calendar, and client management. |
+| `coaches` | Coach discovery, coach details, and subscription package browsing. |
+| `coach_member_insights` | Consent-gated member insights and visibility settings. |
+| `member` | Home, profile, progress, Coach Hub, messages, check-ins, and subscriptions. |
+| `monetization` | TAIYO Premium, billing catalog, purchases, and entitlements. |
+| `news` | Personalized feed, bookmarks, interactions, and article details. |
+| `nutrition` | Setup, targets, meal plans, meal logs, hydration, check-ins, and insights. |
+| `onboarding` | Member, coach, and seller onboarding screens. |
+| `planner` | Guided builder, AI drafts, activation, agenda, task logs, and reminders. |
+| `seller` | Seller profile, dashboard, product CRUD, orders, and TAIYO Seller Copilot. |
+| `settings` | Settings, notifications, support/legal, and account deletion. |
+| `store` | Catalog, product details, cart, checkout, orders, and TAIYO recommendations. |
+| `user` | User/profile entities, avatar handling, role persistence, and profile updates. |
+
+### 0.27 Quality Notes and Risks
+
+- Do not store Supabase `sbp_...` tokens in files. Rotate the token that was shared in chat.
+- `AppRole` does not include admin; adding admin there would require a full permission model change.
+- Any endpoint using `SUPABASE_SERVICE_ROLE_KEY` must remain server-side in Edge Functions.
+- Paymob test mode is documented, and `sync-paymob-payment-status` is intentionally stubbed; do not treat it as production reconciliation.
+- AI Premium needs real store IDs before production enablement.
+- Some screens require route arguments; route tests verify missing arguments do not crash the app.
+- Any migration change must review RLS because most member/coach/seller/admin relationships are sensitive.
+- Any TAIYO change must follow the safety and knowledge files under `docs/ai_agent_system/knowledge/`.
+
+### 0.28 End-To-End Interaction Flows
+
+#### Auth And Role Resolution
+
+1. The app starts at `SplashScreen`.
+2. Runtime config is validated.
+3. Supabase is initialized only if config is valid.
+4. `AuthDeepLinkBootstrap` starts listening for OAuth callbacks.
+5. `UserRepository.getCurrentUser()` checks the active Supabase session.
+6. If no session exists, the app navigates to `/welcome`.
+7. If a session exists, `users` is checked for deleted/inactive account status.
+8. `profiles` is loaded.
+9. Missing profile or missing role sends the user to `/role-selection`.
+10. Incomplete onboarding sends the user to the matching onboarding screen.
+11. Completed onboarding sends the user to the role dashboard.
+
+This flow keeps auth, profile state, and onboarding state separate. A user can be authenticated but still not have a complete app identity.
+
+#### Member Builds And Activates A Workout Plan
+
+1. Member opens TAIYO from `MemberHomeScreen` or `/ai-chat-home`.
+2. Member starts `PlannerBuilderScreen`.
+3. The builder reads known context from member profile, preferences, existing planner memory, and previous answers.
+4. The builder asks only for missing or safety-critical fields.
+5. `PlannerRepository.requestTaiyoWorkoutPlanDraft()` calls `taiyo-workout-planner`.
+6. The Edge Function validates safety and context quality.
+7. A normalized draft is persisted in `ai_plan_drafts`.
+8. `AiGeneratedPlanScreen` loads the draft for review.
+9. Activation calls `activate_ai_workout_plan`.
+10. The backend creates `workout_plans`, `workout_plan_days`, and `workout_plan_tasks`.
+11. The member tracks tasks from `WorkoutPlanScreen` and `WorkoutDayDetailsScreen`.
+12. Task changes create/update rows in `workout_task_logs`.
+13. Reminder changes call `update_ai_plan_reminder_time` and are synced locally by the reminder bootstrap service.
+
+#### Member Starts An Active Workout
+
+1. Member opens an active plan or TAIYO daily brief.
+2. If a linked day exists, the user can start an active workout.
+3. `AiCoachRepository.startActiveWorkout()` calls `start_member_active_workout`.
+4. The backend creates `member_active_workout_sessions`.
+5. The screen loads tasks from the plan day.
+6. User actions are recorded through `record_member_active_workout_event`.
+7. Completion calls `complete_member_active_workout`.
+8. The session result can influence future TAIYO briefs, adaptations, and weekly summaries.
+
+#### Member Subscribes To A Coach
+
+1. Member browses `/coaches`.
+2. Filters are applied client-side and server-side through the coach directory RPCs.
+3. Member opens `/coach-details`.
+4. Member reviews packages from `/subscription-packages`.
+5. If manual subscription is used, `request_coach_subscription` creates a subscription/request.
+6. If Paymob is enabled, `create-coach-paymob-checkout` creates a checkout session and a payment order.
+7. Paymob callback or manual verification updates payment/subscription state.
+8. Active subscription unlocks Coach Hub.
+9. `ensure_coach_member_thread` creates a messaging thread when needed.
+10. Coach and member can exchange messages, check-ins, resources, habits, bookings, and feedback.
+
+#### Coach Manages A Client
+
+1. Coach opens `/clients`.
+2. `list_coach_client_pipeline` returns client pipeline rows.
+3. Coach opens `/coach-client-workspace` with a subscription id.
+4. `get_coach_client_workspace` returns the subscription snapshot, client profile context, notes, check-ins, messages, resources, billing, and action state.
+5. Coach can update client records through `upsert_coach_client_record`.
+6. Coach can add notes through `add_coach_client_note`.
+7. Coach can send messages through `send_coaching_message`.
+8. Coach can submit check-in feedback through `submit_coach_checkin_feedback`.
+9. Coach can assign programs, habits, resources, and bookings.
+10. Coach can request a TAIYO client brief if member visibility allows enough context.
+
+#### Seller Fulfills An Order
+
+1. Member places an order from cart through `create_store_order`.
+2. The backend creates one or more `orders` plus `order_items`.
+3. Seller opens `SellerOrdersScreen`.
+4. Seller loads orders through `list_seller_orders_detailed`.
+5. Seller changes order status through `update_store_order_status`.
+6. `order_status_history` records the transition.
+7. Member sees updated status from `MyOrdersScreen`.
+
+#### Admin Reviews Coach Payment Operations
+
+1. Admin opens `/admin-dashboard`.
+2. `AdminAccessGate` checks `current_admin`.
+3. Admin dashboard loads summary, payment orders, payouts, balances, subscriptions, audit events, settings, and TAIYO brief providers.
+4. Admin actions call permission-protected RPCs.
+5. Mutating admin actions create audit history.
+6. TAIYO admin briefs are read-only decision support and should not mutate payment state.
+
+### 0.29 Data Ownership And Access Model
+
+| Data area | Owner or primary actor | Other allowed actors | Notes |
+| --- | --- | --- | --- |
+| `users`, `profiles` | Current user | Backend service/admin functions | Core identity and role state. |
+| `member_profiles` | Member | Consent-gated coach views, backend service | Used by member home, planner, nutrition, TAIYO. |
+| `seller_profiles` | Seller | Backend service/admin where needed | Store identity. |
+| `coach_profiles` | Coach | Public read for marketplace | Marketplace profile and trust data. |
+| `products` | Seller | Public/member read for active products | Seller owns writes. |
+| `orders` | Member | Seller for own items/orders, admin where needed | Order state is shared across member and seller. |
+| `subscriptions` | Member and coach | Admin/payment functions | Core link for coaching relationships. |
+| `coach_member_threads`, `coach_messages` | Subscription participants | Admin only through controlled functions where needed | Messaging is tied to a subscription. |
+| `weekly_checkins` | Member | Coach on the subscription | Used for coach feedback and TAIYO context. |
+| `coach_member_visibility_settings` | Member | Coach can read effective permissions | Controls insight access. |
+| `nutrition_*` | Member | Consent-gated coach and TAIYO contexts | Sensitive health-adjacent data. |
+| `ai_*`, `member_ai_*` | Member | TAIYO Edge Functions | AI memory, briefs, nudges, summaries, and sessions. |
+| `coach_payment_*`, `coach_payout*` | Payment system/admin | Coach/member read where relevant | High-sensitivity payment data. |
+| `app_admins`, `admin_audit_events` | Admin system | Admins only | Admin authorization and audit history. |
+
+The dominant security principle is participant-scoped access: users can read/write their own data, coaches can see data for active or relevant subscriptions, sellers can manage their own products/orders, and admins operate through explicit admin RPCs.
+
+### 0.30 Frontend State Management
+
+GymUnity uses Riverpod for app state. The common provider patterns are:
+
+| Pattern | Usage |
+| --- | --- |
+| `Provider` | Dependency injection, static services, derived synchronous state. |
+| `FutureProvider` | Loading backend snapshots such as dashboard summaries, profiles, orders, and details. |
+| `StreamProvider` | Auth session and live-ish data such as notifications/member home summary. |
+| `StateProvider` | UI filters, selected tabs, search query, and lightweight local UI state. |
+| `StateNotifierProvider` | Form/action controllers with loading and error states. |
+| `AsyncNotifierProvider` | Async mutable state such as cart, favorites, shipping addresses, and subscription summary. |
+
+Repository implementations should keep Supabase details out of widgets. Widgets read providers, controllers call repositories, and domain entities normalize raw backend payloads.
+
+### 0.31 Error Handling Model
+
+| Error source | Expected handling |
+| --- | --- |
+| Missing config | `AppConfig.validationErrorMessage` blocks startup and surfaces a splash error. |
+| Supabase not initialized | `supabaseClientProvider` throws a clear state error. |
+| Deleted/inactive account | Bootstrap logs out and shows deleted account state. |
+| OAuth callback error | Callback utilities extract `error_description` or a fallback error. |
+| Missing route arguments | Route returns `FeaturePlaceholderScreen`. |
+| Missing backend schema | Several repositories map known schema/cache errors to friendly backend-unavailable failures. |
+| AI safety block | TAIYO planner/coach result maps to a blocked or safe-alternative state. |
+| Malformed Edge Function response | Repository tests expect `NetworkFailure` or equivalent controlled failures. |
+
+### 0.32 Backend Contract Principles
+
+- Client-facing RPCs must respect RLS and participant permissions.
+- Service-role Edge Functions must authenticate the caller before reading or mutating user data.
+- Payment callbacks must verify provider authenticity, especially Paymob HMAC.
+- Admin operations must check admin permissions and write audit events.
+- TAIYO functions should return normalized response shapes with status, result, data quality, and metadata.
+- AI context endpoints should avoid exposing secrets or unrestricted database access.
+- Any new table should include RLS before being considered production-ready.
+- Any new storage bucket should include select/insert/update/delete policies appropriate to its ownership model.
+
+### 0.33 Current Release Readiness View
+
+| Area | Status from repo | Release note |
+| --- | --- | --- |
+| Core Flutter app | Implemented | Startup, routing, theme, localization, config, and DI are present. |
+| Auth/OAuth | Implemented | Custom callback handling and route resolver are covered by tests. |
+| Member home | Implemented | Tests cover shell behavior and phone-sized rendering. |
+| Planner | Implemented | AI draft, activation, agenda, task logs, reminders, and active plan screens exist. |
+| TAIYO Coach | Implemented in repo | Requires deployed migrations/functions and AI secrets in target environment. |
+| Nutrition | Implemented | Local engines and Supabase-backed repositories exist. |
+| Store/orders | Implemented | Cart, checkout, favorites, seller order flow, and recommendation hooks exist. |
+| Coach marketplace | Implemented | Directory, profiles, packages, reviews, and subscription flows exist. |
+| Coach workspace | Implemented in repo | Broad surface area; test before release with real data. |
+| Coach payments/Paymob | Implemented for test mode | Production readiness depends on real Paymob credentials, callback URLs, and settlement policy. |
+| Admin dashboard | Implemented | Permissioned operations and tests exist. |
+| AI Premium | Implemented but config-gated | Needs real Apple/Google product setup before enabling. |
+| News sync | Implemented | Requires scheduled invocation or manual Edge Function calls. |
+
+### 0.34 Practical Development Rules
+
+- Add UI through existing feature folders and provider patterns.
+- Keep backend access inside repositories or controllers, not directly in screens unless the existing screen already follows that pattern.
+- Prefer RPCs for multi-table or permission-sensitive operations.
+- Prefer direct table access only for simple owner-scoped CRUD already protected by RLS.
+- Add tests for route behavior when a screen requires arguments.
+- Add entity mapping tests when an Edge Function or RPC response shape changes.
+- Update this file when adding migrations, Edge Functions, public routes, or new role interactions.
+- Keep `.env` as local-only config; do not commit real secrets.
+
+### 0.35 Deployment Checklist
+
+Before a production or reviewer build:
+
+1. Confirm `APP_ENV` and all required `AppConfig` values are set.
+2. Confirm Supabase migrations are applied through the latest local migration.
+3. Confirm Edge Functions are deployed for every enabled feature flag.
+4. Confirm Supabase secrets are set for Paymob, billing, TAIYO, Azure Foundry, and service-role operations.
+5. Confirm OAuth redirect scheme/host matches Android, iOS, and Supabase auth settings.
+6. Confirm storage buckets and policies exist.
+7. Run the Flutter test suite through `scripts/flutter_test_dev.ps1`.
+8. Smoke test member, coach, seller, and admin flows with real Supabase data.
+9. Test account deletion with a non-production account.
+10. Test Paymob only in the intended mode and verify callback URLs.
+11. Verify AI Premium is disabled unless store products are production-ready.
+12. Rotate any token that was shared outside secret management.
+
+---
+## Historical English Audit
 
 Repo audit date: 2026-04-21  
 Live snapshot last verified: 2026-04-20  

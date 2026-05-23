@@ -11,6 +11,7 @@ import '../../../ai_chat/presentation/providers/chat_providers.dart';
 import '../../domain/entities/ai_coach_entities.dart';
 import '../../../planner/presentation/route_args.dart';
 import '../providers/ai_coach_providers.dart';
+import '../widgets/taiyo_ai_widgets.dart';
 
 class AiCoachHomeScreen extends ConsumerStatefulWidget {
   const AiCoachHomeScreen({super.key});
@@ -732,43 +733,83 @@ class _CoachHeroCard extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF173628), Color(0xFF244B3E), Color(0xFFF5F2EA)],
+          colors: [Color(0xFF0D1F17), Color(0xFF173628), Color(0xFF244B3E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(28),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x40173628),
+            blurRadius: 32,
+            offset: Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          Row(
             children: [
-              _HeroChip(label: 'READINESS ${brief.readinessScore}'),
-              _HeroChip(label: brief.intensityBand.toUpperCase()),
-              if (brief.coachMode) const _HeroChip(label: 'COACH-AWARE'),
+              const TaiyoPulsingDot(color: Color(0xFF4ADE80), size: 7),
+              const SizedBox(width: 6),
+              const TaiyoAiShimmerText(text: 'TAIYO AI ANALYSIS'),
+              const Spacer(),
+              if (brief.coachMode)
+                const _HeroChip(label: 'COACH-AWARE'),
             ],
           ),
           const SizedBox(height: 16),
-          Text(
-            'Today\'s recommendation',
-            style: GoogleFonts.manrope(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-              color: Colors.white.withValues(alpha: 0.8),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            brief.workoutTitle,
-            style: GoogleFonts.manrope(
-              fontSize: 28,
-              height: 1.1,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _HeroChip(label: brief.intensityBand.toUpperCase()),
+                        _HeroChip(
+                          label: brief.workoutDurationMinutes == null
+                              ? 'FLEXIBLE'
+                              : '${brief.workoutDurationMinutes} MIN',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Today\'s recommendation',
+                      style: GoogleFonts.manrope(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.6,
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      brief.workoutTitle,
+                      style: GoogleFonts.manrope(
+                        fontSize: 26,
+                        height: 1.1,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              TaiyoReadinessGauge(
+                score: brief.readinessScore,
+                size: 100,
+                strokeWidth: 8,
+                label: 'READINESS',
+              ),
+            ],
           ),
           if (brief.workoutSubtitle.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -787,10 +828,14 @@ class _CoachHeroCard extends StatelessWidget {
             style: GoogleFonts.manrope(
               fontSize: 14,
               height: 1.55,
-              color: Colors.white.withValues(alpha: 0.9),
+              color: Colors.white.withValues(alpha: 0.85),
             ),
           ),
-          const SizedBox(height: 14),
+          if (brief.signalsUsed.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            TaiyoSignalChips(signals: brief.signalsUsed),
+          ],
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -994,7 +1039,17 @@ class _SignalCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AtelierColors.primary),
+          Row(
+            children: [
+              Icon(icon, color: AtelierColors.primary),
+              const Spacer(),
+              const TaiyoAgentBadge(
+                label: 'AI Insight',
+                icon: Icons.auto_awesome,
+                color: AtelierColors.primary,
+              ),
+            ],
+          ),
           const SizedBox(height: 14),
           Text(
             title.toUpperCase(),
@@ -1131,21 +1186,45 @@ class _NudgeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AtelierColors.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AtelierColors.primary.withValues(alpha: 0.08),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AtelierColors.surfaceContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.notifications_active_outlined,
-              color: AtelierColors.primary,
-            ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AtelierColors.surfaceContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.notifications_active_outlined,
+                  color: AtelierColors.primary,
+                ),
+              ),
+              Positioned(
+                top: -2,
+                right: -2,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _nudgePriorityColor(nudge.actionType),
+                    border: Border.all(
+                      color: AtelierColors.surfaceContainerLowest,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1170,12 +1249,24 @@ class _NudgeCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  nudge.whyShort,
-                  style: GoogleFonts.manrope(
-                    fontSize: 12,
-                    color: AtelierColors.primary,
-                  ),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome,
+                      size: 12,
+                      color: AtelierColors.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        nudge.whyShort,
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          color: AtelierColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1185,6 +1276,19 @@ class _NudgeCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Color _nudgePriorityColor(String actionType) {
+    switch (actionType) {
+      case 'start_workout':
+      case 'shorten_workout':
+        return const Color(0xFFFB923C);
+      case 'log_meal':
+      case 'log_hydration':
+        return const Color(0xFF4ADE80);
+      default:
+        return AtelierColors.primary;
+    }
   }
 }
 
@@ -1205,31 +1309,51 @@ class _WeeklySummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Weekly summary',
-            style: GoogleFonts.manrope(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: AtelierColors.onSurface,
-            ),
+          Row(
+            children: [
+              Text(
+                'Weekly summary',
+                style: GoogleFonts.manrope(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AtelierColors.onSurface,
+                ),
+              ),
+              const Spacer(),
+              const TaiyoAgentBadge(
+                label: 'AI Analyzed',
+                icon: Icons.insights_rounded,
+                color: AtelierColors.primary,
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            '${summary.adherenceScore}% adherence',
-            style: GoogleFonts.manrope(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              color: AtelierColors.primary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            summary.summaryText,
-            style: GoogleFonts.manrope(
-              fontSize: 13,
-              height: 1.5,
-              color: AtelierColors.onSurfaceVariant,
-            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              TaiyoAdherenceRing(
+                percentage: summary.adherenceScore,
+                size: 76,
+                strokeWidth: 5,
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      summary.summaryText,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        height: 1.5,
+                        color: AtelierColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           if (summary.wins.isNotEmpty) ...[
             const SizedBox(height: 12),

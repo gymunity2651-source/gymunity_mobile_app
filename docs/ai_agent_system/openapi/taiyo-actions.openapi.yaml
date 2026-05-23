@@ -2,6 +2,10 @@ openapi: 3.0.3
 info:
   title: GymUnity TAIYO Supabase Actions
   version: 1.0.0
+  description: >
+    OpenAPI specification for TAIYO AI system Edge Functions.
+    These endpoints are called by the Azure AI Foundry Orchestrator Agent
+    to retrieve RLS-scoped member context and generate AI-powered responses.
 servers:
   - url: https://pooelnnveljiikpdrvqw.functions.supabase.co
 security:
@@ -10,7 +14,10 @@ paths:
   /taiyo-member-context:
     post:
       operationId: get_member_context
-      summary: Get RLS-scoped member context for TAIYO.
+      summary: Get RLS-scoped member context for TAIYO daily brief.
+      description: >
+        Returns the member's profile, readiness, workout history, adherence,
+        nutrition status, progress, and safety flags for the target date.
       parameters:
         - $ref: '#/components/parameters/TaiyoContextToken'
       requestBody:
@@ -23,13 +30,22 @@ paths:
                 date:
                   type: string
                   format: date
+                  description: Target date for context (YYYY-MM-DD).
       responses:
         '200':
-          description: Member context response.
+          description: Member context response with profile, readiness, adherence, nutrition, and safety data.
+        '401':
+          description: Missing or invalid auth token.
+        '403':
+          description: Role not authorized.
   /taiyo-nutrition-context:
     post:
       operationId: get_nutrition_context
-      summary: Get nutrition context or guidance.
+      summary: Get nutrition context or AI-generated nutrition guidance.
+      description: >
+        Returns raw nutrition data (nutrition_context) or AI-powered
+        nutrition guidance (nutrition_guidance) based on the member's
+        profile, targets, meal logs, and hydration.
       parameters:
         - $ref: '#/components/parameters/TaiyoContextToken'
       requestBody:
@@ -42,16 +58,25 @@ paths:
                 request_type:
                   type: string
                   enum: [nutrition_context, nutrition_guidance]
+                  description: Type of nutrition request.
                 date:
                   type: string
                   format: date
+                  description: Target date (YYYY-MM-DD).
       responses:
         '200':
-          description: Nutrition response.
+          description: Nutrition context or guidance response.
+        '401':
+          description: Missing or invalid auth token.
+        '403':
+          description: Role not authorized.
   /taiyo-store-recommendations:
     post:
       operationId: get_store_recommendations
-      summary: Get member store recommendations.
+      summary: Get AI-powered store product recommendations for a member.
+      description: >
+        Recommends active, in-stock products based on the member's fitness
+        goal, nutrition gaps, training context, and purchase history.
       parameters:
         - $ref: '#/components/parameters/TaiyoContextToken'
       requestBody:
@@ -68,15 +93,124 @@ paths:
                   type: integer
                   minimum: 1
                   maximum: 8
+                  description: Maximum number of product recommendations to return.
       responses:
         '200':
-          description: Store recommendations response.
+          description: Store recommendations response with products and reasons.
+        '401':
+          description: Missing or invalid auth token.
+        '403':
+          description: Role not authorized.
+  /taiyo-coach-client-brief:
+    post:
+      operationId: get_coach_client_brief
+      summary: Get AI-powered client brief for a coach.
+      description: >
+        Returns a structured client status summary, risk classification,
+        red flags, suggested actions, and draft messages. Respects member
+        visibility settings — excluded data categories are noted.
+      parameters:
+        - $ref: '#/components/parameters/TaiyoContextToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client_id:
+                  type: string
+                  format: uuid
+                  description: The member ID of the coaching client.
+                brief_type:
+                  type: string
+                  enum: [weekly_summary, quick_check]
+                  description: Type of brief to generate.
+      responses:
+        '200':
+          description: Coach client brief response with status, red flags, and suggested actions.
+        '401':
+          description: Missing or invalid auth token.
+        '403':
+          description: Role not authorized (must be coach with active subscription).
+  /taiyo-admin-ops-brief:
+    post:
+      operationId: get_admin_ops_brief
+      summary: Get AI-powered operational brief for administrators.
+      description: >
+        Returns a structured summary of platform operations including
+        payment status, payout reviews, settlement gaps, and recommended
+        admin actions. Admin role required.
+      parameters:
+        - $ref: '#/components/parameters/TaiyoContextToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                brief_type:
+                  type: string
+                  enum: [daily_ops, payment_review, payout_review]
+                  description: Type of operational brief.
+                date_from:
+                  type: string
+                  format: date
+                  description: Start date for the review period.
+                date_to:
+                  type: string
+                  format: date
+                  description: End date for the review period.
+      responses:
+        '200':
+          description: Admin operational brief with risk assessment and recommendations.
+        '401':
+          description: Missing or invalid auth token.
+        '403':
+          description: Role not authorized (admin only).
+  /taiyo-seller-copilot:
+    post:
+      operationId: get_seller_copilot_brief
+      summary: Get AI-powered product and order insights for sellers.
+      description: >
+        Returns product performance insights, order alerts, revenue summary,
+        and actionable suggestions for store sellers.
+      parameters:
+        - $ref: '#/components/parameters/TaiyoContextToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                brief_type:
+                  type: string
+                  enum: [product_insights, order_summary]
+                  description: Type of seller brief.
+                date_from:
+                  type: string
+                  format: date
+                date_to:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Seller copilot brief with insights and order alerts.
+        '401':
+          description: Missing or invalid auth token.
+        '403':
+          description: Role not authorized (seller only).
 components:
   securitySchemes:
     TaiyoActionSecret:
       type: apiKey
       in: header
       name: x-taiyo-action-secret
+      description: >
+        Shared secret between Azure AI Foundry and Supabase Edge Functions.
+        Used to authenticate tool calls from the orchestrator agent.
   parameters:
     TaiyoContextToken:
       name: x-taiyo-context-token
@@ -84,4 +218,7 @@ components:
       required: true
       schema:
         type: string
-      description: Short-lived signed token produced by GymUnity Edge Functions.
+      description: >
+        Short-lived HMAC-signed token containing the user's identity,
+        role, and authorized scope. Produced by GymUnity Edge Functions
+        and verified by the receiving function using TAIYO_CONTEXT_TOKEN_SECRET.

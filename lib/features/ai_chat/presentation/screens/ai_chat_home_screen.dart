@@ -10,6 +10,7 @@ import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../ai_coach/presentation/widgets/taiyo_ai_widgets.dart';
 import '../../../member/presentation/providers/member_providers.dart';
 import '../../../member/presentation/widgets/member_profile_shortcut_button.dart';
 import '../../../monetization/presentation/providers/monetization_providers.dart';
@@ -572,14 +573,20 @@ class _TaiyoHeroSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'INTELLIGENCE',
-          style: GoogleFonts.manrope(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 2.0,
-            color: AtelierColors.primary,
-          ),
+        Row(
+          children: [
+            Text(
+              'INTELLIGENCE',
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2.0,
+                color: AtelierColors.primary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const TaiyoPulsingDot(color: Color(0xFF4ADE80), size: 6),
+          ],
         ),
         const SizedBox(height: 18),
         Text.rich(
@@ -606,13 +613,23 @@ class _TaiyoHeroSection extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 10),
+        Text(
+          'Multi-Agent AI System',
+          style: GoogleFonts.manrope(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.6,
+            color: AtelierColors.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 22),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 2,
-              height: 146,
+              height: 120,
               margin: const EdgeInsets.only(top: 4),
               decoration: BoxDecoration(
                 color: AtelierColors.primary.withValues(alpha: 0.22),
@@ -631,6 +648,27 @@ class _TaiyoHeroSection extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 22),
+        const TaiyoAgentCapabilityCard(
+          agentName: 'Training Agent',
+          description: 'Readiness-aware workout decisions',
+          icon: Icons.fitness_center_rounded,
+          accentColor: Color(0xFF4ADE80),
+        ),
+        const SizedBox(height: 10),
+        const TaiyoAgentCapabilityCard(
+          agentName: 'Nutrition Agent',
+          description: 'Macro and hydration optimization',
+          icon: Icons.restaurant_menu_rounded,
+          accentColor: Color(0xFFFBBF24),
+        ),
+        const SizedBox(height: 10),
+        const TaiyoAgentCapabilityCard(
+          agentName: 'Safety Agent',
+          description: 'Injury prevention and recovery guard',
+          icon: Icons.shield_outlined,
+          accentColor: Color(0xFFF87171),
         ),
       ],
     );
@@ -711,6 +749,22 @@ class _TaiyoCommandDeck extends StatelessWidget {
               height: 1.55,
               color: AtelierColors.onSurfaceVariant,
             ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const TaiyoPulsingDot(color: Color(0xFF4ADE80), size: 5),
+              const SizedBox(width: 6),
+              Text(
+                'AI SYSTEM READY',
+                style: GoogleFonts.manrope(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                  color: const Color(0xFF4ADE80),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 18),
           LayoutBuilder(
