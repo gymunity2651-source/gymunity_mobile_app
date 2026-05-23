@@ -423,7 +423,7 @@ void main() {
       );
     });
 
-    testWidgets('AI home planner quick chip opens guided builder', (
+    testWidgets('TAIYO home planner quick chip opens guided builder', (
       tester,
     ) async {
       final chatRepository = FakeChatRepository();
@@ -436,13 +436,13 @@ void main() {
 
       await tester.scrollUntilVisible(find.text('Strength plan'), 320);
       await tester.tap(find.text('Strength plan'));
-      await tester.pumpAndSettle();
+      await _pumpRouteFrames(tester);
 
       expect(find.byType(PlannerBuilderScreen), findsOneWidget);
       expect(chatRepository.sessions, isEmpty);
     });
 
-    testWidgets('AI home general quick chip still opens conversation flow', (
+    testWidgets('TAIYO home general quick chip still opens conversation flow', (
       tester,
     ) async {
       final chatRepository = FakeChatRepository();
@@ -455,9 +455,9 @@ void main() {
 
       await tester.scrollUntilVisible(find.text('Nutrition tips'), 320);
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -140));
-      await tester.pumpAndSettle();
+      await _pumpRouteFrames(tester);
       await tester.tap(find.text('Nutrition tips'));
-      await tester.pumpAndSettle();
+      await _pumpRouteFrames(tester);
 
       expect(find.byType(AiConversationScreen), findsOneWidget);
       expect(chatRepository.sessions, hasLength(1));
@@ -467,7 +467,7 @@ void main() {
       );
     });
 
-    testWidgets('AI home planner session row opens guided builder', (
+    testWidgets('TAIYO home planner session row opens guided builder', (
       tester,
     ) async {
       final chatRepository = FakeChatRepository();
@@ -490,13 +490,13 @@ void main() {
 
       await tester.scrollUntilVisible(find.text('TAIYO Planner'), 320);
       await tester.tap(find.text('TAIYO Planner'));
-      await tester.pumpAndSettle();
+      await _pumpRouteFrames(tester);
 
       expect(find.byType(PlannerBuilderScreen), findsOneWidget);
       expect(find.byType(AiConversationScreen), findsNothing);
     });
 
-    testWidgets('conversation send shows the streamed AI reply', (
+    testWidgets('conversation send shows the streamed TAIYO reply', (
       tester,
     ) async {
       final chatRepository = FakeChatRepository();
@@ -510,7 +510,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Test recovery question');
       await tester.tap(find.byIcon(Icons.north_rounded));
       await tester.pump();
-      await tester.pumpAndSettle();
+      await _pumpRouteFrames(tester);
 
       expect(
         find.textContaining('Handled: Test recovery question'),
@@ -526,7 +526,7 @@ void main() {
         ChatSessionEntity(
           id: 'general-session',
           userId: 'user-1',
-          title: 'General AI',
+          title: 'General TAIYO',
           updatedAt: DateTime(2026, 3, 8),
         ),
       );
@@ -585,7 +585,7 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 250));
       await tester.pump(const Duration(milliseconds: 250));
-      await tester.pumpAndSettle();
+      await _pumpRouteFrames(tester);
 
       expect(chatRepository.createSessionCalls, 1);
       expect(chatRepository.sendMessageCalls, 1);
@@ -723,5 +723,11 @@ Future<void> _pumpScreen(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await _pumpRouteFrames(tester);
+}
+
+Future<void> _pumpRouteFrames(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pump(const Duration(milliseconds: 300));
 }

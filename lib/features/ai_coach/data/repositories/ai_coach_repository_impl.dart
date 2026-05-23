@@ -958,9 +958,9 @@ class AiCoachRepositoryImpl implements AiCoachRepository {
       return '$_legacyCoachFallbackReason Start with ${taskTitle ?? (planTitle ?? 'today\'s first block')} and keep the day finishable.';
     }
     if (nutrition.hasAnyData) {
-      return 'Your full AI coach brief is still syncing, so this summary is leaning on today\'s nutrition and recovery data. Log what you complete so the next brief gets sharper.';
+      return 'Your full TAIYO coach brief is still syncing, so this summary is leaning on today\'s nutrition and recovery data. Log what you complete so the next brief gets sharper.';
     }
-    return 'Your full AI coach brief is still syncing. Open the plan builder or nutrition setup so TAIYO has current data to coach from.';
+    return 'Your full TAIYO coach brief is still syncing. Open the plan builder or nutrition setup so TAIYO has current data to coach from.';
   }
 
   int _legacyReadinessScore({

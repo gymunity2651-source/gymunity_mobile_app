@@ -113,8 +113,8 @@ class WorkoutPlanScreen extends ConsumerWidget {
                     icon: Icons.event_note_outlined,
                     title: 'No active TAIYO plan',
                     description:
-                        'Start AI Builder to scan your profile, answer guided questions, and review a structured workout plan.',
-                    actionLabel: 'Open AI Builder',
+                        'Start TAIYO Plan Builder to scan your profile, answer guided questions, and review a structured workout plan.',
+                    actionLabel: 'Open TAIYO Plan Builder',
                     onTap: () => Navigator.pushNamed(
                       context,
                       AppRoutes.aiPlannerBuilder,

@@ -58,7 +58,7 @@ class _PlannerBuilderScreenState extends ConsumerState<PlannerBuilderScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
-          'AI Builder',
+          'TAIYO Plan Builder',
           style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700),
         ),
       ),
@@ -105,7 +105,9 @@ class _PlannerBuilderScreenState extends ConsumerState<PlannerBuilderScreen> {
       case PlannerBuilderPhase.error:
         return _ErrorBuilderView(
           key: const ValueKey<String>('planner-builder-error'),
-          message: state.errorMessage ?? 'GymUnity could not open AI Builder.',
+          message:
+              state.errorMessage ??
+              'GymUnity could not open TAIYO Plan Builder.',
           onRetry: () => ref
               .read(plannerBuilderControllerProvider.notifier)
               .start(
@@ -239,7 +241,7 @@ class _StartBuilderView extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'AI Builder reads your existing GymUnity profile first, then asks only the details that improve your workout plan.',
+                  'TAIYO Plan Builder reads your existing GymUnity profile first, then asks only the details that improve your workout plan.',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     height: 1.55,
@@ -473,7 +475,7 @@ class _ErrorBuilderView extends StatelessWidget {
         padding: const EdgeInsets.all(AppSizes.screenPadding),
         child: PlannerBuilderNoticeCard(
           icon: Icons.cloud_off_outlined,
-          title: 'AI Builder needs a retry',
+          title: 'TAIYO Plan Builder needs a retry',
           description: message,
           actionLabel: 'Try again',
           onAction: onRetry,

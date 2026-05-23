@@ -645,7 +645,7 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
                 ),
                 _SheetAction(
                   icon: Icons.arrow_back_rounded,
-                  title: 'Back to AI home',
+                  title: 'Back to TAIYO home',
                   onTap: () {
                     Navigator.pop(sheetContext);
                     Navigator.maybePop(context);
@@ -893,7 +893,7 @@ class _ConversationHero extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Text(
               isPlanner
-                  ? 'Refining your path to vitality with AI-guided precision.\nLet us sculpt your perfect wellness routine.'
+                  ? 'Refining your path to vitality with TAIYO-guided precision.\nLet us sculpt your perfect wellness routine.'
                   : 'A composed conversation for training clarity, nutrition support, and recovery decisions that fit your week.',
               textAlign: TextAlign.center,
               style: GoogleFonts.manrope(
@@ -941,7 +941,7 @@ class _AssistantLabel extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'TAIYO AI',
+                  'TAIYO',
                   style: GoogleFonts.notoSerif(
                     fontSize: 18,
                     fontStyle: FontStyle.italic,
@@ -1514,10 +1514,7 @@ class _ThinkingRibbon extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const TaiyoThinkingDots(
-            color: AtelierColors.primary,
-            size: 5,
-          ),
+          const TaiyoThinkingDots(color: AtelierColors.primary, size: 5),
           const SizedBox(width: 10),
           Text(
             label.toUpperCase(),

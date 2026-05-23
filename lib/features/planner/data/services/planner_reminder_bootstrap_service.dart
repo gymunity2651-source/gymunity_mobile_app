@@ -332,7 +332,7 @@ class PlannerReminderBootstrapService {
         const NotificationDetails(
           android: AndroidNotificationDetails(
             'coach_nudges',
-            'AI Coach Nudges',
+            'TAIYO Coach Nudges',
             channelDescription:
                 'Proactive nudges from TAIYO to keep training and recovery on track.',
             importance: Importance.high,

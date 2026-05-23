@@ -34,7 +34,7 @@ their enabling dart-define or environment requirement in the test output.
   completion, failed save staying on screen, and return to member home.
 - Member home: bottom tabs, profile shortcut, edit profile, progress, settings,
   notifications, help, privacy, terms, and logout.
-- TAIYO/Planner: AI home, general chat send, planner builder questions,
+- TAIYO/Planner: TAIYO home, general chat send, planner builder questions,
   generated plan review, activation, workout plan, workout day details, active
   workout session, reminders, loading and retry states.
 - Coaching marketplace: coaches list, coach details, packages, paid checkout
@@ -55,7 +55,7 @@ their enabling dart-define or environment requirement in the test output.
 ## Failure Scenarios
 
 - Empty repository data renders useful empty states with a clear action.
-- Network, Supabase, Edge Function, AI, and Paymob failures show a user-facing
+- Network, Supabase, Edge Function, TAIYO, and Paymob failures show a user-facing
   error and allow retry where retry is logical.
 - Malformed route arguments render explicit feature placeholders rather than
   `Unknown Route`.

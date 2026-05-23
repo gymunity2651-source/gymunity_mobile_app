@@ -445,7 +445,7 @@ Billing tab:
 Privacy tab:
 
 - Shows whether each client data category is shared or locked.
-- Categories include workout, progress, nutrition, AI plan, product recommendations, and relevant purchases depending on visibility settings.
+- Categories include workout, progress, nutrition, TAIYO plan, product recommendations, and relevant purchases depending on visibility settings.
 - Coach cannot change these toggles.
 
 Schedule session sheet:
@@ -927,11 +927,11 @@ Controls:
 | Control | Effect |
 | --- | --- |
 | `Revoke all` | Turns off all toggles and saves. |
-| `AI Plan Summary` switch | Shares active workout plan title, duration, and overview when on. |
+| `TAIYO Plan Summary` switch | Shares active workout plan title, duration, and overview when on. |
 | `Workout Adherence` switch | Shares completion rates and missed-session counts when on. |
 | `Progress Metrics` switch | Shares weight trends, body measurements, and check-in scores when on. |
 | `Nutrition Summary` switch | Shares calorie, macro, and nutrition adherence summary when on. |
-| `Product Recommendations` switch | Shares AI-suggested products and equipment needs when on. |
+| `Product Recommendations` switch | Shares TAIYO-suggested products and equipment needs when on. |
 | `Relevant Purchases` switch | Shares purchase activity for recommended products only when on. |
 | `Save Settings` | Calls `upsert_coach_member_visibility`. |
 | `Consent change history` | Expands or collapses visibility audit timeline. |
@@ -1034,7 +1034,7 @@ Some backend records also support `watch`; the current pipeline sheet exposes `n
 
 | Category | Default | Coach sees when enabled |
 | --- | --- | --- |
-| AI Plan Summary | Off | Active plan title, source, status, dates, version, duration, level, summary, total days, total tasks. |
+| TAIYO Plan Summary | Off | Active plan title, source, status, dates, version, duration, level, summary, total days, total tasks. |
 | Workout Adherence | Off | Total tasks, completed, partial, skipped, missed, completion rate, streak placeholder, last completion. |
 | Progress Metrics | Off | Latest weight, weight trend, body measurement, last check-in date, latest check-in adherence. |
 | Nutrition Summary | Off | Calorie and macro targets, latest nutrition adherence, active meal plan flag. |
@@ -1079,7 +1079,7 @@ Some backend records also support `watch`; the current pipeline sheet exposes `n
 5. Backend archives existing active coach plan for that member when needed.
 6. Backend creates a new workout plan with days and tasks.
 7. Client receives a notification or sees the assigned plan in workout planning areas.
-8. If the client enables AI plan or adherence visibility, the coach can see aggregated plan and completion data.
+8. If the client enables TAIYO plan or adherence visibility, the coach can see aggregated plan and completion data.
 
 ### 8.4 Resource sharing loop
 

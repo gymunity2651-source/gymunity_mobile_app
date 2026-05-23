@@ -186,7 +186,7 @@ class _MemberHomeScreenState extends ConsumerState<MemberHomeScreen>
       selectedIcon: Icons.auto_awesome,
       aiModeIcon: Icons.auto_awesome_outlined,
       aiModeSelectedIcon: Icons.auto_awesome,
-      label: 'AI',
+      label: 'TAIYO',
     ),
     _MemberHomeTab(
       page: NewsFeedScreen(),

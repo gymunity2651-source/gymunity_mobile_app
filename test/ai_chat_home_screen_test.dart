@@ -13,7 +13,7 @@ import 'test_doubles.dart';
 
 void main() {
   group('TAIYO home', () {
-    testWidgets('renders the editorial AI home without the legacy FAB', (
+    testWidgets('renders the editorial TAIYO home without the legacy FAB', (
       tester,
     ) async {
       await _pumpTaiyoHome(tester);
@@ -22,7 +22,7 @@ void main() {
       expect(find.text('INTELLIGENCE'), findsOneWidget);
       expect(find.textContaining('Your Personal'), findsOneWidget);
       expect(find.textContaining('Sanctuary'), findsOneWidget);
-      await tester.ensureVisible(find.text('Quick Actions'));
+      await _scrollUntilVisible(tester, find.text('Quick Actions'));
       expect(find.text('Quick Actions'), findsOneWidget);
       await _scrollUntilVisible(tester, find.textContaining('Recent TAIYO'));
       expect(find.textContaining('Recent TAIYO'), findsOneWidget);
@@ -33,7 +33,7 @@ void main() {
       await _pumpTaiyoHome(tester);
 
       await tester.tap(find.byKey(const Key('taiyo-hero-build-button')));
-      await tester.pumpAndSettle();
+      await _pumpTaiyoFrames(tester);
 
       expect(find.byType(PlannerBuilderScreen), findsOneWidget);
     });
@@ -45,7 +45,7 @@ void main() {
       await _pumpTaiyoHome(tester, chatRepository: chatRepository);
 
       await tester.tap(find.byKey(const Key('taiyo-hero-chat-button')));
-      await tester.pumpAndSettle();
+      await _pumpTaiyoFrames(tester);
 
       expect(find.byType(AiConversationScreen), findsOneWidget);
       expect(chatRepository.sessions, hasLength(1));
@@ -72,18 +72,18 @@ void main() {
         find.byKey(const Key('taiyo-open-builder-button')),
       );
       await tester.tap(find.byKey(const Key('taiyo-open-builder-button')));
-      await tester.pumpAndSettle();
+      await _pumpTaiyoFrames(tester);
 
       expect(find.byType(PlannerBuilderScreen), findsOneWidget);
 
       await tester.pageBack();
-      await tester.pumpAndSettle();
+      await _pumpTaiyoFrames(tester);
 
       await tester.ensureVisible(
         find.byKey(const Key('taiyo-open-chat-button')),
       );
       await tester.tap(find.byKey(const Key('taiyo-open-chat-button')));
-      await tester.pumpAndSettle();
+      await _pumpTaiyoFrames(tester);
 
       expect(find.byType(AiConversationScreen), findsOneWidget);
       expect(chatRepository.sessions, hasLength(1));
@@ -115,7 +115,7 @@ void main() {
         expect(find.text('Today'), findsOneWidget);
 
         await tester.tap(find.text('Morning Clarity'));
-        await tester.pumpAndSettle();
+        await _pumpTaiyoFrames(tester);
 
         expect(find.byType(PlannerBuilderScreen), findsOneWidget);
       },
@@ -142,7 +142,7 @@ void main() {
       expect(find.text('Yesterday'), findsOneWidget);
 
       await tester.tap(find.text('Deep Release'));
-      await tester.pumpAndSettle();
+      await _pumpTaiyoFrames(tester);
 
       expect(find.byType(AiConversationScreen), findsOneWidget);
       expect(chatRepository.createSessionCalls, 0);
@@ -212,7 +212,7 @@ Future<void> _pumpNamedTaiyoRoute(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await _pumpTaiyoFrames(tester);
 }
 
 Future<void> _pumpTaiyoHome(
@@ -261,5 +261,11 @@ Future<void> _pumpTaiyoHome(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await _pumpTaiyoFrames(tester);
+}
+
+Future<void> _pumpTaiyoFrames(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pump(const Duration(milliseconds: 300));
 }

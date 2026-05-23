@@ -30,7 +30,7 @@ void main() {
 
       await tester.tap(find.text('NEXT'));
       await tester.pumpAndSettle();
-      expect(find.text('AI-Powered'), findsOneWidget);
+      expect(find.text('TAIYO-Powered'), findsOneWidget);
     });
 
     testWidgets('Skip jumps directly to the final Google CTA page', (

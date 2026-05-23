@@ -160,10 +160,7 @@ class _ReadinessArcPainter extends CustomPainter {
           center: Alignment.bottomCenter,
           startAngle: math.pi,
           endAngle: 2 * math.pi,
-          colors: [
-            activeColor.withValues(alpha: 0.6),
-            activeColor,
-          ],
+          colors: [activeColor.withValues(alpha: 0.6), activeColor],
         ).createShader(Rect.fromCircle(center: center, radius: radius))
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
@@ -273,15 +270,11 @@ class _TaiyoPulsingDotState extends State<TaiyoPulsingDot>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TaiyoAiShimmerText — Shimmer effect text for AI labels
+// TaiyoAiShimmerText — Shimmer effect text for TAIYO labels
 // ─────────────────────────────────────────────────────────────────────────────
 
 class TaiyoAiShimmerText extends StatefulWidget {
-  const TaiyoAiShimmerText({
-    super.key,
-    required this.text,
-    this.style,
-  });
+  const TaiyoAiShimmerText({super.key, required this.text, this.style});
 
   final String text;
   final TextStyle? style;
@@ -311,7 +304,8 @@ class _TaiyoAiShimmerTextState extends State<TaiyoAiShimmerText>
 
   @override
   Widget build(BuildContext context) {
-    final baseStyle = widget.style ??
+    final baseStyle =
+        widget.style ??
         GoogleFonts.manrope(
           fontSize: 10,
           fontWeight: FontWeight.w800,
@@ -342,7 +336,7 @@ class _TaiyoAiShimmerTextState extends State<TaiyoAiShimmerText>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TaiyoSignalChips — Row of glowing AI signal chips
+// TaiyoSignalChips — Row of glowing TAIYO signal chips
 // ─────────────────────────────────────────────────────────────────────────────
 
 class TaiyoSignalChips extends StatelessWidget {
@@ -598,7 +592,7 @@ class TaiyoAgentBadge extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TaiyoAgentCapabilityCard — Card showing an AI agent capability
+// TaiyoAgentCapabilityCard — Card showing a TAIYO agent capability
 // ─────────────────────────────────────────────────────────────────────────────
 
 class TaiyoAgentCapabilityCard extends StatelessWidget {
@@ -624,9 +618,7 @@ class TaiyoAgentCapabilityCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AtelierColors.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: accent.withValues(alpha: 0.12),
-        ),
+        border: Border.all(color: accent.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(
             color: accent.withValues(alpha: 0.06),
@@ -680,7 +672,7 @@ class TaiyoAgentCapabilityCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TaiyoThinkingDots — Animated bouncing dots for AI thinking state
+// TaiyoThinkingDots — Animated bouncing dots for TAIYO thinking state
 // ─────────────────────────────────────────────────────────────────────────────
 
 class TaiyoThinkingDots extends StatefulWidget {

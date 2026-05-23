@@ -10,7 +10,7 @@ import 'package:my_app/features/planner/presentation/screens/ai_generated_plan_s
 import 'test_doubles.dart';
 
 void main() {
-  testWidgets('AI generated plan review renders editorial review controls', (
+  testWidgets('TAIYO generated plan review renders editorial review controls', (
     tester,
   ) async {
     final plannerRepository = FakePlannerRepository()

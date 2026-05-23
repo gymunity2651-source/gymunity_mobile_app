@@ -4,7 +4,7 @@ import 'package:my_app/features/planner/domain/entities/planner_entities.dart';
 
 void main() {
   test(
-    'selectSchedulablePlannerTasks keeps only active pending AI reminders',
+    'selectSchedulablePlannerTasks keeps only active pending TAIYO reminders',
     () {
       final tasks = <PlanTaskEntity>[
         _task(

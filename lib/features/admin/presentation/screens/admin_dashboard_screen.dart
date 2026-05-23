@@ -932,7 +932,7 @@ class _PaymentDetailsSheet extends ConsumerWidget {
             _DetailRow('Paymob transaction', order.paymobTransactionId ?? '-'),
             const SizedBox(height: 12),
             _TaiyoAdminBriefPanel(
-              title: 'AI Risk Explanation',
+              title: 'TAIYO Risk Explanation',
               briefAsync: taiyoAsync,
               onRetry: () =>
                   ref.invalidate(adminTaiyoPaymentRiskProvider(paymentOrderId)),
@@ -1053,7 +1053,7 @@ class _PayoutDetailsSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             _TaiyoAdminBriefPanel(
-              title: 'AI Payout Review',
+              title: 'TAIYO Payout Review',
               briefAsync: taiyoAsync,
               onRetry: () =>
                   ref.invalidate(adminTaiyoPayoutReviewProvider(payoutId)),

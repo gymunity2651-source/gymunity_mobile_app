@@ -13,10 +13,7 @@ import '../providers/insight_providers.dart';
 /// Member-facing privacy settings screen where each coaching-data
 /// category can be individually toggled on/off.
 class MemberCoachVisibilitySettingsScreen extends ConsumerStatefulWidget {
-  const MemberCoachVisibilitySettingsScreen({
-    super.key,
-    required this.args,
-  });
+  const MemberCoachVisibilitySettingsScreen({super.key, required this.args});
 
   final VisibilitySettingsArgs args;
 
@@ -72,9 +69,9 @@ class _MemberCoachVisibilitySettingsScreenState
       );
       // Refresh providers
       ref.invalidate(
-          memberVisibilitySettingsProvider(widget.args.subscriptionId));
-      ref.invalidate(
-          memberVisibilityAuditProvider(widget.args.subscriptionId));
+        memberVisibilitySettingsProvider(widget.args.subscriptionId),
+      );
+      ref.invalidate(memberVisibilityAuditProvider(widget.args.subscriptionId));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -85,7 +82,8 @@ class _MemberCoachVisibilitySettingsScreenState
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppSizes.radiusSm)),
+              borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+            ),
           ),
         );
       }
@@ -119,7 +117,8 @@ class _MemberCoachVisibilitySettingsScreenState
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(
-        memberVisibilitySettingsProvider(widget.args.subscriptionId));
+      memberVisibilitySettingsProvider(widget.args.subscriptionId),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -178,10 +177,7 @@ class _MemberCoachVisibilitySettingsScreenState
           decoration: BoxDecoration(
             color: AtelierColors.surfaceContainerLow,
             borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-            border: Border.all(
-              color: AtelierColors.outlineVariant,
-              width: 0.5,
-            ),
+            border: Border.all(color: AtelierColors.outlineVariant, width: 0.5),
           ),
           child: Column(
             children: [
@@ -219,8 +215,9 @@ class _MemberCoachVisibilitySettingsScreenState
         // ── Toggles ──
         _ToggleCard(
           icon: Icons.fitness_center_rounded,
-          title: 'AI Plan Summary',
-          subtitle: 'Share your active workout plan title, duration, and overview',
+          title: 'TAIYO Plan Summary',
+          subtitle:
+              'Share your active workout plan title, duration, and overview',
           value: _shareAiPlanSummary,
           onChanged: (v) => setState(() => _shareAiPlanSummary = v),
         ),
@@ -234,7 +231,8 @@ class _MemberCoachVisibilitySettingsScreenState
         _ToggleCard(
           icon: Icons.monitor_weight_outlined,
           title: 'Progress Metrics',
-          subtitle: 'Share weight trends, body measurements, and check-in scores',
+          subtitle:
+              'Share weight trends, body measurements, and check-in scores',
           value: _shareProgressMetrics,
           onChanged: (v) => setState(() => _shareProgressMetrics = v),
         ),
@@ -248,7 +246,7 @@ class _MemberCoachVisibilitySettingsScreenState
         _ToggleCard(
           icon: Icons.shopping_bag_outlined,
           title: 'Product Recommendations',
-          subtitle: 'Share AI-suggested products and equipment needs',
+          subtitle: 'Share TAIYO-suggested products and equipment needs',
           value: _shareProductRecommendations,
           onChanged: (v) => setState(() => _shareProductRecommendations = v),
         ),
@@ -301,8 +299,11 @@ class _MemberCoachVisibilitySettingsScreenState
           onTap: () => setState(() => _showAudit = !_showAudit),
           child: Row(
             children: [
-              Icon(Icons.history_rounded,
-                  size: 18, color: AppColors.textSecondary),
+              Icon(
+                Icons.history_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
               const SizedBox(width: AppSizes.sm),
               Expanded(
                 child: Text(
@@ -360,7 +361,9 @@ class _ToggleCard extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: AppSizes.md),
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.lg, vertical: AppSizes.md),
+        horizontal: AppSizes.lg,
+        vertical: AppSizes.md,
+      ),
       decoration: BoxDecoration(
         color: value
             ? AtelierColors.primary.withValues(alpha: 0.04)
@@ -436,16 +439,15 @@ class _AuditTimeline extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auditAsync =
-        ref.watch(memberVisibilityAuditProvider(subscriptionId));
+    final auditAsync = ref.watch(memberVisibilityAuditProvider(subscriptionId));
 
     return auditAsync.when(
       loading: () => const Padding(
         padding: EdgeInsets.all(AppSizes.lg),
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (e, _) => Text('Error: $e',
-          style: GoogleFonts.manrope(color: AppColors.error)),
+      error: (e, _) =>
+          Text('Error: $e', style: GoogleFonts.manrope(color: AppColors.error)),
       data: (entries) {
         if (entries.isEmpty) {
           return Padding(
@@ -453,7 +455,9 @@ class _AuditTimeline extends ConsumerWidget {
             child: Text(
               'No changes recorded yet',
               style: GoogleFonts.manrope(
-                  fontSize: 13, color: AppColors.textMuted),
+                fontSize: 13,
+                color: AppColors.textMuted,
+              ),
             ),
           );
         }
@@ -525,7 +529,9 @@ class _AuditEntry extends StatelessWidget {
                 Text(
                   _formatDate(audit.createdAt),
                   style: GoogleFonts.manrope(
-                      fontSize: 11, color: AppColors.textMuted),
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ],
             ),

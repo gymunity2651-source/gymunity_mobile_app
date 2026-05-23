@@ -268,9 +268,9 @@ class AppRoutes {
           );
         }
         return _featureRoute(
-          title: 'AI Generated Plan',
+          title: 'TAIYO Generated Plan',
           description:
-              'A draft id is required to review and activate an AI-generated plan.',
+              'A draft id is required to review and activate a TAIYO-generated plan.',
           icon: Icons.auto_awesome,
         );
       case activeWorkoutSession:

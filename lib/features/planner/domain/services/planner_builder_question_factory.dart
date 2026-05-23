@@ -26,7 +26,7 @@ class PlannerBuilderQuestionFactory {
               : 'You already have an active plan',
           description: ar
               ? 'يمكنك بناء خطة جديدة ومراجعتها قبل التفعيل. عند التفعيل سيتم أرشفة خطة الذكاء الاصطناعي الحالية.'
-              : 'You can build and review a new plan before activation. Activating it will archive your current AI plan.',
+              : 'You can build and review a new plan before activation. Activating it will archive your current TAIYO plan.',
           inputKind: PlannerBuilderInputKind.notice,
         ),
       );
@@ -655,7 +655,7 @@ class PlannerBuilderQuestionFactory {
       facts.add('Recent workouts');
     }
     if (context.activeAiPlan != null) {
-      facts.add('Active AI plan');
+      facts.add('Active TAIYO plan');
     }
     return facts;
   }

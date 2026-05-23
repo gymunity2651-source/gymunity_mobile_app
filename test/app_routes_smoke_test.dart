@@ -221,7 +221,7 @@ const _malformedArgumentRoutes = <_MalformedRouteCase>[
   _MalformedRouteCase(
     name: AppRoutes.aiGeneratedPlan,
     arguments: 'bad-args',
-    expectedTitle: 'AI Generated Plan',
+    expectedTitle: 'TAIYO Generated Plan',
   ),
   _MalformedRouteCase(
     name: AppRoutes.memberCoachKickoff,

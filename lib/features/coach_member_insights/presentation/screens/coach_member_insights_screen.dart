@@ -11,10 +11,7 @@ import '../providers/insight_providers.dart';
 /// Premium editorial dashboard showing a coach's aggregated view
 /// of a single member's consented insights.
 class CoachMemberInsightsScreen extends ConsumerWidget {
-  const CoachMemberInsightsScreen({
-    super.key,
-    required this.args,
-  });
+  const CoachMemberInsightsScreen({super.key, required this.args});
 
   final InsightDetailArgs args;
 
@@ -155,15 +152,19 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person_off_rounded,
-                size: 48, color: AppColors.textMuted),
+            Icon(
+              Icons.person_off_rounded,
+              size: 48,
+              color: AppColors.textMuted,
+            ),
             const SizedBox(height: AppSizes.lg),
             Text(
               'No active subscription found',
               style: GoogleFonts.notoSerif(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary),
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
           ],
         ),
@@ -201,9 +202,7 @@ class _InsightContent extends StatelessWidget {
         ),
 
         // ── Header card ──
-        SliverToBoxAdapter(
-          child: _MemberHeader(insight: insight),
-        ),
+        SliverToBoxAdapter(child: _MemberHeader(insight: insight)),
 
         // ── Risk flags banner ──
         if (insight.hasAnyRisk)
@@ -218,7 +217,7 @@ class _InsightContent extends StatelessWidget {
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               _InsightSection(
-                title: 'AI Plan Summary',
+                title: 'TAIYO Plan Summary',
                 icon: Icons.fitness_center_rounded,
                 isAvailable: insight.planInsight != null,
                 child: insight.planInsight != null
@@ -231,7 +230,8 @@ class _InsightContent extends StatelessWidget {
                 isAvailable: insight.adherenceInsight != null,
                 child: insight.adherenceInsight != null
                     ? _AdherenceInsightCard(
-                        adherence: insight.adherenceInsight!)
+                        adherence: insight.adherenceInsight!,
+                      )
                     : null,
               ),
               _InsightSection(
@@ -239,8 +239,7 @@ class _InsightContent extends StatelessWidget {
                 icon: Icons.monitor_weight_outlined,
                 isAvailable: insight.progressInsight != null,
                 child: insight.progressInsight != null
-                    ? _ProgressInsightCard(
-                        progress: insight.progressInsight!)
+                    ? _ProgressInsightCard(progress: insight.progressInsight!)
                     : null,
               ),
               _InsightSection(
@@ -249,7 +248,8 @@ class _InsightContent extends StatelessWidget {
                 isAvailable: insight.nutritionInsight != null,
                 child: insight.nutritionInsight != null
                     ? _NutritionInsightCard(
-                        nutrition: insight.nutritionInsight!)
+                        nutrition: insight.nutritionInsight!,
+                      )
                     : null,
               ),
               _InsightSection(
@@ -257,8 +257,7 @@ class _InsightContent extends StatelessWidget {
                 icon: Icons.shopping_bag_outlined,
                 isAvailable: insight.productInsight != null,
                 child: insight.productInsight != null
-                    ? _ProductInsightCard(
-                        product: insight.productInsight!)
+                    ? _ProductInsightCard(product: insight.productInsight!)
                     : null,
               ),
               const SizedBox(height: AppSizes.huge),
@@ -296,10 +295,7 @@ class _MemberHeader extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AtelierColors.surfaceContainerLow,
-              AtelierColors.surface,
-            ],
+            colors: [AtelierColors.surfaceContainerLow, AtelierColors.surface],
           ),
           borderRadius: BorderRadius.circular(AppSizes.radiusXl),
           border: Border.all(color: AtelierColors.outlineVariant, width: 0.5),
@@ -309,11 +305,11 @@ class _MemberHeader extends StatelessWidget {
             // Avatar
             CircleAvatar(
               radius: 30,
-              backgroundColor: AtelierColors.primaryContainer.withValues(alpha: 0.15),
+              backgroundColor: AtelierColors.primaryContainer.withValues(
+                alpha: 0.15,
+              ),
               child: Text(
-                (insight.memberName.isNotEmpty
-                        ? insight.memberName[0]
-                        : '?')
+                (insight.memberName.isNotEmpty ? insight.memberName[0] : '?')
                     .toUpperCase(),
                 style: GoogleFonts.notoSerif(
                   fontSize: 24,
@@ -403,8 +399,11 @@ class _RiskFlagBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.warning_amber_rounded,
-                color: AppColors.warning, size: 20),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.warning,
+              size: 20,
+            ),
             const SizedBox(width: AppSizes.sm),
             Expanded(
               child: Text(
@@ -458,7 +457,11 @@ class _InsightSection extends StatelessWidget {
             // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                  AppSizes.lg, AppSizes.lg, AppSizes.lg, AppSizes.sm),
+                AppSizes.lg,
+                AppSizes.lg,
+                AppSizes.lg,
+                AppSizes.sm,
+              ),
               child: Row(
                 children: [
                   Container(
@@ -467,8 +470,7 @@ class _InsightSection extends StatelessWidget {
                       color: isAvailable
                           ? AtelierColors.primary.withValues(alpha: 0.08)
                           : AppColors.shimmer,
-                      borderRadius:
-                          BorderRadius.circular(AppSizes.radiusSm),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusSm),
                     ),
                     child: Icon(
                       icon,
@@ -492,8 +494,11 @@ class _InsightSection extends StatelessWidget {
                     ),
                   ),
                   if (!isAvailable)
-                    Icon(Icons.lock_outline_rounded,
-                        size: 16, color: AppColors.textMuted),
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      size: 16,
+                      color: AppColors.textMuted,
+                    ),
                 ],
               ),
             ),
@@ -502,13 +507,21 @@ class _InsightSection extends StatelessWidget {
             if (isAvailable && child != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    AppSizes.lg, 0, AppSizes.lg, AppSizes.lg),
+                  AppSizes.lg,
+                  0,
+                  AppSizes.lg,
+                  AppSizes.lg,
+                ),
                 child: child!,
               )
             else
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    AppSizes.lg, 0, AppSizes.lg, AppSizes.lg),
+                  AppSizes.lg,
+                  0,
+                  AppSizes.lg,
+                  AppSizes.lg,
+                ),
                 child: Text(
                   'Member hasn\'t shared this data yet',
                   style: GoogleFonts.manrope(
@@ -553,18 +566,22 @@ class _PlanInsightCard extends StatelessWidget {
           runSpacing: AppSizes.xs,
           children: [
             _MetricChip(
-                label: '${plan.durationWeeks ?? 1}w',
-                icon: Icons.calendar_today_rounded),
+              label: '${plan.durationWeeks ?? 1}w',
+              icon: Icons.calendar_today_rounded,
+            ),
             _MetricChip(
-                label: '${plan.totalDays} days',
-                icon: Icons.view_day_rounded),
+              label: '${plan.totalDays} days',
+              icon: Icons.view_day_rounded,
+            ),
             _MetricChip(
-                label: '${plan.totalTasks} tasks',
-                icon: Icons.task_alt_rounded),
+              label: '${plan.totalTasks} tasks',
+              icon: Icons.task_alt_rounded,
+            ),
             if (plan.level != null)
               _MetricChip(
-                  label: plan.level!,
-                  icon: Icons.signal_cellular_alt_rounded),
+                label: plan.level!,
+                icon: Icons.signal_cellular_alt_rounded,
+              ),
           ],
         ),
         if (plan.summary != null && plan.summary!.isNotEmpty) ...[
@@ -574,7 +591,9 @@ class _PlanInsightCard extends StatelessWidget {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.manrope(
-                fontSize: 13, color: AppColors.textSecondary),
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ],
@@ -648,14 +667,10 @@ class _AdherenceInsightCard extends StatelessWidget {
           spacing: AppSizes.md,
           runSpacing: AppSizes.sm,
           children: [
-            _StatChip(
-                label: 'Completed', value: '${adherence.completedTasks}'),
-            _StatChip(
-                label: 'Partial', value: '${adherence.partialTasks}'),
-            _StatChip(
-                label: 'Skipped', value: '${adherence.skippedTasks}'),
-            _StatChip(
-                label: 'Missed', value: '${adherence.missedTasks}'),
+            _StatChip(label: 'Completed', value: '${adherence.completedTasks}'),
+            _StatChip(label: 'Partial', value: '${adherence.partialTasks}'),
+            _StatChip(label: 'Skipped', value: '${adherence.skippedTasks}'),
+            _StatChip(label: 'Missed', value: '${adherence.missedTasks}'),
           ],
         ),
       ],
@@ -707,8 +722,8 @@ class _ProgressInsightCard extends StatelessWidget {
                 color: progress.weightTrend == 'decreasing'
                     ? AppColors.success
                     : progress.weightTrend == 'increasing'
-                        ? AppColors.warning
-                        : AppColors.textMuted,
+                    ? AppColors.warning
+                    : AppColors.textMuted,
               ),
             ],
           ),
@@ -717,7 +732,9 @@ class _ProgressInsightCard extends StatelessWidget {
           Text(
             '4 weeks ago: ${progress.weight4wAgo!.toStringAsFixed(1)} kg',
             style: GoogleFonts.manrope(
-                fontSize: 13, color: AppColors.textSecondary),
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
         if (progress.latestMeasurement != null) ...[
@@ -728,14 +745,16 @@ class _ProgressInsightCard extends StatelessWidget {
             children: [
               if (progress.latestMeasurement!.waistCm != null)
                 _MetricChip(
-                    label:
-                        'Waist ${progress.latestMeasurement!.waistCm!.toStringAsFixed(1)} cm',
-                    icon: Icons.straighten_rounded),
+                  label:
+                      'Waist ${progress.latestMeasurement!.waistCm!.toStringAsFixed(1)} cm',
+                  icon: Icons.straighten_rounded,
+                ),
               if (progress.latestMeasurement!.bodyFatPercent != null)
                 _MetricChip(
-                    label:
-                        'BF ${progress.latestMeasurement!.bodyFatPercent!.toStringAsFixed(1)}%',
-                    icon: Icons.percent_rounded),
+                  label:
+                      'BF ${progress.latestMeasurement!.bodyFatPercent!.toStringAsFixed(1)}%',
+                  icon: Icons.percent_rounded,
+                ),
             ],
           ),
         ],
@@ -744,7 +763,9 @@ class _ProgressInsightCard extends StatelessWidget {
           Text(
             'Last check-in adherence: ${progress.latestCheckinAdherence}%',
             style: GoogleFonts.manrope(
-                fontSize: 13, color: AppColors.textSecondary),
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ],
@@ -782,16 +803,19 @@ class _NutritionInsightCard extends StatelessWidget {
           children: [
             if (nutrition.targetProteinG != null)
               _MetricChip(
-                  label: 'P ${nutrition.targetProteinG}g',
-                  icon: Icons.egg_rounded),
+                label: 'P ${nutrition.targetProteinG}g',
+                icon: Icons.egg_rounded,
+              ),
             if (nutrition.targetCarbsG != null)
               _MetricChip(
-                  label: 'C ${nutrition.targetCarbsG}g',
-                  icon: Icons.grain_rounded),
+                label: 'C ${nutrition.targetCarbsG}g',
+                icon: Icons.grain_rounded,
+              ),
             if (nutrition.targetFatsG != null)
               _MetricChip(
-                  label: 'F ${nutrition.targetFatsG}g',
-                  icon: Icons.water_drop_rounded),
+                label: 'F ${nutrition.targetFatsG}g',
+                icon: Icons.water_drop_rounded,
+              ),
           ],
         ),
         const SizedBox(height: AppSizes.md),
@@ -812,7 +836,9 @@ class _NutritionInsightCard extends StatelessWidget {
                   ? 'Active meal plan'
                   : 'No active meal plan',
               style: GoogleFonts.manrope(
-                  fontSize: 13, color: AppColors.textSecondary),
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -838,8 +864,7 @@ class _ProductInsightCard extends StatelessWidget {
     if (!hasRecommended && !hasPurchased) {
       return Text(
         'No product intelligence available yet',
-        style:
-            GoogleFonts.manrope(fontSize: 13, color: AppColors.textMuted),
+        style: GoogleFonts.manrope(fontSize: 13, color: AppColors.textMuted),
       );
     }
 
@@ -856,7 +881,9 @@ class _ProductInsightCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSizes.xs),
-          ...product.recommendedProducts.take(3).map(
+          ...product.recommendedProducts
+              .take(3)
+              .map(
                 (r) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
@@ -867,7 +894,9 @@ class _ProductInsightCard extends StatelessWidget {
                         child: Text(
                           r.productTitle,
                           style: GoogleFonts.manrope(
-                              fontSize: 13, color: AppColors.textPrimary),
+                            fontSize: 13,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
                       _ContextBadge(context: r.context),
@@ -887,19 +916,26 @@ class _ProductInsightCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSizes.xs),
-          ...product.purchasedRelevant.take(3).map(
+          ...product.purchasedRelevant
+              .take(3)
+              .map(
                 (p) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
                     children: [
-                      Icon(Icons.check_circle_outline,
-                          size: 14, color: AppColors.success),
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 14,
+                        color: AppColors.success,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           '${p.productTitle} ×${p.quantity}',
                           style: GoogleFonts.manrope(
-                              fontSize: 13, color: AppColors.textPrimary),
+                            fontSize: 13,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -970,7 +1006,9 @@ class _StatChip extends StatelessWidget {
         Text(
           label,
           style: GoogleFonts.manrope(
-              fontSize: 11, color: AppColors.textSecondary),
+            fontSize: 11,
+            color: AppColors.textSecondary,
+          ),
         ),
       ],
     );
@@ -985,7 +1023,7 @@ class _ContextBadge extends StatelessWidget {
   String get _label {
     switch (context) {
       case 'ai_plan_accessory':
-        return 'AI Plan';
+        return 'TAIYO Plan';
       case 'nutrition_goal':
         return 'Nutrition';
       case 'equipment_gap':

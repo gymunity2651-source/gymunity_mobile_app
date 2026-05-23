@@ -165,7 +165,7 @@ class PlannerBuilderController extends StateNotifier<PlannerBuilderState> {
       final sessionId = state.sessionId?.trim().isNotEmpty == true
           ? state.sessionId!
           : (await chatRepository.createSession(
-              title: 'AI Builder Plan',
+              title: 'TAIYO Plan Builder Plan',
               type: ChatSessionType.planner,
             )).id;
       final result = await _ref

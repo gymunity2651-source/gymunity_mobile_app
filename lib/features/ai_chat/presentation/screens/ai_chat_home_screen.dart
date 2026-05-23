@@ -615,7 +615,7 @@ class _TaiyoHeroSection extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          'Multi-Agent AI System',
+          'TAIYO Agent System',
           style: GoogleFonts.manrope(
             fontSize: 12,
             fontWeight: FontWeight.w800,
@@ -756,7 +756,7 @@ class _TaiyoCommandDeck extends StatelessWidget {
               const TaiyoPulsingDot(color: Color(0xFF4ADE80), size: 5),
               const SizedBox(width: 6),
               Text(
-                'AI SYSTEM READY',
+                'TAIYO SYSTEM READY',
                 style: GoogleFonts.manrope(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,

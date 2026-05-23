@@ -168,7 +168,7 @@ class ChatRepositoryImpl implements ChatRepository {
       final userMessageId = userMessageRow['id']?.toString().trim() ?? '';
       if (userMessageId.isEmpty) {
         throw const NetworkFailure(
-          message: 'Unable to queue this AI message right now.',
+          message: 'Unable to queue this TAIYO message right now.',
         );
       }
 

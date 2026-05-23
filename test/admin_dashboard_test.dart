@@ -189,43 +189,44 @@ void main() {
     expect(find.text('Raw Paymob payload'), findsOneWidget);
   });
 
-  testWidgets('payment details render AI risk explanation without mutation', (
-    tester,
-  ) async {
-    final adminRepo = FakeAdminRepository()
-      ..currentAdmin = const AdminUserEntity(
-        userId: 'admin-1',
-        role: 'finance_admin',
-        isActive: true,
-      )
-      ..taiyoBrief = const AdminTaiyoBriefEntity(
-        requestType: 'payment_order_risk',
-        status: 'success',
-        statusSummary: 'Paid order needs subscription reconciliation.',
-        riskLevel: 'high',
-        recommendedAdminAction: 'admin_reconcile_payment_order',
-        actionLabel: 'Reconcile payment order',
-        reason: 'Admin must confirm before running the existing action.',
+  testWidgets(
+    'payment details render TAIYO risk explanation without mutation',
+    (tester) async {
+      final adminRepo = FakeAdminRepository()
+        ..currentAdmin = const AdminUserEntity(
+          userId: 'admin-1',
+          role: 'finance_admin',
+          isActive: true,
+        )
+        ..taiyoBrief = const AdminTaiyoBriefEntity(
+          requestType: 'payment_order_risk',
+          status: 'success',
+          statusSummary: 'Paid order needs subscription reconciliation.',
+          riskLevel: 'high',
+          recommendedAdminAction: 'admin_reconcile_payment_order',
+          actionLabel: 'Reconcile payment order',
+          reason: 'Admin must confirm before running the existing action.',
+        );
+
+      await _pumpAdmin(tester, adminRepo);
+      await tester.tap(find.text('Payments'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Starter Coaching'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TAIYO Risk Explanation'), findsOneWidget);
+      expect(
+        find.text('Paid order needs subscription reconciliation.'),
+        findsOneWidget,
       );
+      expect(find.text('Manual confirmation required'), findsOneWidget);
+      expect(adminRepo.lastTaiyoAdminRequestType, 'payment_order_risk');
+      expect(adminRepo.lastTaiyoAdminPaymentOrderId, 'payment-1');
+      expect(adminRepo.calls, isEmpty);
+    },
+  );
 
-    await _pumpAdmin(tester, adminRepo);
-    await tester.tap(find.text('Payments'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Starter Coaching'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('AI Risk Explanation'), findsOneWidget);
-    expect(
-      find.text('Paid order needs subscription reconciliation.'),
-      findsOneWidget,
-    );
-    expect(find.text('Manual confirmation required'), findsOneWidget);
-    expect(adminRepo.lastTaiyoAdminRequestType, 'payment_order_risk');
-    expect(adminRepo.lastTaiyoAdminPaymentOrderId, 'payment-1');
-    expect(adminRepo.calls, isEmpty);
-  });
-
-  testWidgets('payout details render AI payout review without mutation', (
+  testWidgets('payout details render TAIYO payout review without mutation', (
     tester,
   ) async {
     final adminRepo = FakeAdminRepository()
@@ -249,7 +250,7 @@ void main() {
     await tester.tap(find.text('Details').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('AI Payout Review'), findsOneWidget);
+    expect(find.text('TAIYO Payout Review'), findsOneWidget);
     expect(find.text('Payout is ready for manual review.'), findsOneWidget);
     expect(adminRepo.lastTaiyoAdminRequestType, 'payout_review');
     expect(adminRepo.lastTaiyoAdminPayoutId, 'payout-1');

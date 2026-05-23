@@ -14,7 +14,7 @@ import 'test_doubles.dart';
 
 void main() {
   group('Member shell phone smoke', () {
-    testWidgets('AI coach screen', (tester) async {
+    testWidgets('TAIYO coach screen', (tester) async {
       await _pumpPhoneScreen(tester, const AiCoachHomeScreen());
       expect(tester.takeException(), isNull);
     });
@@ -74,7 +74,9 @@ Future<void> _pumpPhoneScreen(WidgetTester tester, Widget child) async {
       overrides: <Override>[
         authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
         userRepositoryProvider.overrideWithValue(userRepository),
-        authCallbackIngressProvider.overrideWithValue(FakeAuthCallbackIngress()),
+        authCallbackIngressProvider.overrideWithValue(
+          FakeAuthCallbackIngress(),
+        ),
         storeRepositoryProvider.overrideWithValue(FakeStoreRepository()),
         newsRepositoryProvider.overrideWithValue(newsRepository),
         coachRepositoryProvider.overrideWithValue(FakeCoachRepository()),

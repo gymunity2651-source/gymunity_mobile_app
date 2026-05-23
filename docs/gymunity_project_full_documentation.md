@@ -3,7 +3,7 @@
 Updated on: 2026-04-27
 Repository: `my_app`
 Product name: `GymUnity`
-AI brand: `TAIYO`
+TAIYO brand: `TAIYO`
 Backend: Supabase project `gymunity` (`pooelnnveljiikpdrvqw`)
 
 This document describes the current GymUnity workspace as verified from the
@@ -68,7 +68,7 @@ rotate/revoke it before any production deployment.
 GymUnity is a multi-role fitness platform. The current codebase includes:
 
 - authentication, email/OAuth callback handling, role selection, and onboarding
-- member home, progress, active workout sessions, AI workout planning, TAIYO
+- member home, progress, active workout sessions, TAIYO workout planning, TAIYO
   chat, TAIYO coach briefs, nutrition, news, store, orders, coaching
   subscriptions, messages, check-ins, and notification surfaces
 - coach marketplace, public coach profiles, package publishing, client
@@ -78,7 +78,7 @@ GymUnity is a multi-role fitness platform. The current codebase includes:
 - seller dashboard, product management, seller order management, and seller
   profile
 - admin dashboard for Paymob coach-payment settlement and payout tracking
-- app-store monetization for AI premium entitlements
+- app-store monetization for TAIYO Premium entitlements
 - account deletion and support/legal settings
 
 ## Runtime Architecture
@@ -134,7 +134,7 @@ Feature flags:
 - `ENABLE_COACH_MANUAL_PAYMENT_PROOFS`
 - `ENABLE_AI_PREMIUM`
 
-AI premium product identifiers:
+TAIYO Premium product identifiers:
 
 - `APPLE_AI_PREMIUM_MONTHLY_PRODUCT_ID`
 - `APPLE_AI_PREMIUM_ANNUAL_PRODUCT_ID`
@@ -186,7 +186,7 @@ Global providers live in `lib/core/di/providers.dart`.
 | `coachRepositoryProvider` | coach marketplace/workspace/client tools |
 | `coachPaymentRepositoryProvider` | Paymob checkout and payment order status |
 | `memberRepositoryProvider` | member home, progress, subscriptions, messages |
-| `plannerRepositoryProvider` | AI workout plan drafts, activation, reminders |
+| `plannerRepositoryProvider` | TAIYO workout plan drafts, activation, reminders |
 | `sellerRepositoryProvider` | seller profile, products, orders |
 | `billingRepositoryProvider` | local app-store purchase APIs |
 | `entitlementRepositoryProvider` | backend premium entitlement sync |
@@ -218,7 +218,7 @@ Routing is in `lib/app/routes.dart` using `MaterialPageRoute` and a manual
 | `/coach-onboarding` | `CoachOnboardingScreen` |
 | `/seller-onboarding` | `SellerOnboardingScreen` |
 
-### Member, AI, Nutrition, and News
+### Member, TAIYO, Nutrition, and News
 
 | Route | Screen |
 | --- | --- |
@@ -331,9 +331,9 @@ Member features include:
 
 - profile and progress metrics
 - home summary cards and daily streak
-- AI workout plan builder and active plan review
+- TAIYO workout plan builder and active plan review
 - active workout session tracking
-- TAIYO chat and AI coach surfaces
+- TAIYO chat and TAIYO coach surfaces
 - nutrition setup, targets, generated meal plans, planned meals, meal logs,
   hydration, and insights
 - coach discovery and coaching subscriptions
@@ -344,7 +344,7 @@ Member features include:
 
 ### TAIYO Chat and Planner
 
-`ai_chat` covers chat sessions/messages and AI planner chat.
+`ai_chat` covers chat sessions/messages and TAIYO planner chat.
 
 Backend anchors:
 
@@ -369,7 +369,7 @@ fan-out.
 
 - readiness logs
 - daily brief
-- AI nudges
+- TAIYO nudges
 - plan adaptations
 - active workout sessions and events
 - weekly summaries
@@ -652,7 +652,7 @@ RPCs:
 - `list_coach_member_insight_summaries()`
 - `list_visibility_audit(...)`
 
-Visibility categories include progress metrics, nutrition summary, AI summary,
+Visibility categories include progress metrics, nutrition summary, TAIYO summary,
 store activity, and product recommendation context. Defaults are off at the
 database layer.
 
@@ -736,7 +736,7 @@ Functions and RPCs:
 
 ### Monetization
 
-AI premium monetization uses app-store purchase listeners and backend
+TAIYO Premium monetization uses app-store purchase listeners and backend
 entitlements.
 
 Tables:
@@ -837,7 +837,7 @@ Coverage areas include:
 - onboarding behavior
 - member home shell/content summaries
 - member repository behavior
-- AI chat and AI coach screens/providers/repositories
+- TAIYO chat and TAIYO coach screens/providers/repositories
 - planner question factory, planner UI, reminders, generated plan review,
   workout plan/day details, and active workout session
 - news model, card, and feed behavior
@@ -1381,7 +1381,7 @@ Purpose:
 
 - general TAIYO conversation
 - planner-aware chat sessions
-- AI planner turn parsing
+- TAIYO planner turn parsing
 - assistant message streaming via Supabase realtime/polling pattern
 
 Entities:
@@ -1404,7 +1404,7 @@ Important behavior:
 - user message is written before function invocation
 - `ai-chat` Edge Function creates assistant responses
 - planner sessions can create/update `ai_plan_drafts`
-- chat surfaces are gated by AI premium when `ENABLE_AI_PREMIUM=true`
+- chat surfaces are gated by TAIYO Premium when `ENABLE_AI_PREMIUM=true`
 
 ### `ai_coach`
 
@@ -1444,7 +1444,7 @@ Fallback behavior:
 
 Purpose:
 
-- guided AI workout plan intake
+- guided TAIYO workout plan intake
 - draft review
 - activation into normalized workout plan rows
 - agenda display
@@ -1615,7 +1615,7 @@ Repository contract:
 
 Purpose:
 
-- AI premium product catalog
+- TAIYO Premium product catalog
 - purchase and restore flows
 - app-store purchase stream handling
 - backend entitlement refresh and purchase sync
@@ -1696,7 +1696,7 @@ The current migration set declares these tables.
 - `public.member_active_workout_sessions`
 - `public.member_active_workout_events`
 
-### AI Chat and Memory
+### TAIYO Chat and Memory
 
 - `public.chat_sessions`
 - `public.chat_messages`
@@ -1982,8 +1982,8 @@ The current migration set declares these tables.
 | `20260312000006_core_role_flows.sql` | member/seller profiles, preferences, measurements, packages, availability, sessions, order items/history, reviews, dashboards |
 | `20260312000007_store_orders_hardening.sql` | stronger store checkout/order functions and seller order details |
 | `20260312000008_monetization_billing.sql` | billing products, customers, transactions, entitlements, sync events |
-| `20260313000009_ai_member_planner.sql` | AI plan drafts, workout plan days/tasks/logs, activation and reminders |
-| `20260315000010_ai_personalization_memory.sql` | AI memory/session personalization |
+| `20260313000009_ai_member_planner.sql` | TAIYO plan drafts, workout plan days/tasks/logs, activation and reminders |
+| `20260315000010_ai_personalization_memory.sql` | TAIYO memory/session personalization |
 | `20260316000011_hard_delete_account.sql` | hard-delete preparation and cleanup helpers |
 | `20260316000012_personalized_news.sql` | news sources/articles/topics/interests/interactions/bookmarks and feed RPCs |
 | `20260316000013_news_sync_scheduler.sql` | private news scheduler config and scheduler helpers |
@@ -1997,9 +1997,9 @@ The current migration set declares these tables.
 | `20260421000021_coach_calendar_booking.sql` | coach session types and bookings |
 | `20260421000022_coach_billing_verification.sql` | legacy manual payment receipt bucket/table/RPCs |
 | `20260421000023_coach_public_profile_conversion.sql` | public coach profile conversion helpers |
-| `20260421000024_taiyo_member_os.sql` | AI coach/member OS tables and RPCs |
+| `20260421000024_taiyo_member_os.sql` | TAIYO coach/member OS tables and RPCs |
 | `20260422000025_member_daily_streak.sql` | member daily streak tracking |
-| `20260425000026_fix_ai_coach_context_subscription_thread.sql` | AI coach context fix around subscription/thread data |
+| `20260425000026_fix_ai_coach_context_subscription_thread.sql` | TAIYO coach context fix around subscription/thread data |
 | `20260425000027_fix_active_workout_start_uuid_min.sql` | active workout start UUID/min fix |
 | `20260425000028_harden_coach_member_feedback.sql` | coach feedback hardening |
 | `20260425000029_publish_complete_coach_offers.sql` | publish complete draft coach offers |
@@ -2198,10 +2198,10 @@ Failure states:
 - deleted account: forced logout and deleted terminal state
 - missing profile: role selection recovery
 
-### Member Starts AI Plan
+### Member Starts TAIYO Plan
 
 ```text
-member opens AI/planner
+member opens TAIYO/planner
   -> planner builder reads profile, preferences, memories, plans, progress
   -> question factory asks missing high-signal questions
   -> chat session of type planner
@@ -2228,7 +2228,7 @@ workout plan/day route
 ### Member Uses TAIYO Coach
 
 ```text
-AI Coach home
+TAIYO Coach home
   -> get/refresh daily brief
   -> optionally upsert readiness
   -> list nudges
@@ -2343,7 +2343,7 @@ Before treating the app as production-ready:
 5. Verify Supabase linked migration list matches local migrations through
    `20260427000038`.
 6. Deploy required Edge Functions.
-7. Set Edge Function secrets for AI, billing, news, and Paymob.
+7. Set Edge Function secrets for TAIYO, billing, news, and Paymob.
 8. Verify storage buckets and policies exist live.
 9. Verify auth redirect URLs for mobile and recovery flows.
 10. Run member onboarding, coach onboarding, seller onboarding smoke tests.
@@ -2380,8 +2380,8 @@ GymUnity has evolved from a role-based fitness app into a larger operating
 system around three commercial loops:
 
 1. Member self-service loop:
-   member signs up, completes profile, gets AI/nutrition/workout guidance,
-   tracks progress, reads news, buys products, and optionally upgrades AI.
+   member signs up, completes profile, gets TAIYO/nutrition/workout guidance,
+   tracks progress, reads news, buys products, and optionally upgrades TAIYO.
 
 2. Coaching marketplace loop:
    coach publishes profile/packages, member pays for coaching, a subscription
@@ -2396,5 +2396,5 @@ system around three commercial loops:
 The codebase has local implementations for these loops, but the highest-risk
 boundary is backend parity. The repo describes a much richer backend than the
 last historical live checks. A fresh Supabase migration/function/storage/secret
-audit is required before relying on the latest Paymob, admin, AI coach, and
+audit is required before relying on the latest Paymob, admin, TAIYO coach, and
 coach workspace systems in production.

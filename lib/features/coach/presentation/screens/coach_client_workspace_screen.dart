@@ -851,7 +851,7 @@ class _PrivacyTab extends StatelessWidget {
               ? 'Member consent active'
               : 'Privacy locked',
           body:
-              'Progress, workout, nutrition, purchase, and AI plan insights remain member-controlled.',
+              'Progress, workout, nutrition, purchase, and TAIYO plan insights remain member-controlled.',
         ),
         const SizedBox(height: 12),
         _InfoGrid(
@@ -869,7 +869,7 @@ class _PrivacyTab extends StatelessWidget {
               visibility?.shareNutritionSummary == true ? 'Shared' : 'Locked',
             ),
             _InfoItem(
-              'AI plan',
+              'TAIYO plan',
               visibility?.shareAiPlanSummary == true ? 'Shared' : 'Locked',
             ),
           ],

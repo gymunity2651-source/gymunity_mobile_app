@@ -1408,7 +1408,7 @@ class _CurrentPlanSummaryCard extends StatelessWidget {
         label: 'CURRENT PLAN',
         headline: 'Loading...',
         compactHeadline: true,
-        supportingText: 'Checking your live AI plan.',
+        supportingText: 'Checking your live TAIYO plan.',
         trailingWidget: _MetricLoadingGlyph(),
       ),
       error: (_, _) => const _DashboardMetricTile(
@@ -1418,7 +1418,7 @@ class _CurrentPlanSummaryCard extends StatelessWidget {
         label: 'CURRENT PLAN',
         headline: 'Unavailable',
         compactHeadline: true,
-        supportingText: 'Unable to load AI plan status.',
+        supportingText: 'Unable to load TAIYO plan status.',
         trailingWidget: _MetricErrorGlyph(),
       ),
       data: (summary) {
@@ -1471,7 +1471,7 @@ class _CurrentPlanSummaryCard extends StatelessWidget {
     String? planTitle,
   }) {
     if (!hasActivePlan) {
-      return 'Tap to build and activate your AI workout plan.';
+      return 'Tap to build and activate your TAIYO workout plan.';
     }
     final title = planTitle?.trim();
     if (title != null && title.isNotEmpty) {
@@ -2054,7 +2054,7 @@ class _AiCoachFeaturedCard extends StatelessWidget {
                 ),
                 error: (error, stackTrace) => _buildCopy(
                   title: 'Open TAIYO',
-                  subtitle: 'Daily AI coaching and workout guidance',
+                  subtitle: 'Daily TAIYO coaching and workout guidance',
                 ),
                 data: (brief) => _buildCopy(
                   title: _resolveBriefTitle(brief),
@@ -2114,7 +2114,7 @@ class _AiCoachFeaturedCard extends StatelessWidget {
     if (subtitle != null && subtitle.isNotEmpty) {
       return subtitle;
     }
-    return 'Daily AI coaching and workout guidance';
+    return 'Daily TAIYO coaching and workout guidance';
   }
 }
 

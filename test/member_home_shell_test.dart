@@ -28,7 +28,7 @@ void main() {
       },
     );
 
-    testWidgets('AI tab remains on the TAIYO home after rebuild', (
+    testWidgets('TAIYO tab remains on the TAIYO home after rebuild', (
       tester,
     ) async {
       final widget = _buildShellApp();
@@ -43,7 +43,7 @@ void main() {
       await tester.pumpWidget(widget);
       await _settleShell(tester);
 
-      await tester.tap(find.byKey(const Key('member-nav-AI')));
+      await tester.tap(find.byKey(const Key('member-nav-TAIYO')));
       await _settleShell(tester);
 
       expect(find.text('TAIYO Coach'), findsOneWidget);
@@ -106,7 +106,7 @@ void main() {
       expect(find.text('Daily guidance in one screen'), findsOneWidget);
     });
 
-    testWidgets('bottom nav styling stays consistent on the AI tab', (
+    testWidgets('bottom nav styling stays consistent on the TAIYO tab', (
       tester,
     ) async {
       await _pumpMemberShell(tester);
@@ -116,7 +116,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byKey(const Key('member-nav-AI')));
+      await tester.tap(find.byKey(const Key('member-nav-TAIYO')));
       await _settleShell(tester);
 
       expect(
@@ -194,7 +194,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byKey(const Key('member-nav-AI')));
+      await tester.tap(find.byKey(const Key('member-nav-TAIYO')));
       await _settleShell(tester);
       await tester.tap(find.byKey(const Key('member-nav-HOME')));
       await _settleShell(tester);

@@ -161,7 +161,7 @@ void main() {
       },
     );
 
-    testWidgets('current plan card only goes live for active AI plans', (
+    testWidgets('current plan card only goes live for active TAIYO plans', (
       tester,
     ) async {
       final nonAiPlan = const WorkoutPlanEntity(
@@ -235,7 +235,7 @@ void main() {
       expect(find.byType(ErrorWidget), findsNothing);
       expect(find.text('Today\'s plan'), findsOneWidget);
       expect(
-        find.text('Daily AI coaching and workout guidance'),
+        find.text('Daily TAIYO coaching and workout guidance'),
         findsOneWidget,
       );
     });

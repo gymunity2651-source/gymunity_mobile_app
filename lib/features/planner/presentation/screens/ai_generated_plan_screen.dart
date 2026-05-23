@@ -70,8 +70,8 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
                   icon: Icons.auto_awesome_outlined,
                   title: 'Draft not found',
                   description:
-                      'This AI Builder draft is no longer available. Open the guided builder to generate a new plan.',
-                  primaryLabel: 'Open AI Builder',
+                      'This TAIYO Plan Builder draft is no longer available. Open the guided builder to generate a new plan.',
+                  primaryLabel: 'Open TAIYO Plan Builder',
                   onPrimaryTap: () => Navigator.pushNamed(
                     context,
                     AppRoutes.aiPlannerBuilder,
@@ -367,7 +367,10 @@ class _AiGeneratedPlanScreenState extends ConsumerState<AiGeneratedPlanScreen> {
         );
         return;
       }
-      showAppFeedback(context, 'The AI Builder plan draft has been refreshed.');
+      showAppFeedback(
+        context,
+        'The TAIYO Plan Builder draft has been refreshed.',
+      );
     } catch (_) {
       if (!mounted) {
         return;
@@ -488,7 +491,7 @@ class _ReviewTopBar extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            'Review AI Builder Plan',
+            'Review TAIYO Plan Builder Plan',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.notoSerif(

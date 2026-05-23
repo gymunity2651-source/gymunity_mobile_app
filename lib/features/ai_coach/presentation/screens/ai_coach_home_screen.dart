@@ -74,8 +74,7 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
           ),
           IconButton(
             tooltip: 'Open chat',
-            onPressed: () =>
-                Navigator.pushNamed(context, AppRoutes.aiChatHome),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.aiChatHome),
             icon: const Icon(Icons.chat_bubble_outline_rounded),
           ),
         ],
@@ -749,10 +748,9 @@ class _CoachHeroCard extends StatelessWidget {
             children: [
               const TaiyoPulsingDot(color: Color(0xFF4ADE80), size: 7),
               const SizedBox(width: 6),
-              const TaiyoAiShimmerText(text: 'TAIYO AI ANALYSIS'),
+              const TaiyoAiShimmerText(text: 'TAIYO ANALYSIS'),
               const Spacer(),
-              if (brief.coachMode)
-                const _HeroChip(label: 'COACH-AWARE'),
+              if (brief.coachMode) const _HeroChip(label: 'COACH-AWARE'),
             ],
           ),
           const SizedBox(height: 16),
@@ -914,7 +912,7 @@ class _CoachHeroCard extends StatelessWidget {
                 onPressed: onAskWhy,
                 style: TextButton.styleFrom(foregroundColor: Colors.white),
                 icon: const Icon(Icons.psychology_alt_outlined),
-                label: const Text('Ask AI why'),
+                label: const Text('Ask TAIYO why'),
               ),
             ],
           ),
@@ -956,10 +954,7 @@ class _TaiyoCoachEntryCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF1A1A2E),
-            Color(0xFF16213E),
-          ],
+          colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -984,7 +979,10 @@ class _TaiyoCoachEntryCard extends StatelessWidget {
                   height: 36,
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [AtelierColors.primary, AtelierColors.primaryContainer],
+                      colors: [
+                        AtelierColors.primary,
+                        AtelierColors.primaryContainer,
+                      ],
                     ),
                     shape: BoxShape.circle,
                   ),
@@ -1035,10 +1033,19 @@ class _TaiyoCoachEntryCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _AgentMiniChip(label: 'Training', color: const Color(0xFF4ADE80)),
-                _AgentMiniChip(label: 'Nutrition', color: const Color(0xFFFBBF24)),
+                _AgentMiniChip(
+                  label: 'Training',
+                  color: const Color(0xFF4ADE80),
+                ),
+                _AgentMiniChip(
+                  label: 'Nutrition',
+                  color: const Color(0xFFFBBF24),
+                ),
                 _AgentMiniChip(label: 'Safety', color: const Color(0xFFF87171)),
-                _AgentMiniChip(label: 'Planner', color: const Color(0xFF60A5FA)),
+                _AgentMiniChip(
+                  label: 'Planner',
+                  color: const Color(0xFF60A5FA),
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -1069,8 +1076,11 @@ class _TaiyoCoachEntryCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     key: const Key('taiyo-coach-open-chat-button'),
                     onPressed: onOpenChat,
-                    icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                    label: const Text('AI Chat'),
+                    icon: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 18,
+                    ),
+                    label: const Text('TAIYO Chat'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: BorderSide(
@@ -1127,10 +1137,7 @@ class _AgentMiniChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(9999),
-        border: Border.all(
-          color: color.withValues(alpha: 0.25),
-          width: 0.5,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1138,10 +1145,7 @@ class _AgentMiniChip extends StatelessWidget {
           Container(
             width: 5,
             height: 5,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-            ),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
           ),
           const SizedBox(width: 6),
           Text(
@@ -1182,7 +1186,7 @@ class _SignalCard extends StatelessWidget {
               Icon(icon, color: AtelierColors.primary),
               const Spacer(),
               const TaiyoAgentBadge(
-                label: 'AI Insight',
+                label: 'TAIYO Insight',
                 icon: Icons.auto_awesome,
                 color: AtelierColors.primary,
               ),
@@ -1459,7 +1463,7 @@ class _WeeklySummaryCard extends StatelessWidget {
               ),
               const Spacer(),
               const TaiyoAgentBadge(
-                label: 'AI Analyzed',
+                label: 'TAIYO Analyzed',
                 icon: Icons.insights_rounded,
                 color: AtelierColors.primary,
               ),
