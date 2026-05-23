@@ -74,10 +74,8 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
           ),
           IconButton(
             tooltip: 'Open chat',
-            onPressed: () => _openChat(
-              prompt:
-                  'Give me a quick coaching view of today and any adjustments I should make.',
-            ),
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.aiChatHome),
             icon: const Icon(Icons.chat_bubble_outline_rounded),
           ),
         ],
@@ -203,10 +201,8 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
                 _TaiyoCoachEntryCard(
                   onOpenBuilder: () =>
                       Navigator.pushNamed(context, AppRoutes.aiPlannerBuilder),
-                  onOpenChat: () => _openChat(
-                    prompt:
-                        'Give me a quick coaching view of today and any adjustments I should make.',
-                  ),
+                  onOpenChat: () =>
+                      Navigator.pushNamed(context, AppRoutes.aiChatHome),
                 ),
                 const SizedBox(height: 16),
                 _CoachSurface(
@@ -957,62 +953,204 @@ class _TaiyoCoachEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _CoachSurface(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Open TAIYO tools',
-            style: GoogleFonts.manrope(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: AtelierColors.onSurface,
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1A1A2E),
+            Color(0xFF16213E),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1A1A2E).withValues(alpha: 0.35),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Jump directly into the guided builder or open chat without relying on the small header icons.',
-            style: GoogleFonts.manrope(
-              fontSize: 12,
-              height: 1.5,
-              color: AtelierColors.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final buildButton = FilledButton.icon(
-                key: const Key('taiyo-coach-open-builder-button'),
-                onPressed: onOpenBuilder,
-                icon: const Icon(Icons.architecture_outlined),
-                label: const Text('Build'),
-              );
-              final chatButton = OutlinedButton.icon(
-                key: const Key('taiyo-coach-open-chat-button'),
-                onPressed: onOpenChat,
-                icon: const Icon(Icons.chat_bubble_outline_rounded),
-                label: const Text('Chat'),
-              );
-
-              if (constraints.maxWidth < 520) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AtelierColors.primary, AtelierColors.primaryContainer],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    buildButton,
-                    const SizedBox(height: 10),
-                    chatButton,
+                    Text(
+                      'TAIYO Intelligence',
+                      style: GoogleFonts.notoSerif(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        const TaiyoPulsingDot(
+                          color: Color(0xFF4ADE80),
+                          size: 5,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'MULTI-AGENT SYSTEM READY',
+                          style: GoogleFonts.manrope(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                            color: const Color(0xFF4ADE80),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            // Agent preview chips
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _AgentMiniChip(label: 'Training', color: const Color(0xFF4ADE80)),
+                _AgentMiniChip(label: 'Nutrition', color: const Color(0xFFFBBF24)),
+                _AgentMiniChip(label: 'Safety', color: const Color(0xFFF87171)),
+                _AgentMiniChip(label: 'Planner', color: const Color(0xFF60A5FA)),
+              ],
+            ),
+            const SizedBox(height: 18),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final buildButton = SizedBox(
+                  height: 48,
+                  child: FilledButton.icon(
+                    key: const Key('taiyo-coach-open-builder-button'),
+                    onPressed: onOpenBuilder,
+                    icon: const Icon(Icons.architecture_outlined, size: 18),
+                    label: const Text('Plan Builder'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AtelierColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9999),
+                      ),
+                      textStyle: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                );
+                final chatButton = SizedBox(
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    key: const Key('taiyo-coach-open-chat-button'),
+                    onPressed: onOpenChat,
+                    icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                    label: const Text('AI Chat'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9999),
+                      ),
+                      textStyle: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                );
+
+                if (constraints.maxWidth < 520) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      buildButton,
+                      const SizedBox(height: 10),
+                      chatButton,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: buildButton),
+                    const SizedBox(width: 10),
+                    Expanded(child: chatButton),
                   ],
                 );
-              }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-              return Row(
-                children: [
-                  Expanded(child: buildButton),
-                  const SizedBox(width: 10),
-                  Expanded(child: chatButton),
-                ],
-              );
-            },
+class _AgentMiniChip extends StatelessWidget {
+  const _AgentMiniChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(9999),
+        border: Border.all(
+          color: color.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
         ],
       ),
