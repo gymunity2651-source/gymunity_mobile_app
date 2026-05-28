@@ -7,6 +7,7 @@ import 'package:my_app/features/member/domain/entities/member_home_summary_entit
 import 'package:my_app/features/member/presentation/screens/member_home_screen.dart';
 import 'package:my_app/features/monetization/presentation/providers/monetization_providers.dart';
 import 'package:my_app/features/news/domain/entities/news_article.dart';
+import 'package:my_app/features/nutrition/presentation/screens/nutrition_home_screen.dart';
 import 'package:my_app/features/settings/presentation/providers/settings_providers.dart';
 import 'package:my_app/features/settings/presentation/screens/notifications_screen.dart';
 import 'package:my_app/features/user/domain/entities/app_role.dart';
@@ -108,6 +109,18 @@ void main() {
       expect(find.text('Daily guidance in one screen'), findsOneWidget);
     });
 
+    testWidgets('home nutrition quick action opens nutrition screen', (
+      tester,
+    ) async {
+      await _pumpMemberShell(tester);
+
+      await tester.tap(find.byKey(const Key('member-home-nutrition-action')));
+      await _settleShell(tester);
+
+      expect(find.byType(NutritionHomeScreen), findsOneWidget);
+      expect(find.text('Build your nutrition plan'), findsOneWidget);
+    });
+
     testWidgets('bottom nav styling stays consistent on the TAIYO tab', (
       tester,
     ) async {
@@ -158,6 +171,22 @@ void main() {
 
       expect(find.text('member@gymunity.com'), findsOneWidget);
       expect(find.text('My Coaching'), findsOneWidget);
+    });
+
+    testWidgets('profile nutrition action opens nutrition screen', (
+      tester,
+    ) async {
+      await _pumpMemberShell(tester);
+
+      await tester.tap(find.byKey(const Key('member-nav-PROFILE')));
+      await _settleShell(tester);
+      await tester.tap(
+        find.byKey(const Key('member-profile-nutrition-action')),
+      );
+      await _settleShell(tester);
+
+      expect(find.byType(NutritionHomeScreen), findsOneWidget);
+      expect(find.text('Build your nutrition plan'), findsOneWidget);
     });
 
     testWidgets('notification bell opens notifications from member home', (
@@ -331,6 +360,7 @@ Widget _buildShellApp({
       newsRepositoryProvider.overrideWithValue(resolvedNewsRepository),
       coachRepositoryProvider.overrideWithValue(FakeCoachRepository()),
       memberRepositoryProvider.overrideWithValue(resolvedMemberRepository),
+      nutritionRepositoryProvider.overrideWithValue(FakeNutritionRepository()),
       sellerRepositoryProvider.overrideWithValue(FakeSellerRepository()),
       chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
       plannerRepositoryProvider.overrideWithValue(FakePlannerRepository()),

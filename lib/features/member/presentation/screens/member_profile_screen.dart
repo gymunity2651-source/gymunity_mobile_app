@@ -110,6 +110,16 @@ class MemberProfileScreen extends ConsumerWidget {
                           onTap: () =>
                               Navigator.pushNamed(context, AppRoutes.progress),
                         ),
+                        _ProfileActionCard(
+                          actionKey: const Key(
+                            'member-profile-nutrition-action',
+                          ),
+                          icon: Icons.restaurant_menu_outlined,
+                          title: 'Nutrition',
+                          subtitle: 'Meals, hydration & targets',
+                          onTap: () =>
+                              Navigator.pushNamed(context, AppRoutes.nutrition),
+                        ),
                         const SizedBox(height: 34),
                         const _SectionLabel('ENGAGEMENT'),
                         const SizedBox(height: 14),
@@ -457,12 +467,14 @@ class _SectionLabel extends StatelessWidget {
 
 class _ProfileActionCard extends StatelessWidget {
   const _ProfileActionCard({
+    this.actionKey,
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
   });
 
+  final Key? actionKey;
   final IconData icon;
   final String title;
   final String subtitle;
@@ -475,6 +487,7 @@ class _ProfileActionCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          key: actionKey,
           onTap: onTap,
           borderRadius: BorderRadius.circular(32),
           child: Ink(

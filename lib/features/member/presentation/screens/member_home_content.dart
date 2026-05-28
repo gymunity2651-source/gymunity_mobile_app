@@ -2232,6 +2232,13 @@ class _QuickActionsGrid extends StatelessWidget {
         destinationBuilder: _buildSubscriptions,
       ),
       _GridAction(
+        key: const Key('member-home-nutrition-action'),
+        title: 'Nutrition',
+        subtitle: 'Meals, hydration & targets',
+        icon: Icons.restaurant_menu_outlined,
+        routeName: AppRoutes.nutrition,
+      ),
+      _GridAction(
         title: 'Weekly\ncheck-ins',
         icon: Icons.assignment_outlined,
         destinationBuilder: _buildCheckins,
@@ -2273,14 +2280,20 @@ class _QuickActionsGrid extends StatelessWidget {
 
 class _GridAction {
   const _GridAction({
+    this.key,
     required this.title,
+    this.subtitle,
     required this.icon,
-    required this.destinationBuilder,
-  });
+    this.destinationBuilder,
+    this.routeName,
+  }) : assert(destinationBuilder != null || routeName != null);
 
+  final Key? key;
   final String title;
+  final String? subtitle;
   final IconData icon;
-  final Widget Function(BuildContext) destinationBuilder;
+  final Widget Function(BuildContext)? destinationBuilder;
+  final String? routeName;
 }
 
 class _GridActionTile extends StatefulWidget {
@@ -2305,10 +2318,18 @@ class _GridActionTileState extends State<_GridActionTile> {
         onTapDown: (_) => setState(() => _pressed = true),
         onTapUp: (_) => setState(() => _pressed = false),
         onTapCancel: () => setState(() => _pressed = false),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: widget.action.destinationBuilder),
-        ),
+        onTap: () {
+          final routeName = widget.action.routeName;
+          if (routeName != null) {
+            Navigator.pushNamed(context, routeName);
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: widget.action.destinationBuilder!),
+          );
+        },
+        key: widget.action.key,
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
@@ -2341,6 +2362,20 @@ class _GridActionTileState extends State<_GridActionTile> {
                   color: AtelierColors.onSurface,
                 ),
               ),
+              if (widget.action.subtitle case final subtitle?) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                    color: AtelierColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

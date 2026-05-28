@@ -32,6 +32,8 @@ import 'package:my_app/features/member/domain/entities/member_progress_entity.da
 import 'package:my_app/features/member/domain/repositories/member_repository.dart';
 import 'package:my_app/features/news/domain/entities/news_article.dart';
 import 'package:my_app/features/news/domain/repositories/news_repository.dart';
+import 'package:my_app/features/nutrition/domain/entities/nutrition_entities.dart';
+import 'package:my_app/features/nutrition/domain/repositories/nutrition_repository.dart';
 import 'package:my_app/features/planner/domain/entities/planner_entities.dart';
 import 'package:my_app/features/planner/domain/repositories/planner_repository.dart';
 import 'package:my_app/features/seller/domain/entities/seller_profile_entity.dart';
@@ -2921,6 +2923,115 @@ class FakeNewsRepository implements NewsRepository {
     if (dismissError != null) throw dismissError!;
     dismissedArticleIds.add(articleId);
     articles = articles.where((article) => article.id != articleId).toList();
+  }
+}
+
+class FakeNutritionRepository implements NutritionRepository {
+  @override
+  Future<NutritionProfileEntity?> getProfile() async => null;
+
+  @override
+  Future<NutritionProfileEntity> upsertProfile(
+    NutritionProfileEntity profile,
+  ) async {
+    return profile;
+  }
+
+  @override
+  Future<NutritionTargetEntity?> getActiveTarget() async => null;
+
+  @override
+  Future<NutritionTargetEntity> saveTarget(NutritionTargetEntity target) async {
+    return target;
+  }
+
+  @override
+  Future<List<NutritionMealTemplateEntity>> listMealTemplates() async {
+    return const <NutritionMealTemplateEntity>[];
+  }
+
+  @override
+  Future<NutritionMealPlanEntity?> getActiveMealPlan() async => null;
+
+  @override
+  Future<NutritionMealPlanEntity> saveGeneratedMealPlan({
+    required NutritionTargetEntity target,
+    required DateTime startDate,
+    required int mealCount,
+    required List<NutritionMealPlanDayEntity> days,
+    Map<String, dynamic> generationContext = const <String, dynamic>{},
+  }) async {
+    throw UnimplementedError(
+      'FakeNutritionRepository does not generate plans.',
+    );
+  }
+
+  @override
+  Future<NutritionDaySummaryEntity> getDaySummary(DateTime date) async {
+    return NutritionDaySummaryEntity(date: date);
+  }
+
+  @override
+  Future<void> completePlannedMeal(String plannedMealId) async {}
+
+  @override
+  Future<void> uncompletePlannedMeal(String plannedMealId) async {}
+
+  @override
+  Future<void> quickAddMeal({
+    required DateTime date,
+    required String title,
+    required int calories,
+    int proteinG = 0,
+    int carbsG = 0,
+    int fatsG = 0,
+    String? note,
+  }) async {}
+
+  @override
+  Future<void> addHydration({
+    required DateTime date,
+    required int amountMl,
+  }) async {}
+
+  @override
+  Future<NutritionPlannedMealEntity> swapPlannedMeal({
+    required String plannedMealId,
+    required NutritionMealTemplateEntity template,
+    required bool arabic,
+  }) async {
+    throw UnimplementedError('FakeNutritionRepository does not swap meals.');
+  }
+
+  @override
+  Future<List<NutritionCheckinEntity>> listCheckins() async {
+    return const <NutritionCheckinEntity>[];
+  }
+
+  @override
+  Future<NutritionCheckinEntity> saveCheckin({
+    required DateTime weekStart,
+    required int adherenceScore,
+    int? hungerScore,
+    int? energyScore,
+    String? notes,
+    Map<String, dynamic> suggestedAdjustment = const <String, dynamic>{},
+  }) async {
+    throw UnimplementedError('FakeNutritionRepository does not save checkins.');
+  }
+
+  @override
+  Future<NutritionGuidanceEntity> requestTaiyoNutritionGuidance({
+    DateTime? date,
+  }) async {
+    return const NutritionGuidanceEntity(
+      nutritionStatus: 'needs_context',
+      calorieGuidance: 'Set up nutrition to unlock calorie guidance.',
+      proteinFocus: 'Set up nutrition to unlock protein guidance.',
+      hydrationFocus: 'Set up nutrition to unlock hydration guidance.',
+      mealSuggestion: 'Set up nutrition to unlock meal suggestions.',
+      warning: 'General fitness nutrition guidance only, not medical advice.',
+    );
   }
 }
 
