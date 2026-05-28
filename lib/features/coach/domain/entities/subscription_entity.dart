@@ -86,6 +86,8 @@ class SubscriptionEntity {
 
   bool get isPaused => status == 'paused';
 
+  bool get canAccessCoachWorkspace => isActive || isPaused;
+
   bool get isPaymobPayment =>
       paymentGateway?.toLowerCase() == 'paymob' ||
       paymentMethod.toLowerCase() == 'paymob';

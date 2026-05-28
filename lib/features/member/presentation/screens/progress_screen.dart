@@ -338,6 +338,7 @@ class ProgressScreen extends ConsumerWidget {
     );
     final noteController = TextEditingController(text: existing?.note ?? '');
     DateTime selectedDate = existing?.recordedAt ?? DateTime.now();
+    String? validationMessage;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -389,6 +390,16 @@ class ProgressScreen extends ConsumerWidget {
                       controller: noteController,
                       decoration: const InputDecoration(labelText: 'Note'),
                     ),
+                    if (validationMessage != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        validationMessage!,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     TextButton(
                       onPressed: () async {
@@ -415,7 +426,29 @@ class ProgressScreen extends ConsumerWidget {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
+                  onPressed: () {
+                    final values = <String>[
+                      waistController.text,
+                      chestController.text,
+                      hipsController.text,
+                      bodyFatController.text,
+                    ];
+                    if (!_hasAnyMeasurementValue(values)) {
+                      setDialogState(() {
+                        validationMessage =
+                            'Enter at least one measurement before saving.';
+                      });
+                      return;
+                    }
+                    if (_hasInvalidMeasurementValue(values)) {
+                      setDialogState(() {
+                        validationMessage =
+                            'Measurements must be positive numbers.';
+                      });
+                      return;
+                    }
+                    Navigator.pop(context, true);
+                  },
                   child: const Text('Save'),
                 ),
               ],
@@ -451,6 +484,17 @@ class ProgressScreen extends ConsumerWidget {
       return null;
     }
     return double.tryParse(trimmed);
+  }
+
+  static bool _hasAnyMeasurementValue(List<String> values) {
+    return values.any((value) => value.trim().isNotEmpty);
+  }
+
+  static bool _hasInvalidMeasurementValue(List<String> values) {
+    return values.where((value) => value.trim().isNotEmpty).any((value) {
+      final parsed = double.tryParse(value.trim());
+      return parsed == null || parsed <= 0;
+    });
   }
 
   static String _formatWeight(double valueKg, String measurementUnit) {

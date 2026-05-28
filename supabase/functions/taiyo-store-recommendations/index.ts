@@ -309,9 +309,8 @@ async function saveMemberProductRecommendations(
 
 async function loadCartContext(supabase: SupabaseClient, memberId: string) {
   const cart = await maybeSingle(
-    supabase.from("store_carts").select("id,status,updated_at")
+    supabase.from("store_carts").select("id,updated_at")
       .eq("member_id", memberId)
-      .eq("status", "active")
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle(),

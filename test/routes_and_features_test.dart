@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/app/routes.dart';
 import 'package:my_app/core/di/providers.dart';
+import 'package:my_app/core/error/app_failure.dart';
 import 'package:my_app/features/ai_chat/domain/entities/chat_message_entity.dart';
 import 'package:my_app/features/ai_chat/domain/entities/chat_session_entity.dart';
+import 'package:my_app/features/ai_chat/presentation/providers/chat_providers.dart';
 import 'package:my_app/features/ai_chat/presentation/screens/ai_conversation_screen.dart';
 import 'package:my_app/features/ai_chat/presentation/screens/ai_chat_home_screen.dart';
 import 'package:my_app/features/auth/presentation/providers/auth_providers.dart';
@@ -15,14 +17,25 @@ import 'package:my_app/features/coach/domain/entities/subscription_entity.dart';
 import 'package:my_app/features/coach/presentation/screens/coach_dashboard_screen.dart';
 import 'package:my_app/features/coach/presentation/screens/coach_package_editor_screen.dart';
 import 'package:my_app/features/coaches/presentation/screens/subscription_packages_screen.dart';
+import 'package:my_app/features/member/domain/entities/member_profile_entity.dart';
+import 'package:my_app/features/member/domain/entities/member_progress_entity.dart';
 import 'package:my_app/features/member/presentation/screens/edit_profile_screen.dart';
 import 'package:my_app/features/planner/presentation/screens/planner_builder_screen.dart';
+import 'package:my_app/features/seller/domain/entities/seller_profile_entity.dart';
+import 'package:my_app/features/seller/domain/entities/seller_taiyo_entity.dart';
 import 'package:my_app/features/seller/presentation/screens/seller_dashboard_screen.dart';
+import 'package:my_app/features/seller/presentation/screens/seller_orders_screen.dart';
+import 'package:my_app/features/seller/presentation/screens/seller_product_management_screen.dart';
+import 'package:my_app/features/seller/presentation/screens/seller_profile_screen.dart';
 import 'package:my_app/features/seller/presentation/screens/seller_product_editor_screen.dart';
+import 'package:my_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:my_app/features/store/presentation/screens/cart_screen.dart';
 import 'package:my_app/features/store/domain/entities/product_entity.dart';
+import 'package:my_app/features/store/domain/entities/order_entity.dart';
 import 'package:my_app/features/store/domain/entities/store_recommendation_entity.dart';
+import 'package:my_app/features/store/presentation/screens/order_details_screen.dart';
 import 'package:my_app/features/store/presentation/screens/store_home_screen.dart';
+import 'package:my_app/features/user/domain/entities/app_role.dart';
 import 'package:my_app/features/user/domain/entities/profile_entity.dart';
 import 'package:my_app/features/user/domain/entities/user_entity.dart';
 
@@ -62,6 +75,76 @@ void main() {
         expect(find.text('Change Avatar'), findsOneWidget);
       },
     );
+
+    testWidgets('edit profile presents friendly labels for profile choices', (
+      tester,
+    ) async {
+      final userRepository = FakeUserRepository()
+        ..profile = const ProfileEntity(
+          userId: 'member-1',
+          email: 'member@gymunity.com',
+          fullName: 'GymUnity Member',
+        );
+      final memberRepository = FakeMemberRepository()
+        ..profile = const MemberProfileEntity(
+          userId: 'member-1',
+          goal: 'weight_loss',
+          age: 26,
+          gender: 'male',
+          heightCm: 170,
+          currentWeightKg: 82,
+          trainingFrequency: '1_2_days_per_week',
+          experienceLevel: 'beginner',
+        );
+
+      await _pumpNamedRoute(
+        tester,
+        AppRoutes.editProfile,
+        userRepository: userRepository,
+        memberRepository: memberRepository,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lose weight'), findsOneWidget);
+      expect(find.text('1-2 days per week'), findsOneWidget);
+      expect(find.text('Beginner'), findsOneWidget);
+      expect(find.text('weight_loss'), findsNothing);
+      expect(find.text('1_2_days_per_week'), findsNothing);
+    });
+
+    testWidgets('progress measurement dialog validates empty saves', (
+      tester,
+    ) async {
+      final memberRepository = FakeMemberRepository()
+        ..weightEntries = <WeightEntryEntity>[
+          WeightEntryEntity(
+            id: 'weight-1',
+            memberId: 'member-1',
+            weightKg: 82,
+            recordedAt: DateTime(2026, 4, 26),
+          ),
+        ];
+
+      await _pumpNamedRoute(
+        tester,
+        AppRoutes.progress,
+        memberRepository: memberRepository,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Add measurement'));
+      await tester.tap(find.text('Add measurement'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add Measurement'), findsOneWidget);
+      expect(
+        find.text('Enter at least one measurement before saving.'),
+        findsOneWidget,
+      );
+      expect(memberRepository.measurements, isEmpty);
+    });
 
     testWidgets(
       'OAuth callback route resolves to callback screen instead of unknown',
@@ -314,6 +397,547 @@ void main() {
       expect(find.text('Create Product'), findsOneWidget);
     });
 
+    testWidgets('seller dashboard opens seller work areas', (tester) async {
+      await _pumpScreen(tester, const SellerDashboardScreen());
+
+      await tester.tap(find.text('Inventory').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(SellerProductManagementScreen), findsOneWidget);
+
+      _popCurrentRoute(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Orders').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(SellerOrdersScreen), findsOneWidget);
+
+      _popCurrentRoute(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Settings').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(SettingsScreen), findsOneWidget);
+
+      _popCurrentRoute(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.person_rounded).first);
+      await tester.pumpAndSettle();
+      expect(find.byType(SellerProfileScreen), findsOneWidget);
+    });
+
+    testWidgets('seller dashboard refreshes counts after inventory changes', (
+      tester,
+    ) async {
+      final sellerRepository = FakeSellerRepository()
+        ..products = const <ProductEntity>[
+          ProductEntity(
+            id: 'product-1',
+            sellerId: 'seller-1',
+            name: 'Keep Me',
+            description: 'Remaining product',
+            category: 'supplements',
+            price: 50,
+            stockQty: 5,
+          ),
+          ProductEntity(
+            id: 'product-2',
+            sellerId: 'seller-1',
+            name: 'Remove Me',
+            description: 'Temporary product',
+            category: 'supplements',
+            price: 10,
+            stockQty: 1,
+          ),
+        ];
+
+      await _pumpScreen(
+        tester,
+        const SellerDashboardScreen(),
+        sellerRepository: sellerRepository,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 total'), findsOneWidget);
+
+      await tester.tap(find.text('Inventory').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(PopupMenuButton<String>).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete or Archive'));
+      await tester.pumpAndSettle();
+
+      _popCurrentRoute(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 total'), findsOneWidget);
+      expect(sellerRepository.deleteOrArchiveProductCalls, 1);
+      expect(
+        sellerRepository.getDashboardSummaryCalls,
+        greaterThanOrEqualTo(2),
+      );
+      expect(
+        sellerRepository.requestSellerCopilotCalls,
+        greaterThanOrEqualTo(2),
+      );
+    });
+
+    testWidgets('seller dashboard refresh reloads dashboard data', (
+      tester,
+    ) async {
+      final sellerRepository = FakeSellerRepository();
+
+      await _pumpScreen(
+        tester,
+        const SellerDashboardScreen(),
+        sellerRepository: sellerRepository,
+      );
+
+      final initialProfileCalls = sellerRepository.getSellerProfileCalls;
+      final initialSummaryCalls = sellerRepository.getDashboardSummaryCalls;
+      final initialOrderCalls = sellerRepository.listOrdersCalls;
+      final initialTaiyoCalls = sellerRepository.requestSellerCopilotCalls;
+
+      await tester.fling(
+        find.byType(ListView).first,
+        const Offset(0, 700),
+        1000,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+
+      expect(
+        sellerRepository.getSellerProfileCalls,
+        greaterThan(initialProfileCalls),
+      );
+      expect(
+        sellerRepository.getDashboardSummaryCalls,
+        greaterThan(initialSummaryCalls),
+      );
+      expect(sellerRepository.listOrdersCalls, greaterThan(initialOrderCalls));
+      expect(
+        sellerRepository.requestSellerCopilotCalls,
+        greaterThan(initialTaiyoCalls),
+      );
+    });
+
+    testWidgets('seller dashboard renders TAIYO seller brief details', (
+      tester,
+    ) async {
+      final sellerRepository = FakeSellerRepository()
+        ..sellerCopilotBrief = const SellerTaiyoCopilotEntity(
+          requestType: 'seller_dashboard_brief',
+          status: 'success',
+          summary: 'Orders are steady but bands are low.',
+          priorityActions: <String>['Restock resistance bands.'],
+          productOpportunities: <String>['Bundle bands with protein packs.'],
+          riskLevel: 'high',
+          recommendedNextStep: 'Review low stock products.',
+          confidence: 'high',
+        );
+
+      await _pumpScreen(
+        tester,
+        const SellerDashboardScreen(),
+        sellerRepository: sellerRepository,
+      );
+
+      expect(find.text('TAIYO SELLER'), findsOneWidget);
+      expect(find.text('Orders are steady but bands are low.'), findsOneWidget);
+      expect(find.text('Restock resistance bands.'), findsOneWidget);
+      expect(find.text('Bundle bands with protein packs.'), findsOneWidget);
+      expect(sellerRepository.requestSellerCopilotCalls, 1);
+    });
+
+    testWidgets('seller dashboard shows TAIYO error message', (tester) async {
+      final sellerRepository = FakeSellerRepository()
+        ..sellerCopilotError = const NetworkFailure(
+          message: 'TAIYO seller copilot is temporarily unavailable.',
+        );
+
+      await _pumpScreen(
+        tester,
+        const SellerDashboardScreen(),
+        sellerRepository: sellerRepository,
+      );
+
+      expect(
+        find.text('TAIYO seller copilot is temporarily unavailable.'),
+        findsOneWidget,
+      );
+      expect(sellerRepository.requestSellerCopilotCalls, 1);
+    });
+
+    testWidgets('seller settings opens store profile for seller role', (
+      tester,
+    ) async {
+      final userRepository = FakeUserRepository()
+        ..profile = const ProfileEntity(
+          userId: 'seller-1',
+          email: 'seller@gymunity.com',
+          fullName: 'Seller One',
+          role: AppRole.seller,
+          onboardingCompleted: true,
+        );
+
+      await _pumpNamedRoute(
+        tester,
+        AppRoutes.settings,
+        userRepository: userRepository,
+        sellerRepository: FakeSellerRepository(),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Store Profile'), findsOneWidget);
+      expect(find.text('Edit Profile'), findsNothing);
+
+      await tester.tap(find.text('Store Profile'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SellerProfileScreen), findsOneWidget);
+    });
+
+    testWidgets('seller settings logout returns to login', (tester) async {
+      final authRepository = FakeAuthRepository();
+      final userRepository = FakeUserRepository()
+        ..profile = const ProfileEntity(
+          userId: 'seller-1',
+          email: 'seller@gymunity.com',
+          fullName: 'Seller One',
+          role: AppRole.seller,
+          onboardingCompleted: true,
+        );
+
+      await _pumpNamedRoute(
+        tester,
+        AppRoutes.settings,
+        authRepository: authRepository,
+        userRepository: userRepository,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Log Out'));
+      await tester.tap(find.text('Log Out'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Log Out').last);
+      await tester.pumpAndSettle();
+
+      expect(authRepository.logoutCalls, 1);
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byType(SettingsScreen), findsNothing);
+    });
+
+    testWidgets(
+      'seller store profile saves edited values and normalizes shipping scope',
+      (tester) async {
+        final sellerRepository = FakeSellerRepository()
+          ..profile = const SellerProfileEntity(
+            userId: 'seller-1',
+            storeName: 'Legacy Store',
+            storeDescription: 'Old description',
+            primaryCategory: 'equipment',
+            shippingScope: 'regional',
+            supportEmail: 'old@store.com',
+          );
+
+        await _pumpNamedRoute(
+          tester,
+          AppRoutes.sellerProfile,
+          sellerRepository: sellerRepository,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextFormField).at(0), 'FitGear Pro');
+        await tester.enterText(
+          find.byType(TextFormField).at(1),
+          'Updated seller store profile.',
+        );
+        await tester.enterText(
+          find.byType(TextFormField).at(2),
+          'support@fitgear.test',
+        );
+        await tester.ensureVisible(find.text('Save Store Profile'));
+        await tester.tap(find.text('Save Store Profile'));
+        await tester.pumpAndSettle();
+
+        expect(sellerRepository.upsertSellerProfileCalls, 1);
+        expect(
+          sellerRepository.lastUpsertSellerProfilePayload,
+          containsPair('storeName', 'FitGear Pro'),
+        );
+        expect(
+          sellerRepository.lastUpsertSellerProfilePayload,
+          containsPair('storeDescription', 'Updated seller store profile.'),
+        );
+        expect(
+          sellerRepository.lastUpsertSellerProfilePayload,
+          containsPair('primaryCategory', 'equipment'),
+        );
+        expect(
+          sellerRepository.lastUpsertSellerProfilePayload,
+          containsPair('shippingScope', 'national'),
+        );
+        expect(
+          sellerRepository.lastUpsertSellerProfilePayload,
+          containsPair('supportEmail', 'support@fitgear.test'),
+        );
+      },
+    );
+
+    testWidgets('seller product editor validates and creates product', (
+      tester,
+    ) async {
+      final sellerRepository = FakeSellerRepository();
+
+      await _pumpNamedRoute(
+        tester,
+        AppRoutes.addProduct,
+        sellerRepository: sellerRepository,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Create Product'));
+      await tester.tap(find.text('Create Product'));
+      await tester.pumpAndSettle();
+      expect(find.text('Title is required.'), findsOneWidget);
+      expect(find.text('Description is required.'), findsOneWidget);
+      expect(find.text('Category is required.'), findsOneWidget);
+      expect(find.text('Enter a valid price.'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'Protein Pack');
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        'A starter supplement bundle.',
+      );
+      await tester.enterText(find.byType(TextFormField).at(2), 'supplements');
+      await tester.enterText(find.byType(TextFormField).at(3), '49.99');
+      await tester.enterText(find.byType(TextFormField).at(4), '12');
+      await tester.enterText(find.byType(TextFormField).at(5), '3');
+      await tester.ensureVisible(find.text('Create Product'));
+      await tester.tap(find.text('Create Product'));
+      await tester.pumpAndSettle();
+
+      expect(sellerRepository.saveProductCalls, 1);
+      expect(sellerRepository.products, hasLength(1));
+      expect(sellerRepository.products.single.name, 'Protein Pack');
+      expect(
+        sellerRepository.lastSavedProductPayload,
+        containsPair('price', 49.99),
+      );
+      expect(
+        sellerRepository.lastSavedProductPayload,
+        containsPair('stockQty', 12),
+      );
+      expect(
+        sellerRepository.lastSavedProductPayload,
+        containsPair('lowStockThreshold', 3),
+      );
+    });
+
+    testWidgets('seller inventory lists and edits product', (tester) async {
+      final sellerRepository = FakeSellerRepository()
+        ..products = const <ProductEntity>[
+          ProductEntity(
+            id: 'product-1',
+            sellerId: 'seller-1',
+            name: 'Starter Protein',
+            description: 'Original description',
+            category: 'supplements',
+            price: 25,
+            stockQty: 8,
+            lowStockThreshold: 2,
+          ),
+        ];
+
+      await _pumpNamedRoute(
+        tester,
+        AppRoutes.productManagement,
+        sellerRepository: sellerRepository,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Starter Protein'), findsOneWidget);
+      expect(find.textContaining('Stock: 8'), findsOneWidget);
+
+      await tester.tap(find.text('Starter Protein'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SellerProductEditorScreen), findsOneWidget);
+
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        'Updated Protein',
+      );
+      await tester.enterText(find.byType(TextFormField).at(3), '31.50');
+      await tester.enterText(find.byType(TextFormField).at(4), '14');
+      await tester.ensureVisible(find.text('Save Changes'));
+      await tester.tap(find.text('Save Changes'));
+      await tester.pumpAndSettle();
+
+      expect(sellerRepository.saveProductCalls, 1);
+      expect(
+        sellerRepository.lastSavedProductPayload,
+        containsPair('productId', 'product-1'),
+      );
+      expect(sellerRepository.products.single.name, 'Updated Protein');
+      expect(sellerRepository.products.single.price, 31.50);
+      expect(sellerRepository.products.single.stockQty, 14);
+    });
+
+    testWidgets('seller inventory deletes product with no linked orders', (
+      tester,
+    ) async {
+      final sellerRepository = FakeSellerRepository()
+        ..products = const <ProductEntity>[
+          ProductEntity(
+            id: 'product-1',
+            sellerId: 'seller-1',
+            name: 'Delete Me',
+            description: 'Removable product',
+            category: 'equipment',
+            price: 20,
+            stockQty: 5,
+          ),
+        ];
+
+      await _pumpNamedRoute(
+        tester,
+        AppRoutes.productManagement,
+        sellerRepository: sellerRepository,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete or Archive'));
+      await tester.pumpAndSettle();
+
+      expect(sellerRepository.deleteOrArchiveProductCalls, 1);
+      expect(sellerRepository.lastDeletedOrArchivedProductId, 'product-1');
+      expect(sellerRepository.products, isEmpty);
+      expect(find.text('Delete Me was deleted.'), findsOneWidget);
+    });
+
+    testWidgets('seller inventory archives product with linked orders', (
+      tester,
+    ) async {
+      final sellerRepository = FakeSellerRepository()
+        ..archiveProductsOnDelete = true
+        ..products = const <ProductEntity>[
+          ProductEntity(
+            id: 'product-1',
+            sellerId: 'seller-1',
+            name: 'Archive Me',
+            description: 'Ordered product',
+            category: 'equipment',
+            price: 20,
+            stockQty: 5,
+          ),
+        ];
+
+      await _pumpNamedRoute(
+        tester,
+        AppRoutes.productManagement,
+        sellerRepository: sellerRepository,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete or Archive'));
+      await tester.pumpAndSettle();
+
+      expect(sellerRepository.deleteOrArchiveProductCalls, 1);
+      expect(sellerRepository.products, hasLength(1));
+      expect(sellerRepository.products.single.isActive, isFalse);
+      expect(
+        find.text('Archive Me was archived because previous orders exist.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Archived'), findsOneWidget);
+    });
+
+    testWidgets('seller orders list opens order details in seller mode', (
+      tester,
+    ) async {
+      final sellerRepository = FakeSellerRepository()
+        ..orders = <OrderEntity>[_sellerOrder(status: 'pending')];
+
+      await _pumpNamedRoute(
+        tester,
+        AppRoutes.sellerOrders,
+        sellerRepository: sellerRepository,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mona Member'), findsOneWidget);
+      expect(find.text('#ORDER-12'), findsOneWidget);
+      expect(find.textContaining('2 items'), findsOneWidget);
+      expect(find.textContaining('USD 89.50'), findsWidgets);
+
+      await tester.tap(find.text('Mona Member'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(OrderDetailsScreen), findsOneWidget);
+      expect(find.text('Buyer'), findsOneWidget);
+      expect(find.text('Mona Member'), findsWidgets);
+      expect(find.text('Update Status'), findsOneWidget);
+      expect(find.text('Paid'), findsOneWidget);
+      expect(find.text('Cancelled'), findsOneWidget);
+      expect(find.text('Protein Pack'), findsOneWidget);
+      expect(find.text('Shipping'), findsOneWidget);
+      expect(find.textContaining('Cairo'), findsOneWidget);
+    });
+
+    testWidgets('seller order details updates pending order status', (
+      tester,
+    ) async {
+      final sellerRepository = FakeSellerRepository()
+        ..orders = <OrderEntity>[_sellerOrder(status: 'pending')];
+
+      await _pumpScreen(
+        tester,
+        OrderDetailsScreen(
+          order: sellerRepository.orders.single,
+          sellerMode: true,
+        ),
+        sellerRepository: sellerRepository,
+      );
+
+      await tester.tap(find.text('Paid'));
+      await tester.pumpAndSettle();
+
+      expect(sellerRepository.updateOrderStatusCalls, 1);
+      expect(
+        sellerRepository.lastOrderStatusUpdatePayload,
+        containsPair('orderId', 'order-12345678'),
+      );
+      expect(
+        sellerRepository.lastOrderStatusUpdatePayload,
+        containsPair('newStatus', 'paid'),
+      );
+      expect(sellerRepository.orders.single.status, 'paid');
+      expect(find.text('Order marked as paid.'), findsOneWidget);
+      expect(find.text('Processing'), findsOneWidget);
+      expect(find.text('Cancelled'), findsOneWidget);
+    });
+
+    testWidgets('seller delivered order has no status actions', (tester) async {
+      final sellerRepository = FakeSellerRepository()
+        ..orders = <OrderEntity>[_sellerOrder(status: 'delivered')];
+
+      await _pumpScreen(
+        tester,
+        OrderDetailsScreen(
+          order: sellerRepository.orders.single,
+          sellerMode: true,
+        ),
+        sellerRepository: sellerRepository,
+      );
+
+      expect(find.text('Delivered'), findsWidgets);
+      expect(find.text('Update Status'), findsNothing);
+      expect(find.text('Paid'), findsNothing);
+      expect(find.text('Cancelled'), findsNothing);
+    });
+
     testWidgets('seller dashboard logout returns to login', (tester) async {
       final authRepository = FakeAuthRepository();
 
@@ -423,7 +1047,7 @@ void main() {
       );
     });
 
-    testWidgets('TAIYO home planner quick chip opens guided builder', (
+    testWidgets('TAIYO home planner quick chip starts planner conversation', (
       tester,
     ) async {
       final chatRepository = FakeChatRepository();
@@ -438,8 +1062,13 @@ void main() {
       await tester.tap(find.text('Strength plan'));
       await _pumpRouteFrames(tester);
 
-      expect(find.byType(PlannerBuilderScreen), findsOneWidget);
-      expect(chatRepository.sessions, isEmpty);
+      expect(find.byType(AiConversationScreen), findsOneWidget);
+      expect(chatRepository.sessions, hasLength(1));
+      expect(chatRepository.sessions.single.type, ChatSessionType.planner);
+      expect(
+        chatRepository.messagesFor(chatRepository.sessions.single.id),
+        isNotEmpty,
+      );
     });
 
     testWidgets('TAIYO home general quick chip still opens conversation flow', (
@@ -467,7 +1096,7 @@ void main() {
       );
     });
 
-    testWidgets('TAIYO home planner session row opens guided builder', (
+    testWidgets('TAIYO home planner session row opens planner conversation', (
       tester,
     ) async {
       final chatRepository = FakeChatRepository();
@@ -492,8 +1121,10 @@ void main() {
       await tester.tap(find.text('TAIYO Planner'));
       await _pumpRouteFrames(tester);
 
-      expect(find.byType(PlannerBuilderScreen), findsOneWidget);
-      expect(find.byType(AiConversationScreen), findsNothing);
+      expect(find.byType(AiConversationScreen), findsOneWidget);
+      expect(find.byType(PlannerBuilderScreen), findsNothing);
+      expect(chatRepository.sendMessageCalls, 0);
+      expect(chatRepository.messagesFor('planner-session'), isEmpty);
     });
 
     testWidgets('conversation send shows the streamed TAIYO reply', (
@@ -514,6 +1145,59 @@ void main() {
 
       expect(
         find.textContaining('Handled: Test recovery question'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('saved conversation does not auto-send stale pending prompt', (
+      tester,
+    ) async {
+      final chatRepository = FakeChatRepository();
+      chatRepository.sessions.add(
+        ChatSessionEntity(
+          id: 'saved-session',
+          userId: 'user-1',
+          title: 'Saved chat',
+          updatedAt: DateTime(2026, 3, 8),
+        ),
+      );
+
+      await _pumpScreen(
+        tester,
+        const AiConversationScreen(sessionId: 'saved-session'),
+        chatRepository: chatRepository,
+        pendingChatPrompt: 'stale prompt that must not send',
+      );
+      await _pumpRouteFrames(tester);
+
+      expect(chatRepository.sendMessageCalls, 0);
+      expect(chatRepository.messagesFor('saved-session'), isEmpty);
+    });
+
+    testWidgets('conversation shows the user message while reply is pending', (
+      tester,
+    ) async {
+      final chatRepository = FakeChatRepository()
+        ..sendMessageDelay = const Duration(milliseconds: 300);
+
+      await _pumpScreen(
+        tester,
+        const AiConversationScreen(),
+        chatRepository: chatRepository,
+      );
+
+      await tester.enterText(find.byType(TextField), 'Make it visible now');
+      await tester.tap(find.byIcon(Icons.north_rounded));
+      await tester.pump();
+
+      expect(find.text('Make it visible now'), findsOneWidget);
+      expect(find.textContaining('Handled: Make it visible now'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 350));
+      await _pumpRouteFrames(tester);
+
+      expect(
+        find.textContaining('Handled: Make it visible now'),
         findsOneWidget,
       );
     });
@@ -600,72 +1284,6 @@ void main() {
 Future<void> _pumpNamedRoute(
   WidgetTester tester,
   String routeName, {
-  FakeUserRepository? userRepository,
-  FakeStoreRepository? storeRepository,
-  FakeCoachRepository? coachRepository,
-  FakeMemberRepository? memberRepository,
-  FakeSellerRepository? sellerRepository,
-  FakeNewsRepository? newsRepository,
-  FakeChatRepository? chatRepository,
-  FakePlannerRepository? plannerRepository,
-}) async {
-  tester.view.physicalSize = const Size(1200, 2400);
-  tester.view.devicePixelRatio = 1.0;
-  addTearDown(() {
-    tester.view.resetPhysicalSize();
-    tester.view.resetDevicePixelRatio();
-  });
-
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: <Override>[
-        authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
-        userRepositoryProvider.overrideWithValue(
-          userRepository ?? FakeUserRepository(),
-        ),
-        authCallbackIngressProvider.overrideWithValue(
-          FakeAuthCallbackIngress(),
-        ),
-        storeRepositoryProvider.overrideWithValue(
-          storeRepository ?? FakeStoreRepository(),
-        ),
-        newsRepositoryProvider.overrideWithValue(
-          newsRepository ?? FakeNewsRepository(),
-        ),
-        coachRepositoryProvider.overrideWithValue(
-          coachRepository ?? FakeCoachRepository(),
-        ),
-        memberRepositoryProvider.overrideWithValue(
-          memberRepository ?? FakeMemberRepository(),
-        ),
-        sellerRepositoryProvider.overrideWithValue(
-          sellerRepository ?? FakeSellerRepository(),
-        ),
-        chatRepositoryProvider.overrideWithValue(
-          chatRepository ?? FakeChatRepository(),
-        ),
-        plannerRepositoryProvider.overrideWithValue(
-          plannerRepository ?? FakePlannerRepository(),
-        ),
-      ],
-      child: MaterialApp(
-        onGenerateRoute: AppRoutes.onGenerateRoute,
-        home: Builder(
-          builder: (context) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              Navigator.pushNamed(context, routeName);
-            });
-            return const SizedBox.shrink();
-          },
-        ),
-      ),
-    ),
-  );
-}
-
-Future<void> _pumpScreen(
-  WidgetTester tester,
-  Widget screen, {
   FakeAuthRepository? authRepository,
   FakeUserRepository? userRepository,
   FakeStoreRepository? storeRepository,
@@ -675,6 +1293,7 @@ Future<void> _pumpScreen(
   FakeNewsRepository? newsRepository,
   FakeChatRepository? chatRepository,
   FakePlannerRepository? plannerRepository,
+  String? pendingChatPrompt,
 }) async {
   tester.view.physicalSize = const Size(1200, 2400);
   tester.view.devicePixelRatio = 1.0;
@@ -716,6 +1335,80 @@ Future<void> _pumpScreen(
         plannerRepositoryProvider.overrideWithValue(
           plannerRepository ?? FakePlannerRepository(),
         ),
+        if (pendingChatPrompt != null)
+          pendingChatPromptProvider.overrideWith((ref) => pendingChatPrompt),
+      ],
+      child: MaterialApp(
+        onGenerateRoute: AppRoutes.onGenerateRoute,
+        home: Builder(
+          builder: (context) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              Navigator.pushNamed(context, routeName);
+            });
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> _pumpScreen(
+  WidgetTester tester,
+  Widget screen, {
+  FakeAuthRepository? authRepository,
+  FakeUserRepository? userRepository,
+  FakeStoreRepository? storeRepository,
+  FakeCoachRepository? coachRepository,
+  FakeMemberRepository? memberRepository,
+  FakeSellerRepository? sellerRepository,
+  FakeNewsRepository? newsRepository,
+  FakeChatRepository? chatRepository,
+  FakePlannerRepository? plannerRepository,
+  String? pendingChatPrompt,
+}) async {
+  tester.view.physicalSize = const Size(1200, 2400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: <Override>[
+        authRepositoryProvider.overrideWithValue(
+          authRepository ?? FakeAuthRepository(),
+        ),
+        userRepositoryProvider.overrideWithValue(
+          userRepository ?? FakeUserRepository(),
+        ),
+        authCallbackIngressProvider.overrideWithValue(
+          FakeAuthCallbackIngress(),
+        ),
+        storeRepositoryProvider.overrideWithValue(
+          storeRepository ?? FakeStoreRepository(),
+        ),
+        newsRepositoryProvider.overrideWithValue(
+          newsRepository ?? FakeNewsRepository(),
+        ),
+        coachRepositoryProvider.overrideWithValue(
+          coachRepository ?? FakeCoachRepository(),
+        ),
+        memberRepositoryProvider.overrideWithValue(
+          memberRepository ?? FakeMemberRepository(),
+        ),
+        sellerRepositoryProvider.overrideWithValue(
+          sellerRepository ?? FakeSellerRepository(),
+        ),
+        chatRepositoryProvider.overrideWithValue(
+          chatRepository ?? FakeChatRepository(),
+        ),
+        plannerRepositoryProvider.overrideWithValue(
+          plannerRepository ?? FakePlannerRepository(),
+        ),
+        if (pendingChatPrompt != null)
+          pendingChatPromptProvider.overrideWith((ref) => pendingChatPrompt),
       ],
       child: MaterialApp(
         onGenerateRoute: AppRoutes.onGenerateRoute,
@@ -730,4 +1423,52 @@ Future<void> _pumpRouteFrames(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
   await tester.pump(const Duration(milliseconds: 300));
+}
+
+void _popCurrentRoute(WidgetTester tester) {
+  Navigator.of(tester.element(find.byType(Navigator))).pop();
+}
+
+OrderEntity _sellerOrder({required String status}) {
+  return OrderEntity(
+    id: 'order-12345678',
+    memberId: 'member-1',
+    sellerId: 'seller-1',
+    status: status,
+    totalAmount: 89.50,
+    currency: 'USD',
+    paymentMethod: 'card',
+    memberName: 'Mona Member',
+    sellerName: 'FitGear Pro',
+    itemCount: 2,
+    shippingAddress: const <String, dynamic>{
+      'recipient_name': 'Mona Member',
+      'phone': '+201000000000',
+      'line1': '10 Nile Street',
+      'city': 'Cairo',
+      'country_code': 'EG',
+    },
+    items: const <OrderItemEntity>[
+      OrderItemEntity(
+        id: 'item-1',
+        orderId: 'order-12345678',
+        productId: 'product-1',
+        sellerId: 'seller-1',
+        productTitle: 'Protein Pack',
+        unitPrice: 44.75,
+        quantity: 2,
+        lineTotal: 89.50,
+      ),
+    ],
+    statusHistory: <OrderStatusHistoryEntry>[
+      OrderStatusHistoryEntry(
+        id: 'history-1',
+        orderId: 'order-12345678',
+        status: status,
+        note: 'Order created',
+        createdAt: DateTime(2026, 5, 28, 10),
+      ),
+    ],
+    createdAt: DateTime(2026, 5, 28, 9, 30),
+  );
 }

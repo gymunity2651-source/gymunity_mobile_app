@@ -74,7 +74,7 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
           ),
           IconButton(
             tooltip: 'Open chat',
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.aiChatHome),
+            onPressed: _openGeneralTaiyoChat,
             icon: const Icon(Icons.chat_bubble_outline_rounded),
           ),
         ],
@@ -200,8 +200,11 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
                 _TaiyoCoachEntryCard(
                   onOpenBuilder: () =>
                       Navigator.pushNamed(context, AppRoutes.aiPlannerBuilder),
-                  onOpenChat: () =>
-                      Navigator.pushNamed(context, AppRoutes.aiChatHome),
+                  onOpenChat: _openGeneralTaiyoChat,
+                  onOpenNutrition: () =>
+                      Navigator.pushNamed(context, AppRoutes.nutrition),
+                  onOpenStore: () =>
+                      Navigator.pushNamed(context, AppRoutes.storeHome),
                 ),
                 const SizedBox(height: 16),
                 _CoachSurface(
@@ -440,6 +443,29 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
     );
   }
 
+  Future<void> _openGeneralTaiyoChat() async {
+    try {
+      final sessionId = await ref
+          .read(chatControllerProvider.notifier)
+          .createSessionIfNeeded(null, type: ChatSessionType.general);
+      ref.read(activeChatSessionIdProvider.notifier).state = sessionId;
+      ref.read(pendingChatPromptProvider.notifier).state = null;
+      if (!mounted) {
+        return;
+      }
+      Navigator.pushNamed(
+        context,
+        AppRoutes.aiConversation,
+        arguments: AiConversationArgs(sessionId: sessionId),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      showAppFeedback(context, 'GymUnity could not open TAIYO chat right now.');
+    }
+  }
+
   Future<void> _applyAdjustment({
     required AiDailyBriefEntity brief,
     required String type,
@@ -512,7 +538,10 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
       Navigator.pushNamed(
         context,
         AppRoutes.aiConversation,
-        arguments: sessionId,
+        arguments: AiConversationArgs(
+          sessionId: sessionId,
+          consumePendingPrompt: true,
+        ),
       );
     } catch (_) {
       if (mounted) {
@@ -944,80 +973,92 @@ class _TaiyoCoachEntryCard extends StatelessWidget {
   const _TaiyoCoachEntryCard({
     required this.onOpenBuilder,
     required this.onOpenChat,
+    required this.onOpenNutrition,
+    required this.onOpenStore,
   });
 
   final VoidCallback onOpenBuilder;
   final VoidCallback onOpenChat;
+  final VoidCallback onOpenNutrition;
+  final VoidCallback onOpenStore;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1A1A2E).withValues(alpha: 0.35),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.4),
+            blurRadius: 40,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
                       colors: [
                         AtelierColors.primary,
                         AtelierColors.primaryContainer,
                       ],
                     ),
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AtelierColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     Icons.auto_awesome_rounded,
                     color: Colors.white,
-                    size: 16,
+                    size: 18,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'TAIYO Intelligence',
+                      'TAIYO Specialist Agents',
                       style: GoogleFonts.notoSerif(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
                         fontStyle: FontStyle.italic,
                         color: Colors.white,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
                         const TaiyoPulsingDot(
                           color: Color(0xFF4ADE80),
-                          size: 5,
+                          size: 6,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Text(
-                          'MULTI-AGENT SYSTEM READY',
+                          'MULTI-AGENT INTELLIGENCE ACTIVE',
                           style: GoogleFonts.manrope(
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
+                            letterSpacing: 1.5,
                             color: const Color(0xFF4ADE80),
                           ),
                         ),
@@ -1027,93 +1068,70 @@ class _TaiyoCoachEntryCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            // Agent preview chips
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _AgentMiniChip(
-                  label: 'Training',
-                  color: const Color(0xFF4ADE80),
-                ),
-                _AgentMiniChip(
-                  label: 'Nutrition',
-                  color: const Color(0xFFFBBF24),
-                ),
-                _AgentMiniChip(label: 'Safety', color: const Color(0xFFF87171)),
-                _AgentMiniChip(
-                  label: 'Planner',
-                  color: const Color(0xFF60A5FA),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 24),
             LayoutBuilder(
               builder: (context, constraints) {
-                final buildButton = SizedBox(
-                  height: 48,
-                  child: FilledButton.icon(
-                    key: const Key('taiyo-coach-open-builder-button'),
-                    onPressed: onOpenBuilder,
-                    icon: const Icon(Icons.architecture_outlined, size: 18),
-                    label: const Text('Plan Builder'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AtelierColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(9999),
-                      ),
-                      textStyle: GoogleFonts.manrope(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                );
-                final chatButton = SizedBox(
-                  height: 48,
-                  child: OutlinedButton.icon(
-                    key: const Key('taiyo-coach-open-chat-button'),
-                    onPressed: onOpenChat,
-                    icon: const Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      size: 18,
-                    ),
-                    label: const Text('TAIYO Chat'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.3),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(9999),
-                      ),
-                      textStyle: GoogleFonts.manrope(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                );
+                final double width = constraints.maxWidth;
+                final bool useVerticalList = width < 450;
 
-                if (constraints.maxWidth < 520) {
+                final items = [
+                  _TaiyoAgentButtonCard(
+                    title: 'Plan Builder',
+                    subtitle: 'Workout splits & rules',
+                    description:
+                        'Build or adjust workout plans tailored to your goals.',
+                    icon: Icons.architecture_outlined,
+                    color: const Color(0xFF60A5FA),
+                    onTap: onOpenBuilder,
+                  ),
+                  _TaiyoAgentButtonCard(
+                    title: 'AI Chatbot',
+                    subtitle: 'Direct dialogue with TAIYO',
+                    description:
+                        'Ask training, recovery, or general support questions.',
+                    icon: Icons.chat_bubble_outline_rounded,
+                    color: const Color(0xFF4ADE80),
+                    onTap: onOpenChat,
+                  ),
+                  _TaiyoAgentButtonCard(
+                    title: 'Nutrition Copilot',
+                    subtitle: 'Calorie & meal tracker',
+                    description:
+                        'Access meal plans, daily targets, and hydration gaps.',
+                    icon: Icons.restaurant_outlined,
+                    color: const Color(0xFFFBBF24),
+                    onTap: onOpenNutrition,
+                  ),
+                  _TaiyoAgentButtonCard(
+                    title: 'Store Optimizer',
+                    subtitle: 'Smart supplement matching',
+                    description:
+                        'Browse recommended store products based on your targets.',
+                    icon: Icons.shopping_bag_outlined,
+                    color: const Color(0xFFF87171),
+                    onTap: onOpenStore,
+                  ),
+                ];
+
+                if (useVerticalList) {
                   return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      buildButton,
-                      const SizedBox(height: 10),
-                      chatButton,
+                      for (int i = 0; i < items.length; i++) ...[
+                        items[i],
+                        if (i < items.length - 1) const SizedBox(height: 12),
+                      ],
                     ],
                   );
                 }
 
-                return Row(
-                  children: [
-                    Expanded(child: buildButton),
-                    const SizedBox(width: 10),
-                    Expanded(child: chatButton),
-                  ],
+                return GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.25,
+                  children: items,
                 );
               },
             ),
@@ -1124,39 +1142,128 @@ class _TaiyoCoachEntryCard extends StatelessWidget {
   }
 }
 
-class _AgentMiniChip extends StatelessWidget {
-  const _AgentMiniChip({required this.label, required this.color});
+class _TaiyoAgentButtonCard extends StatelessWidget {
+  const _TaiyoAgentButtonCard({
+    required this.title,
+    required this.subtitle,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 
-  final String label;
+  final String title;
+  final String subtitle;
+  final String description;
+  final IconData icon;
   final Color color;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(9999),
-        border: Border.all(color: color.withValues(alpha: 0.25), width: 0.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: GoogleFonts.manrope(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: color,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        splashColor: color.withValues(alpha: 0.15),
+        highlightColor: color.withValues(alpha: 0.05),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1,
             ),
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(icon, color: color, size: 20),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4ADE80).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const TaiyoPulsingDot(
+                          color: Color(0xFF4ADE80),
+                          size: 4,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'READY',
+                          style: GoogleFonts.manrope(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: const Color(0xFF4ADE80),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: color.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      height: 1.4,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

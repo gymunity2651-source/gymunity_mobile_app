@@ -82,7 +82,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.lastAssignedResourcePayload?['subscriptionId'], 'sub-1');
     expect(repo.lastAssignedResourcePayload?['resourceId'], 'resource-1');
-
   });
 
   testWidgets('client workspace review consent opens privacy tab', (
@@ -453,6 +452,46 @@ void main() {
     expect(find.text('TEST PAYMENT'), findsOneWidget);
     expect(find.text('Payment pending'), findsWidgets);
     expect(find.text('Submit payment proof'), findsNothing);
+  });
+
+  testWidgets('failed Paymob subscription keeps coach workspace locked', (
+    tester,
+  ) async {
+    final repo = FakeMemberRepository()
+      ..subscriptions = const <SubscriptionEntity>[
+        SubscriptionEntity(
+          id: 'sub-failed',
+          memberId: 'member-1',
+          coachId: 'coach-1',
+          coachName: 'Mona Coach',
+          packageId: 'package-1',
+          packageTitle: 'Starter Coaching',
+          status: 'checkout_pending',
+          checkoutStatus: 'failed',
+          paymentGateway: 'paymob',
+          paymentOrderId: 'order-1',
+          amount: 1200,
+          amountCents: 120000,
+          planName: 'Starter Coaching',
+          threadId: 'thread-1',
+        ),
+      ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[memberRepositoryProvider.overrideWithValue(repo)],
+        child: const MaterialApp(home: MySubscriptionsScreen()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Payment failed'), findsOneWidget);
+    expect(find.text('Payment was not completed'), findsOneWidget);
+    expect(find.text('Retry payment'), findsOneWidget);
+    expect(find.text('Open Coach Hub'), findsNothing);
+    expect(find.text('Messages'), findsNothing);
+    expect(find.text('Check-ins'), findsNothing);
   });
 
   testWidgets('Paymob coach billing hides approve and fail actions', (

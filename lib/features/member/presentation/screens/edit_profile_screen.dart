@@ -115,13 +115,23 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 ),
                 _InputField(controller: _phoneController, label: 'Phone'),
                 _InputField(controller: _countryController, label: 'Country'),
-                _InputField(controller: _goalController, label: 'Goal'),
+                _ChoiceField(
+                  controller: _goalController,
+                  label: 'Goal',
+                  choices: _goalChoices,
+                  onChanged: _setChoiceValue(_goalController),
+                ),
                 _InputField(
                   controller: _ageController,
                   label: 'Age',
                   keyboardType: TextInputType.number,
                 ),
-                _InputField(controller: _genderController, label: 'Gender'),
+                _ChoiceField(
+                  controller: _genderController,
+                  label: 'Gender',
+                  choices: _genderChoices,
+                  onChanged: _setChoiceValue(_genderController),
+                ),
                 _InputField(
                   controller: _heightController,
                   label: 'Height (cm)',
@@ -136,13 +146,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     decimal: true,
                   ),
                 ),
-                _InputField(
+                _ChoiceField(
                   controller: _frequencyController,
                   label: 'Training Frequency',
+                  choices: _frequencyChoices,
+                  onChanged: _setChoiceValue(_frequencyController),
                 ),
-                _InputField(
+                _ChoiceField(
                   controller: _experienceController,
                   label: 'Experience Level',
+                  choices: _experienceChoices,
+                  onChanged: _setChoiceValue(_experienceController),
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
@@ -178,6 +192,15 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _weightController.text = memberProfile?.currentWeightKg?.toString() ?? '';
     _frequencyController.text = memberProfile?.trainingFrequency ?? '';
     _experienceController.text = memberProfile?.experienceLevel ?? '';
+  }
+
+  ValueChanged<String?> _setChoiceValue(TextEditingController controller) {
+    return (value) {
+      if (value == null) {
+        return;
+      }
+      setState(() => controller.text = value);
+    };
   }
 
   Future<void> _pickAvatar() async {
@@ -313,6 +336,107 @@ class _InputField extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ChoiceField extends StatelessWidget {
+  const _ChoiceField({
+    required this.controller,
+    required this.label,
+    required this.choices,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final List<_ProfileChoice> choices;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final rawValue = controller.text.trim();
+    final items = _choicesWithCurrentValue(choices, rawValue);
+    final value = rawValue.isEmpty ? null : rawValue;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: label),
+        items: items
+            .map(
+              (choice) => DropdownMenuItem<String>(
+                value: choice.value,
+                child: Text(choice.label),
+              ),
+            )
+            .toList(growable: false),
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _ProfileChoice {
+  const _ProfileChoice(this.value, this.label);
+
+  final String value;
+  final String label;
+}
+
+const _goalChoices = <_ProfileChoice>[
+  _ProfileChoice('weight_loss', 'Lose weight'),
+  _ProfileChoice('build_muscle', 'Build muscle'),
+  _ProfileChoice('improve_fitness', 'Improve fitness'),
+  _ProfileChoice('strength', 'Build strength'),
+  _ProfileChoice('general_health', 'General health'),
+];
+
+const _genderChoices = <_ProfileChoice>[
+  _ProfileChoice('male', 'Male'),
+  _ProfileChoice('female', 'Female'),
+  _ProfileChoice('prefer_not_to_say', 'Prefer not to say'),
+];
+
+const _frequencyChoices = <_ProfileChoice>[
+  _ProfileChoice('1_2_days_per_week', '1-2 days per week'),
+  _ProfileChoice('3_4_days_per_week', '3-4 days per week'),
+  _ProfileChoice('5_6_days_per_week', '5-6 days per week'),
+  _ProfileChoice('daily', 'Daily'),
+];
+
+const _experienceChoices = <_ProfileChoice>[
+  _ProfileChoice('beginner', 'Beginner'),
+  _ProfileChoice('intermediate', 'Intermediate'),
+  _ProfileChoice('advanced', 'Advanced'),
+];
+
+List<_ProfileChoice> _choicesWithCurrentValue(
+  List<_ProfileChoice> choices,
+  String rawValue,
+) {
+  if (rawValue.isEmpty || choices.any((choice) => choice.value == rawValue)) {
+    return choices;
+  }
+  return <_ProfileChoice>[
+    ...choices,
+    _ProfileChoice(rawValue, _humanizeChoice(rawValue)),
+  ];
+}
+
+String _humanizeChoice(String value) {
+  final normalized = value.trim().replaceAll('_', ' ');
+  if (normalized.isEmpty) {
+    return value;
+  }
+  return normalized
+      .split(RegExp(r'\s+'))
+      .map(
+        (word) => word.isEmpty
+            ? word
+            : '${word.characters.first.toUpperCase()}${word.characters.skip(1).join()}',
+      )
+      .join(' ');
 }
 
 class _RetryState extends StatelessWidget {

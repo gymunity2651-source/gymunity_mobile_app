@@ -61,8 +61,8 @@ class SellerDashboardScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(30, 18, 30, 128),
                 children: [
                   _AtelierTopBar(
-                    onMenu: () =>
-                        Navigator.pushNamed(context, AppRoutes.sellerProfile),
+                    onSettings: () =>
+                        Navigator.pushNamed(context, AppRoutes.settings),
                     onProfile: () =>
                         Navigator.pushNamed(context, AppRoutes.sellerProfile),
                   ),
@@ -78,16 +78,24 @@ class SellerDashboardScreen extends ConsumerWidget {
                       _ActionItem(
                         label: 'Add Product',
                         icon: Icons.add_box_rounded,
-                        onTap: () =>
-                            Navigator.pushNamed(context, AppRoutes.addProduct),
+                        onTap: () async {
+                          await Navigator.pushNamed(
+                            context,
+                            AppRoutes.addProduct,
+                          );
+                          _refreshSellerCatalogState(ref);
+                        },
                       ),
                       _ActionItem(
                         label: 'Inventory',
                         icon: Icons.inventory_2_rounded,
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.productManagement,
-                        ),
+                        onTap: () async {
+                          await Navigator.pushNamed(
+                            context,
+                            AppRoutes.productManagement,
+                          );
+                          _refreshSellerCatalogState(ref);
+                        },
                       ),
                       _ActionItem(
                         label: 'Orders',
@@ -96,6 +104,12 @@ class SellerDashboardScreen extends ConsumerWidget {
                           context,
                           AppRoutes.sellerOrders,
                         ),
+                      ),
+                      _ActionItem(
+                        label: 'Settings',
+                        icon: Icons.settings_rounded,
+                        onTap: () =>
+                            Navigator.pushNamed(context, AppRoutes.settings),
                       ),
                       _ActionItem(
                         label: 'Log Out',
@@ -116,8 +130,10 @@ class SellerDashboardScreen extends ConsumerWidget {
           ),
           _GlassSellerNav(
             onHome: () {},
-            onInventory: () =>
-                Navigator.pushNamed(context, AppRoutes.productManagement),
+            onInventory: () async {
+              await Navigator.pushNamed(context, AppRoutes.productManagement);
+              _refreshSellerCatalogState(ref);
+            },
             onOrders: () =>
                 Navigator.pushNamed(context, AppRoutes.sellerOrders),
             onAnalytics: () => ref.invalidate(sellerDashboardSummaryProvider),
@@ -177,6 +193,12 @@ class SellerDashboardScreen extends ConsumerWidget {
       (route) => false,
     );
   }
+}
+
+void _refreshSellerCatalogState(WidgetRef ref) {
+  ref.invalidate(sellerProductsProvider);
+  ref.invalidate(sellerDashboardSummaryProvider);
+  ref.invalidate(sellerTaiyoDashboardBriefProvider);
 }
 
 class _TaiyoSellerBriefBlock extends StatelessWidget {
@@ -348,16 +370,16 @@ class _AtmosphereOrb extends StatelessWidget {
 }
 
 class _AtelierTopBar extends StatelessWidget {
-  const _AtelierTopBar({required this.onMenu, required this.onProfile});
+  const _AtelierTopBar({required this.onSettings, required this.onProfile});
 
-  final VoidCallback onMenu;
+  final VoidCallback onSettings;
   final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _TopIconButton(icon: Icons.menu_rounded, onTap: onMenu),
+        _TopIconButton(icon: Icons.settings_rounded, onTap: onSettings),
         Expanded(
           child: Text(
             'Atelier Dashboard',

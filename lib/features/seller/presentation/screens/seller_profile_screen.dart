@@ -22,7 +22,7 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
   final _storeDescriptionController = TextEditingController();
   final _supportEmailController = TextEditingController();
   String _primaryCategory = 'supplements';
-  String _shippingScope = 'domestic';
+  String _shippingScope = 'local_only';
   bool _seeded = false;
   bool _isSaving = false;
 
@@ -37,8 +37,8 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
   };
 
   static const _shippingScopes = <String, String>{
-    'domestic': 'Domestic Only',
-    'regional': 'Regional',
+    'local_only': 'Local Only',
+    'national': 'National',
     'international': 'International',
   };
 
@@ -68,8 +68,7 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
           child: CircularProgressIndicator(color: AppColors.orange),
         ),
         error: (error, stackTrace) => _ErrorState(
-          message:
-              'GymUnity could not load your store profile right now.',
+          message: 'GymUnity could not load your store profile right now.',
           onRetry: () => ref.invalidate(sellerProfileProvider),
         ),
         data: (profile) {
@@ -105,8 +104,7 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
                 _FormField(
                   controller: _storeDescriptionController,
                   label: 'Store Description',
-                  hint:
-                      'What does your store offer? What makes it special?',
+                  hint: 'What does your store offer? What makes it special?',
                   maxLines: 4,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -186,9 +184,7 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
                       backgroundColor: AppColors.orange,
                       foregroundColor: AppColors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppSizes.radiusMd,
-                        ),
+                        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
                       ),
                     ),
                     child: Text(
@@ -218,7 +214,7 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
     _storeDescriptionController.text = profile?.storeDescription ?? '';
     _supportEmailController.text = profile?.supportEmail ?? '';
     _primaryCategory = profile?.primaryCategory ?? 'supplements';
-    _shippingScope = profile?.shippingScope ?? 'domestic';
+    _shippingScope = _normalizeShippingScope(profile?.shippingScope);
   }
 
   Future<void> _save() async {
@@ -245,23 +241,36 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Store profile updated successfully.'),
-        ),
+        const SnackBar(content: Text('Store profile updated successfully.')),
       );
       Navigator.pop(context);
     } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
       }
     }
+  }
+}
+
+String _normalizeShippingScope(String? value) {
+  switch (value?.trim()) {
+    case 'domestic':
+      return 'local_only';
+    case 'regional':
+      return 'national';
+    case 'local_only':
+    case 'national':
+    case 'international':
+      return value!.trim();
+    default:
+      return 'local_only';
   }
 }
 
@@ -300,9 +309,7 @@ class _ProfileCompletenessCard extends StatelessWidget {
                 fraction >= 1.0
                     ? Icons.check_circle_rounded
                     : Icons.store_mall_directory_outlined,
-                color: fraction >= 1.0
-                    ? AppColors.success
-                    : AppColors.orange,
+                color: fraction >= 1.0 ? AppColors.success : AppColors.orange,
                 size: 28,
               ),
               const SizedBox(width: AppSizes.md),
@@ -375,10 +382,7 @@ class _FormField extends StatelessWidget {
       maxLines: maxLines,
       keyboardType: keyboardType,
       validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-      ),
+      decoration: InputDecoration(labelText: label, hintText: hint),
     );
   }
 }

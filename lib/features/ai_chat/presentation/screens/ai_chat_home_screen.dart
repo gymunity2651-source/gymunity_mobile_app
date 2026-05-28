@@ -148,7 +148,10 @@ class _AiChatHomeUnlocked extends ConsumerWidget {
         Navigator.pushNamed(
           context,
           AppRoutes.aiConversation,
-          arguments: resolvedSessionId,
+          arguments: AiConversationArgs(
+            sessionId: resolvedSessionId,
+            consumePendingPrompt: seedPrompt?.trim().isNotEmpty ?? false,
+          ),
         );
       } catch (_) {
         if (!context.mounted) {

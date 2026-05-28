@@ -23,9 +23,21 @@ import '../providers/chat_controller.dart';
 import '../providers/chat_providers.dart';
 
 class AiConversationScreen extends ConsumerStatefulWidget {
-  const AiConversationScreen({super.key, this.sessionId});
+  const AiConversationScreen({
+    super.key,
+    this.sessionId,
+    this.initialSessionType = ChatSessionType.general,
+    this.seedPrompt,
+    this.consumePendingPrompt = false,
+  });
+
+  static const plannerSeedPrompt =
+      'I want to build a workout plan. Use my GymUnity profile, workout history, progress, preferences, and saved context first. Ask me only the next missing question you need, one question at a time, then generate the plan when you have enough information.';
 
   final String? sessionId;
+  final ChatSessionType initialSessionType;
+  final String? seedPrompt;
+  final bool consumePendingPrompt;
 
   @override
   ConsumerState<AiConversationScreen> createState() =>
@@ -36,8 +48,10 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   final _composerFocusNode = FocusNode();
+  final List<ChatMessageEntity> _optimisticMessages = <ChatMessageEntity>[];
   bool _consumedPendingPrompt = false;
   bool _isSubmittingMessage = false;
+  int _optimisticMessageCounter = 0;
   String? _lastScrollSignature;
 
   @override
@@ -46,6 +60,10 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
     if (widget.sessionId != null && widget.sessionId!.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(activeChatSessionIdProvider.notifier).state = widget.sessionId;
+      });
+    } else if (widget.initialSessionType == ChatSessionType.planner) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(activeChatSessionIdProvider.notifier).state = null;
       });
     }
     WidgetsBinding.instance.addPostFrameCallback(
@@ -114,12 +132,15 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
     final activeSessionId =
         ref.watch(activeChatSessionIdProvider) ?? widget.sessionId;
     final session = ref.watch(chatSessionProvider(activeSessionId));
-    final isPlanner = session?.isPlanner ?? false;
+    final isPlanner =
+        session?.isPlanner ??
+        widget.initialSessionType == ChatSessionType.planner;
 
-    final messages = activeSessionId == null
+    final persistedMessages = activeSessionId == null
         ? const <ChatMessageEntity>[]
         : (ref.watch(chatMessagesProvider(activeSessionId)).valueOrNull ??
               const <ChatMessageEntity>[]);
+    final messages = _mergeOptimisticMessages(persistedMessages);
     final draftAsync = activeSessionId != null && isPlanner
         ? ref.watch(latestPlannerDraftProvider(activeSessionId))
         : const AsyncValue<PlannerDraftEntity?>.data(null);
@@ -392,12 +413,17 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
     _messageController.clear();
     _scheduleScrollToBottom();
 
+    ChatMessageEntity? optimisticMessage;
     try {
       sessionId = await controller.createSessionIfNeeded(
         sessionId,
-        type: session?.type ?? ChatSessionType.general,
+        type: session?.type ?? widget.initialSessionType,
       );
       ref.read(activeChatSessionIdProvider.notifier).state = sessionId;
+      optimisticMessage = _addOptimisticUserMessage(
+        sessionId: sessionId,
+        content: rawMessage,
+      );
       final result = await controller.sendMessage(
         sessionId: sessionId,
         message: rawMessage,
@@ -408,11 +434,15 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
       if (result?.draftId != null) {
         ref.invalidate(plannerDraftProvider(result!.draftId!));
       }
+      if (result != null) {
+        _removeOptimisticMessage(optimisticMessage.id);
+      }
       _scheduleScrollToBottom();
       if (!mounted) {
         return;
       }
       if (result == null) {
+        _removeOptimisticMessage(optimisticMessage.id);
         _restoreComposerText(rawMessage);
         showAppFeedback(
           context,
@@ -421,6 +451,9 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
         );
       }
     } catch (_) {
+      if (optimisticMessage != null) {
+        _removeOptimisticMessage(optimisticMessage.id);
+      }
       _restoreComposerText(rawMessage);
       if (!mounted) {
         return;
@@ -470,6 +503,56 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
       ..text = message
       ..selection = TextSelection.collapsed(offset: message.length);
     _composerFocusNode.requestFocus();
+  }
+
+  ChatMessageEntity _addOptimisticUserMessage({
+    required String sessionId,
+    required String content,
+  }) {
+    _optimisticMessageCounter += 1;
+    final message = ChatMessageEntity(
+      id: 'local-pending-$_optimisticMessageCounter',
+      sessionId: sessionId,
+      sender: 'user',
+      content: content,
+      createdAt: DateTime.now(),
+      metadata: const <String, dynamic>{'local_pending': true},
+    );
+    setState(() {
+      _optimisticMessages.add(message);
+    });
+    _scheduleScrollToBottom();
+    return message;
+  }
+
+  void _removeOptimisticMessage(String messageId) {
+    if (_optimisticMessages.every((message) => message.id != messageId)) {
+      return;
+    }
+    setState(() {
+      _optimisticMessages.removeWhere((message) => message.id == messageId);
+    });
+  }
+
+  List<ChatMessageEntity> _mergeOptimisticMessages(
+    List<ChatMessageEntity> persistedMessages,
+  ) {
+    if (_optimisticMessages.isEmpty) {
+      return persistedMessages;
+    }
+    final merged = <ChatMessageEntity>[...persistedMessages];
+    for (final optimistic in _optimisticMessages) {
+      final alreadyPersisted = persistedMessages.any(
+        (message) =>
+            message.sessionId == optimistic.sessionId &&
+            message.sender == optimistic.sender &&
+            message.content == optimistic.content,
+      );
+      if (!alreadyPersisted) {
+        merged.add(optimistic);
+      }
+    }
+    return sortChatMessages(merged);
   }
 
   void _primeSingleFieldReply(String field) {
@@ -529,11 +612,20 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
       return;
     }
     _consumedPendingPrompt = true;
-    final prompt = ref.read(pendingChatPromptProvider);
+    final routePrompt = widget.seedPrompt?.trim();
+    if ((routePrompt == null || routePrompt.isEmpty) &&
+        !widget.consumePendingPrompt) {
+      return;
+    }
+    final prompt = routePrompt != null && routePrompt.isNotEmpty
+        ? routePrompt
+        : ref.read(pendingChatPromptProvider);
     if (prompt == null || prompt.trim().isEmpty) {
       return;
     }
-    ref.read(pendingChatPromptProvider.notifier).state = null;
+    if (routePrompt == null || routePrompt.isEmpty) {
+      ref.read(pendingChatPromptProvider.notifier).state = null;
+    }
     _messageController.text = prompt.trim();
     final sessionId = ref.read(activeChatSessionIdProvider) ?? widget.sessionId;
     unawaited(_handleSend(session: ref.read(chatSessionProvider(sessionId))));

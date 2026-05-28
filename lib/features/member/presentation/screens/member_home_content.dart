@@ -418,25 +418,17 @@ class _StreakPillState extends State<_StreakPill>
                   child: Align(
                     // -1.0 is Left Edge. 0.0 is Exact Center.
                     alignment: Alignment(-1.0 + progress, 0.0),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/streak_icon.png',
-                        width: 36,
-                        height: 36,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 36,
-                          height: 36,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF4DCC5),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.local_fire_department_rounded,
-                            color: AtelierColors.primary,
-                            size: 20,
-                          ),
-                        ),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF4DCC5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.local_fire_department_rounded,
+                        color: AtelierColors.primary,
+                        size: 20,
                       ),
                     ),
                   ),
@@ -554,7 +546,7 @@ class _MetricsBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _MetricTile(
-          imageAsset: 'assets/images/coaches_icon.png',
+          icon: Icons.groups_2_rounded,
           label: 'ACTIVE COACHES',
           value: '$activeCoaches',
           trailingWidget: const _CoachesRadarGraph(),
@@ -1269,7 +1261,7 @@ class _ActiveCoachesSummaryCard extends ConsumerWidget {
         loading: () => const _DashboardMetricTile(
           cardKey: Key('member-summary-active-coaches'),
           valueKey: Key('member-summary-active-coaches-value'),
-          imageAsset: 'assets/images/coaches_icon.png',
+          icon: Icons.groups_2_rounded,
           label: 'ACTIVE COACHES',
           headline: 'Loading...',
           compactHeadline: true,
@@ -1279,7 +1271,7 @@ class _ActiveCoachesSummaryCard extends ConsumerWidget {
         error: (_, _) => const _DashboardMetricTile(
           cardKey: Key('member-summary-active-coaches'),
           valueKey: Key('member-summary-active-coaches-value'),
-          imageAsset: 'assets/images/coaches_icon.png',
+          icon: Icons.groups_2_rounded,
           label: 'ACTIVE COACHES',
           headline: 'Unavailable',
           compactHeadline: true,
@@ -1299,7 +1291,7 @@ class _ActiveCoachesSummaryCard extends ConsumerWidget {
           return _DashboardMetricTile(
             cardKey: const Key('member-summary-active-coaches'),
             valueKey: const Key('member-summary-active-coaches-value'),
-            imageAsset: 'assets/images/coaches_icon.png',
+            icon: Icons.groups_2_rounded,
             label: 'ACTIVE COACHES',
             headline: '$count',
             supportingText: supportingText,

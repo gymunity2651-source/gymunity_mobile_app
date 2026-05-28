@@ -7,6 +7,7 @@ import 'package:my_app/features/auth/presentation/screens/role_selection_screen.
 import 'package:my_app/features/onboarding/presentation/screens/coach_onboarding_screen.dart';
 import 'package:my_app/features/onboarding/presentation/screens/member_onboarding_screen.dart';
 import 'package:my_app/features/onboarding/presentation/screens/seller_onboarding_screen.dart';
+import 'package:my_app/features/seller/presentation/screens/seller_dashboard_screen.dart';
 
 import 'test_doubles.dart';
 
@@ -120,6 +121,54 @@ void main() {
       expect(find.byType(SellerOnboardingScreen), findsOneWidget);
       expect(find.text('Seller onboarding failed'), findsOneWidget);
     });
+
+    testWidgets(
+      'seller onboarding submits store profile and opens seller dashboard',
+      (tester) async {
+        final sellerRepository = FakeSellerRepository();
+
+        await _pumpScreen(
+          tester,
+          const SellerOnboardingScreen(),
+          overrides: <Override>[
+            userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+            sellerRepositoryProvider.overrideWithValue(sellerRepository),
+            coachRepositoryProvider.overrideWithValue(FakeCoachRepository()),
+          ],
+        );
+
+        await tester.drag(find.byType(ListView), const Offset(0, -900));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextFormField).at(0), 'FitGear Pro');
+        await tester.enterText(
+          find.byType(TextFormField).at(1),
+          'Supplements and equipment for committed training.',
+        );
+
+        await tester.tap(find.text('Continue to Curation'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Apparel'));
+        await tester.tap(find.text('Apparel'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('National'));
+        await tester.tap(find.text('National'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('LAUNCH STORE'));
+        await tester.pumpAndSettle();
+
+        expect(sellerRepository.profile?.storeName, 'FitGear Pro');
+        expect(
+          sellerRepository.profile?.storeDescription,
+          'Supplements and equipment for committed training.',
+        );
+        expect(sellerRepository.profile?.primaryCategory, 'apparel');
+        expect(sellerRepository.profile?.shippingScope, 'national');
+        expect(find.byType(SellerDashboardScreen), findsOneWidget);
+        expect(find.byType(SellerOnboardingScreen), findsNothing);
+      },
+    );
 
     testWidgets('coach onboarding stays on screen when completion fails', (
       tester,

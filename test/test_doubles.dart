@@ -2570,9 +2570,34 @@ class FakeSellerRepository implements SellerRepository {
   List<ProductEntity> products = const <ProductEntity>[];
   List<OrderEntity> orders = const <OrderEntity>[];
   Object? upsertError;
+  int getSellerProfileCalls = 0;
+  int getDashboardSummaryCalls = 0;
+  int listOrdersCalls = 0;
+  int requestSellerCopilotCalls = 0;
+  int upsertSellerProfileCalls = 0;
+  int saveProductCalls = 0;
+  int deleteOrArchiveProductCalls = 0;
+  int updateOrderStatusCalls = 0;
+  Object? sellerCopilotError;
+  SellerTaiyoCopilotEntity sellerCopilotBrief = const SellerTaiyoCopilotEntity(
+    requestType: 'seller_dashboard_brief',
+    status: 'success',
+    summary: 'Seller dashboard is steady.',
+    priorityActions: <String>['Review pending orders.'],
+    riskLevel: 'low',
+    confidence: 'medium',
+  );
+  Map<String, dynamic>? lastUpsertSellerProfilePayload;
+  Map<String, dynamic>? lastSavedProductPayload;
+  Map<String, dynamic>? lastOrderStatusUpdatePayload;
+  String? lastDeletedOrArchivedProductId;
+  bool archiveProductsOnDelete = false;
 
   @override
-  Future<SellerProfileEntity?> getSellerProfile() async => profile;
+  Future<SellerProfileEntity?> getSellerProfile() async {
+    getSellerProfileCalls++;
+    return profile;
+  }
 
   @override
   Future<void> upsertSellerProfile({
@@ -2586,6 +2611,15 @@ class FakeSellerRepository implements SellerRepository {
       throw upsertError!;
     }
 
+    upsertSellerProfileCalls++;
+    lastUpsertSellerProfilePayload = <String, dynamic>{
+      'storeName': storeName,
+      'storeDescription': storeDescription,
+      'primaryCategory': primaryCategory,
+      'shippingScope': shippingScope,
+      'supportEmail': supportEmail,
+    };
+
     profile = SellerProfileEntity(
       userId: 'seller-1',
       storeName: storeName,
@@ -2598,6 +2632,7 @@ class FakeSellerRepository implements SellerRepository {
 
   @override
   Future<SellerDashboardSummaryEntity> getDashboardSummary() async {
+    getDashboardSummaryCalls++;
     final pendingOrders = orders
         .where((order) => order.status == 'pending')
         .length;
@@ -2642,6 +2677,19 @@ class FakeSellerRepository implements SellerRepository {
     List<String> imagePaths = const <String>[],
     bool isActive = true,
   }) async {
+    saveProductCalls++;
+    lastSavedProductPayload = <String, dynamic>{
+      'productId': productId,
+      'title': title,
+      'description': description,
+      'category': category,
+      'price': price,
+      'stockQty': stockQty,
+      'lowStockThreshold': lowStockThreshold,
+      'imagePaths': imagePaths,
+      'isActive': isActive,
+    };
+
     final product = ProductEntity(
       id: productId ?? 'product-${products.length + 1}',
       sellerId: 'seller-1',
@@ -2677,12 +2725,43 @@ class FakeSellerRepository implements SellerRepository {
 
   @override
   Future<bool> deleteOrArchiveProduct(String productId) async {
+    deleteOrArchiveProductCalls++;
+    lastDeletedOrArchivedProductId = productId;
+    if (archiveProductsOnDelete) {
+      products = products
+          .map(
+            (product) => product.id == productId
+                ? ProductEntity(
+                    id: product.id,
+                    sellerId: product.sellerId,
+                    name: product.name,
+                    description: product.description,
+                    category: product.category,
+                    price: product.price,
+                    currency: product.currency,
+                    stockQty: product.stockQty,
+                    imagePaths: product.imagePaths,
+                    imageUrls: product.imageUrls,
+                    lowStockThreshold: product.lowStockThreshold,
+                    isActive: false,
+                    deletedAt: DateTime(2026, 5, 28),
+                    createdAt: product.createdAt,
+                    updatedAt: product.updatedAt,
+                  )
+                : product,
+          )
+          .toList(growable: false);
+      return false;
+    }
     products = products.where((product) => product.id != productId).toList();
     return true;
   }
 
   @override
-  Future<List<OrderEntity>> listOrders() async => orders;
+  Future<List<OrderEntity>> listOrders() async {
+    listOrdersCalls++;
+    return orders;
+  }
 
   @override
   Future<OrderEntity?> getOrderDetails(String orderId) async {
@@ -2699,6 +2778,12 @@ class FakeSellerRepository implements SellerRepository {
     required String newStatus,
     String? note,
   }) async {
+    updateOrderStatusCalls++;
+    lastOrderStatusUpdatePayload = <String, dynamic>{
+      'orderId': orderId,
+      'newStatus': newStatus,
+      'note': note,
+    };
     orders = orders
         .map(
           (order) => order.id == orderId
@@ -2715,9 +2800,18 @@ class FakeSellerRepository implements SellerRepository {
                   itemCount: order.itemCount,
                   shippingAddress: order.shippingAddress,
                   items: order.items,
-                  statusHistory: order.statusHistory,
+                  statusHistory: <OrderStatusHistoryEntry>[
+                    ...order.statusHistory,
+                    OrderStatusHistoryEntry(
+                      id: 'history-${order.statusHistory.length + 1}',
+                      orderId: order.id,
+                      status: newStatus,
+                      note: note,
+                      createdAt: DateTime(2026, 5, 28, 12),
+                    ),
+                  ],
                   createdAt: order.createdAt,
-                  updatedAt: order.updatedAt,
+                  updatedAt: DateTime(2026, 5, 28, 12),
                 )
               : order,
         )
@@ -2730,13 +2824,22 @@ class FakeSellerRepository implements SellerRepository {
     String? productId,
     String? orderId,
   }) async {
+    requestSellerCopilotCalls++;
+    if (sellerCopilotError != null) {
+      throw sellerCopilotError!;
+    }
     return SellerTaiyoCopilotEntity(
       requestType: requestType,
-      status: 'success',
-      summary: 'Seller dashboard is steady.',
-      priorityActions: const <String>['Review pending orders.'],
-      riskLevel: 'low',
-      confidence: 'medium',
+      status: sellerCopilotBrief.status,
+      summary: sellerCopilotBrief.summary,
+      priorityActions: sellerCopilotBrief.priorityActions,
+      productOpportunities: sellerCopilotBrief.productOpportunities,
+      orderNotes: sellerCopilotBrief.orderNotes,
+      riskLevel: sellerCopilotBrief.riskLevel,
+      recommendedNextStep: sellerCopilotBrief.recommendedNextStep,
+      missingFields: sellerCopilotBrief.missingFields,
+      confidence: sellerCopilotBrief.confidence,
+      generatedAt: sellerCopilotBrief.generatedAt,
     );
   }
 }

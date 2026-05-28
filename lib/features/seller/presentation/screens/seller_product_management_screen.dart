@@ -24,7 +24,13 @@ class SellerProductManagementScreen extends ConsumerWidget {
         title: const Text('Product Management'),
         actions: [
           IconButton(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.addProduct),
+            onPressed: () async {
+              await Navigator.pushNamed(context, AppRoutes.addProduct);
+              ref.invalidate(sellerProductsProvider);
+              ref.invalidate(sellerDashboardSummaryProvider);
+              ref.invalidate(sellerTaiyoDashboardBriefProvider);
+              ref.invalidate(storeProductsProvider);
+            },
             icon: const Icon(Icons.add),
           ),
         ],
@@ -127,6 +133,8 @@ class SellerProductManagementScreen extends ConsumerWidget {
                                 .read(sellerRepositoryProvider)
                                 .deleteOrArchiveProduct(product.id);
                             ref.invalidate(sellerProductsProvider);
+                            ref.invalidate(sellerDashboardSummaryProvider);
+                            ref.invalidate(sellerTaiyoDashboardBriefProvider);
                             ref.invalidate(storeProductsProvider);
                             if (!context.mounted) {
                               return;

@@ -22,9 +22,14 @@ class MemberProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(currentUserProfileProvider);
-    final subscriptions = ref.watch(memberSubscriptionsProvider).valueOrNull ?? const <SubscriptionEntity>[];
-    final threads = ref.watch(memberCoachingThreadsProvider).valueOrNull ?? const <CoachingThreadEntity>[];
-    final orders = ref.watch(memberOrdersProvider).valueOrNull ?? const <OrderEntity>[];
+    final subscriptions =
+        ref.watch(memberSubscriptionsProvider).valueOrNull ??
+        const <SubscriptionEntity>[];
+    final threads =
+        ref.watch(memberCoachingThreadsProvider).valueOrNull ??
+        const <CoachingThreadEntity>[];
+    final orders =
+        ref.watch(memberOrdersProvider).valueOrNull ?? const <OrderEntity>[];
     final unreadNotifications = ref.watch(unreadNotificationsCountProvider);
 
     return Theme(
@@ -55,8 +60,12 @@ class MemberProfileScreen extends ConsumerWidget {
                       children: [
                         _ProfileTopBar(
                           profile: profile,
-                          onMenuTap: () => Navigator.pushNamed(context, AppRoutes.settings),
-                          onAvatarTap: () => Navigator.pushNamed(context, AppRoutes.editProfile),
+                          onMenuTap: () =>
+                              Navigator.pushNamed(context, AppRoutes.settings),
+                          onAvatarTap: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.editProfile,
+                          ),
                         ),
                         const SizedBox(height: 30),
                         _ProfileHero(
@@ -71,25 +80,35 @@ class MemberProfileScreen extends ConsumerWidget {
                           icon: Icons.person_outline_rounded,
                           title: 'Edit Profile',
                           subtitle: 'Personal details & preferences',
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.editProfile),
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.editProfile,
+                          ),
                         ),
                         _ProfileActionCard(
                           icon: Icons.spa_outlined,
                           title: 'My Coaching',
                           subtitle: _coachingSubtitle(subscriptions),
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.mySubscriptions),
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.mySubscriptions,
+                          ),
                         ),
                         _ProfileActionCard(
                           icon: Icons.calendar_month_outlined,
                           title: 'Weekly Check-ins',
                           subtitle: _checkinsSubtitle(subscriptions),
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.memberCheckins),
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.memberCheckins,
+                          ),
                         ),
                         _ProfileActionCard(
                           icon: Icons.trending_up_rounded,
                           title: 'Progress',
                           subtitle: 'View your transformation map',
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.progress),
+                          onTap: () =>
+                              Navigator.pushNamed(context, AppRoutes.progress),
                         ),
                         const SizedBox(height: 34),
                         const _SectionLabel('ENGAGEMENT'),
@@ -97,9 +116,11 @@ class MemberProfileScreen extends ConsumerWidget {
                         _ProfileActionCard(
                           icon: Icons.forum_outlined,
                           title: 'Messages',
-                          subtitle: _messagesSubtitle(threads, unreadNotifications),
-                          trailingDot: unreadNotifications > 0,
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.memberMessages),
+                          subtitle: _messagesSubtitle(threads),
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.memberMessages,
+                          ),
                         ),
                         _ProfileActionCard(
                           icon: Icons.notifications_none_rounded,
@@ -107,7 +128,10 @@ class MemberProfileScreen extends ConsumerWidget {
                           subtitle: unreadNotifications > 0
                               ? '$unreadNotifications unread alert${unreadNotifications == 1 ? '' : 's'}'
                               : 'Configure alerts',
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.notifications,
+                          ),
                         ),
                         const SizedBox(height: 34),
                         const _SectionLabel('ACCOUNT & SUPPORT'),
@@ -117,18 +141,29 @@ class MemberProfileScreen extends ConsumerWidget {
                             _ProfileGroupItem(
                               icon: Icons.shopping_bag_outlined,
                               label: 'My Orders',
-                              onTap: () => Navigator.pushNamed(context, AppRoutes.orders),
-                              detail: orders.isNotEmpty ? '${orders.length}' : null,
+                              onTap: () => Navigator.pushNamed(
+                                context,
+                                AppRoutes.orders,
+                              ),
+                              detail: orders.isNotEmpty
+                                  ? '${orders.length}'
+                                  : null,
                             ),
                             _ProfileGroupItem(
                               icon: Icons.settings_outlined,
                               label: 'Settings',
-                              onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+                              onTap: () => Navigator.pushNamed(
+                                context,
+                                AppRoutes.settings,
+                              ),
                             ),
                             _ProfileGroupItem(
                               icon: Icons.help_outline_rounded,
                               label: 'Help & Support',
-                              onTap: () => Navigator.pushNamed(context, AppRoutes.helpSupport),
+                              onTap: () => Navigator.pushNamed(
+                                context,
+                                AppRoutes.helpSupport,
+                              ),
                             ),
                           ],
                         ),
@@ -137,7 +172,9 @@ class MemberProfileScreen extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 22),
                           child: _LogoutPillButton(
                             onTap: () async {
-                              await ref.read(authControllerProvider.notifier).logout();
+                              await ref
+                                  .read(authControllerProvider.notifier)
+                                  .logout();
                               if (!context.mounted) {
                                 return;
                               }
@@ -251,10 +288,7 @@ class _ProfileTopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _RoundTopButton(
-            icon: Icons.menu_rounded,
-            onTap: onMenuTap,
-          ),
+          _RoundTopButton(icon: Icons.menu_rounded, onTap: onMenuTap),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -390,7 +424,9 @@ class _HeroTag extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.3,
-          color: highlighted ? AtelierColors.primary : AtelierColors.onSurfaceVariant,
+          color: highlighted
+              ? AtelierColors.primary
+              : AtelierColors.onSurfaceVariant,
         ),
       ),
     );
@@ -425,14 +461,12 @@ class _ProfileActionCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.trailingDot = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-  final bool trailingDot;
 
   @override
   Widget build(BuildContext context) {
@@ -458,11 +492,7 @@ class _ProfileActionCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: AtelierColors.surfaceContainerLow,
                   ),
-                  child: Icon(
-                    icon,
-                    size: 20,
-                    color: AtelierColors.primary,
-                  ),
+                  child: Icon(icon, size: 20, color: AtelierColors.primary),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -490,19 +520,10 @@ class _ProfileActionCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                trailingDot
-                    ? Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AtelierColors.primary,
-                        ),
-                      )
-                    : Icon(
-                        Icons.chevron_right_rounded,
-                        color: AtelierColors.outlineVariant.withValues(alpha: 0.9),
-                      ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AtelierColors.outlineVariant.withValues(alpha: 0.9),
+                ),
               ],
             ),
           ),
@@ -644,10 +665,7 @@ class _LogoutPillButton extends StatelessWidget {
 }
 
 class _OutlineActionButton extends StatelessWidget {
-  const _OutlineActionButton({
-    required this.label,
-    required this.onTap,
-  });
+  const _OutlineActionButton({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
@@ -756,10 +774,7 @@ class _ProfileLoadingView extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 150),
       children: [
-        Container(
-          height: 70,
-          color: AtelierColors.surfaceContainerLowest,
-        ),
+        Container(height: 70, color: AtelierColors.surfaceContainerLowest),
         const SizedBox(height: 30),
         Center(
           child: Container(
@@ -876,7 +891,9 @@ String _heroName(String fullName) {
 }
 
 String _primaryMembershipLabel(ProfileEntity? profile) {
-  return profile?.onboardingCompleted == true ? 'Premium Member' : 'Wellness Member';
+  return profile?.onboardingCompleted == true
+      ? 'Premium Member'
+      : 'Wellness Member';
 }
 
 String _secondaryProfileLabel(ProfileEntity? profile) {
@@ -893,12 +910,21 @@ String _secondaryProfileLabel(ProfileEntity? profile) {
 
 String _coachingSubtitle(List<SubscriptionEntity> subscriptions) {
   final count = subscriptions
-      .where((subscription) =>
-          subscription.isActive ||
-          subscription.isPaused ||
-          subscription.isCheckoutPending)
+      .where((subscription) => subscription.canAccessCoachWorkspace)
       .length;
   if (count <= 0) {
+    final failedPayment = subscriptions.any(
+      (subscription) => subscription.checkoutStatus == 'failed',
+    );
+    if (failedPayment) {
+      return 'Payment needs attention';
+    }
+    final pendingCheckout = subscriptions.any(
+      (subscription) => subscription.isCheckoutPending,
+    );
+    if (pendingCheckout) {
+      return 'Checkout pending activation';
+    }
     return 'Explore your coaching space';
   }
   return '$count active program${count == 1 ? '' : 's'}';
@@ -906,25 +932,16 @@ String _coachingSubtitle(List<SubscriptionEntity> subscriptions) {
 
 String _checkinsSubtitle(List<SubscriptionEntity> subscriptions) {
   final hasCoaching = subscriptions.any(
-    (subscription) =>
-        subscription.isActive ||
-        subscription.isPaused ||
-        subscription.isCheckoutPending,
+    (subscription) => subscription.canAccessCoachWorkspace,
   );
   return hasCoaching
       ? 'Keep your weekly rhythm in view'
-      : 'Open your reflection archive';
+      : 'Activate coaching to submit check-ins';
 }
 
-String _messagesSubtitle(
-  List<CoachingThreadEntity> threads,
-  int unreadNotifications,
-) {
-  if (unreadNotifications > 0) {
-    return '$unreadNotifications new notification${unreadNotifications == 1 ? '' : 's'}';
-  }
+String _messagesSubtitle(List<CoachingThreadEntity> threads) {
   if (threads.isNotEmpty) {
     return '${threads.length} active conversation${threads.length == 1 ? '' : 's'}';
   }
-  return 'Open your conversation archive';
+  return 'No active coaching thread';
 }

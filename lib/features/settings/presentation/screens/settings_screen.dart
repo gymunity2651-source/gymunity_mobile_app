@@ -7,9 +7,11 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
+import '../../../../core/di/providers.dart';
 import '../../../admin/presentation/providers/admin_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../monetization/presentation/providers/monetization_providers.dart';
+import '../../../user/domain/entities/app_role.dart';
 import '../providers/settings_providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -24,6 +26,8 @@ class SettingsScreen extends ConsumerWidget {
       shouldShowSubscriptionSettingsProvider,
     );
     final admin = ref.watch(currentAdminProvider).valueOrNull;
+    final role = ref.watch(appRoleProvider);
+    final editProfileRoute = _editProfileRouteForRole(role);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -84,9 +88,8 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 10),
               _ActionTile(
                 icon: Icons.person_outline,
-                label: 'Edit Profile',
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.editProfile),
+                label: _editProfileLabelForRole(role),
+                onTap: () => Navigator.pushNamed(context, editProfileRoute),
               ),
               if (showSubscriptionSettings)
                 _ActionTile(
@@ -247,17 +250,7 @@ class SettingsScreen extends ConsumerWidget {
                 icon: Icons.logout,
                 label: 'Log Out',
                 destructive: true,
-                onTap: () async {
-                  await ref.read(authControllerProvider.notifier).logout();
-                  if (!context.mounted) {
-                    return;
-                  }
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    AppRoutes.login,
-                    (route) => false,
-                  );
-                },
+                onTap: () => _confirmLogout(context, ref),
               ),
               _ActionTile(
                 icon: Icons.delete_outline,
@@ -283,6 +276,72 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _editProfileRouteForRole(AppRole? role) {
+  switch (role) {
+    case AppRole.seller:
+      return AppRoutes.sellerProfile;
+    case AppRole.coach:
+      return AppRoutes.coachProfile;
+    case AppRole.member:
+    case null:
+      return AppRoutes.editProfile;
+  }
+}
+
+String _editProfileLabelForRole(AppRole? role) {
+  switch (role) {
+    case AppRole.seller:
+      return 'Store Profile';
+    case AppRole.coach:
+      return 'Coach Profile';
+    case AppRole.member:
+    case null:
+      return 'Edit Profile';
+  }
+}
+
+Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+  final shouldLogout = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('You will return to the login screen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.logout, size: 18),
+            label: const Text('Log Out'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (shouldLogout != true || !context.mounted) {
+    return;
+  }
+
+  await ref.read(authControllerProvider.notifier).logout();
+  if (!context.mounted) {
+    return;
+  }
+
+  final authState = ref.read(authControllerProvider);
+  if (authState.errorMessage != null) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(authState.errorMessage!)));
+    return;
+  }
+
+  Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
 }
 
 class _SectionTitle extends StatelessWidget {

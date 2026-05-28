@@ -7,7 +7,6 @@ import 'package:my_app/features/ai_chat/domain/entities/chat_session_entity.dart
 import 'package:my_app/features/ai_chat/presentation/screens/ai_chat_home_screen.dart';
 import 'package:my_app/features/ai_chat/presentation/screens/ai_conversation_screen.dart';
 import 'package:my_app/features/monetization/presentation/providers/monetization_providers.dart';
-import 'package:my_app/features/planner/presentation/screens/planner_builder_screen.dart';
 
 import 'test_doubles.dart';
 
@@ -29,13 +28,22 @@ void main() {
       expect(find.byType(FloatingActionButton), findsNothing);
     });
 
-    testWidgets('hero build button opens the planner route', (tester) async {
-      await _pumpTaiyoHome(tester);
+    testWidgets('hero build button starts planner conversation', (
+      tester,
+    ) async {
+      final chatRepository = FakeChatRepository();
+      await _pumpTaiyoHome(tester, chatRepository: chatRepository);
 
       await tester.tap(find.byKey(const Key('taiyo-hero-build-button')));
       await _pumpTaiyoFrames(tester);
 
-      expect(find.byType(PlannerBuilderScreen), findsOneWidget);
+      expect(find.byType(AiConversationScreen), findsOneWidget);
+      expect(chatRepository.sessions, hasLength(1));
+      expect(chatRepository.sessions.single.type, ChatSessionType.planner);
+      expect(
+        chatRepository.messagesFor(chatRepository.sessions.single.id),
+        isNotEmpty,
+      );
     });
 
     testWidgets('hero chat button opens a general session flow', (
@@ -74,9 +82,10 @@ void main() {
       await tester.tap(find.byKey(const Key('taiyo-open-builder-button')));
       await _pumpTaiyoFrames(tester);
 
-      expect(find.byType(PlannerBuilderScreen), findsOneWidget);
+      expect(find.byType(AiConversationScreen), findsOneWidget);
+      expect(chatRepository.sessions.single.type, ChatSessionType.planner);
 
-      await tester.pageBack();
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
       await _pumpTaiyoFrames(tester);
 
       await tester.ensureVisible(
@@ -86,11 +95,12 @@ void main() {
       await _pumpTaiyoFrames(tester);
 
       expect(find.byType(AiConversationScreen), findsOneWidget);
-      expect(chatRepository.sessions, hasLength(1));
+      expect(chatRepository.sessions, hasLength(2));
+      expect(chatRepository.sessions.last.type, ChatSessionType.general);
     });
 
     testWidgets(
-      'recent planner sessions show derived metadata and reopen builder',
+      'recent planner sessions show derived metadata and reopen conversation',
       (tester) async {
         final now = DateTime.now();
         final chatRepository = FakeChatRepository()
@@ -117,7 +127,7 @@ void main() {
         await tester.tap(find.text('Morning Clarity'));
         await _pumpTaiyoFrames(tester);
 
-        expect(find.byType(PlannerBuilderScreen), findsOneWidget);
+        expect(find.byType(AiConversationScreen), findsOneWidget);
       },
     );
 

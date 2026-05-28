@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/widgets/feature_placeholder_screen.dart';
 import '../features/ai_coach/presentation/screens/active_workout_session_screen.dart';
+import '../features/ai_chat/domain/entities/chat_session_entity.dart';
 import '../features/ai_chat/presentation/screens/ai_conversation_screen.dart';
 import '../features/ai_chat/presentation/screens/ai_chat_home_screen.dart';
 import '../features/admin/presentation/screens/admin_dashboard_screen.dart';
@@ -59,7 +60,6 @@ import '../features/onboarding/presentation/screens/member_onboarding_screen.dar
 import '../features/onboarding/presentation/screens/seller_onboarding_screen.dart';
 import '../features/planner/presentation/route_args.dart';
 import '../features/planner/presentation/screens/ai_generated_plan_screen.dart';
-import '../features/planner/presentation/screens/planner_builder_screen.dart';
 import '../features/planner/presentation/screens/workout_day_details_screen.dart';
 import '../features/planner/presentation/screens/workout_plan_screen.dart';
 import '../features/seller/presentation/screens/seller_dashboard_screen.dart';
@@ -82,6 +82,16 @@ import '../features/seller/presentation/screens/seller_product_editor_screen.dar
 import '../features/seller/presentation/screens/seller_product_management_screen.dart';
 import '../features/seller/presentation/screens/seller_profile_screen.dart';
 import '../features/coach/presentation/screens/coach_profile_screen.dart';
+
+class AiConversationArgs {
+  const AiConversationArgs({
+    required this.sessionId,
+    this.consumePendingPrompt = false,
+  });
+
+  final String? sessionId;
+  final bool consumePendingPrompt;
+}
 
 class AppRoutes {
   AppRoutes._();
@@ -245,16 +255,35 @@ class AppRoutes {
       case aiChatHome:
         return _buildRoute(const AiChatHomeScreen());
       case aiConversation:
-        final sessionId = settings.arguments as String?;
-        return _buildRoute(AiConversationScreen(sessionId: sessionId));
+        final args = settings.arguments;
+        final sessionId = args is AiConversationArgs
+            ? args.sessionId
+            : args as String?;
+        return _buildRoute(
+          AiConversationScreen(
+            sessionId: sessionId,
+            consumePendingPrompt: args is AiConversationArgs
+                ? args.consumePendingPrompt
+                : false,
+          ),
+        );
       case aiPlannerBuilder:
         final args = settings.arguments;
+        final existingSessionId = args is PlannerBuilderArgs
+            ? args.existingSessionId
+            : null;
+        final explicitSeedPrompt = args is PlannerBuilderArgs
+            ? args.seedPrompt
+            : null;
         return _buildRoute(
-          PlannerBuilderScreen(
-            seedPrompt: args is PlannerBuilderArgs ? args.seedPrompt : null,
-            existingSessionId: args is PlannerBuilderArgs
-                ? args.existingSessionId
-                : null,
+          AiConversationScreen(
+            sessionId: existingSessionId,
+            initialSessionType: ChatSessionType.planner,
+            seedPrompt:
+                explicitSeedPrompt ??
+                (existingSessionId == null
+                    ? AiConversationScreen.plannerSeedPrompt
+                    : null),
           ),
         );
       case aiGeneratedPlan:

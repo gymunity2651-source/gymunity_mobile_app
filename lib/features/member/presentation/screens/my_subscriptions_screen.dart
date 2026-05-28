@@ -160,33 +160,9 @@ class _SubscriptionCard extends ConsumerWidget {
                 ),
             ],
           ),
-          if (subscription.isCheckoutPending) ...[
+          if (!subscription.canAccessCoachWorkspace) ...[
             const SizedBox(height: 14),
-            if (subscription.isPaymobPayment)
-              _paymobPaymentActions(context, ref)
-            else if (AppConfig.current.enableCoachManualPaymentProofs)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => _confirmPayment(context, ref),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.orange,
-                    foregroundColor: AppColors.white,
-                  ),
-                  child: const Text('Submit payment proof'),
-                ),
-              )
-            else
-              _PaymentNotice(
-                title: 'Payment pending',
-                body:
-                    'Manual payment proof is disabled. Refresh after GymUnity confirms this checkout.',
-                actionLabel: 'Refresh status',
-                onTap: () {
-                  ref.invalidate(memberSubscriptionsProvider);
-                  ref.invalidate(memberCoachingThreadsProvider);
-                },
-              ),
+            _lockedCoachingActions(context, ref),
           ] else ...[
             const SizedBox(height: 14),
             SizedBox(
@@ -297,6 +273,40 @@ class _SubscriptionCard extends ConsumerWidget {
           await ExternalLinkService.openUrl(session.checkoutUrl);
           ref.invalidate(paymentOrderProvider(session.paymentOrderId));
         }
+        ref.invalidate(memberSubscriptionsProvider);
+        ref.invalidate(memberCoachingThreadsProvider);
+      },
+    );
+  }
+
+  Widget _lockedCoachingActions(BuildContext context, WidgetRef ref) {
+    if (subscription.isPaymobPayment) {
+      return _paymobPaymentActions(context, ref);
+    }
+
+    if (subscription.isCheckoutPending &&
+        AppConfig.current.enableCoachManualPaymentProofs) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () => _confirmPayment(context, ref),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.orange,
+            foregroundColor: AppColors.white,
+          ),
+          child: const Text('Submit payment proof'),
+        ),
+      );
+    }
+
+    final failed = subscription.checkoutStatus == 'failed';
+    return _PaymentNotice(
+      title: failed ? 'Payment was not completed' : 'Payment pending',
+      body: failed
+          ? 'Start a new checkout from the coach offer or refresh if the payment status changed.'
+          : 'Messages, check-ins, and the Coach Hub unlock after GymUnity confirms and activates this coaching subscription.',
+      actionLabel: 'Refresh status',
+      onTap: () {
         ref.invalidate(memberSubscriptionsProvider);
         ref.invalidate(memberCoachingThreadsProvider);
       },
