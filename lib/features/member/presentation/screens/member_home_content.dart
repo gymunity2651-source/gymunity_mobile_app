@@ -196,17 +196,30 @@ class _TopBar extends StatelessWidget {
           ),
         ),
         // Notification bell
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AtelierColors.surfaceContainerLowest,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.notifications_none_rounded,
-            color: AtelierColors.onSurfaceVariant,
-            size: 21,
+        Tooltip(
+          message: 'Notifications',
+          child: Semantics(
+            button: true,
+            label: 'Notifications',
+            child: Material(
+              color: AtelierColors.surfaceContainerLowest,
+              shape: const CircleBorder(),
+              child: InkWell(
+                key: const Key('member-notifications-shortcut'),
+                customBorder: const CircleBorder(),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.notifications),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(
+                    Icons.notifications_none_rounded,
+                    color: AtelierColors.onSurfaceVariant,
+                    size: 21,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
         const SizedBox(width: 8),

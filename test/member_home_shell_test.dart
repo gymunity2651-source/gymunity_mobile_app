@@ -7,6 +7,8 @@ import 'package:my_app/features/member/domain/entities/member_home_summary_entit
 import 'package:my_app/features/member/presentation/screens/member_home_screen.dart';
 import 'package:my_app/features/monetization/presentation/providers/monetization_providers.dart';
 import 'package:my_app/features/news/domain/entities/news_article.dart';
+import 'package:my_app/features/settings/presentation/providers/settings_providers.dart';
+import 'package:my_app/features/settings/presentation/screens/notifications_screen.dart';
 import 'package:my_app/features/user/domain/entities/app_role.dart';
 import 'package:my_app/features/user/domain/entities/profile_entity.dart';
 
@@ -156,6 +158,18 @@ void main() {
 
       expect(find.text('member@gymunity.com'), findsOneWidget);
       expect(find.text('My Coaching'), findsOneWidget);
+    });
+
+    testWidgets('notification bell opens notifications from member home', (
+      tester,
+    ) async {
+      await _pumpMemberShell(tester);
+
+      await tester.tap(find.byKey(const Key('member-notifications-shortcut')));
+      await _settleShell(tester);
+
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+      expect(find.text('Notifications'), findsOneWidget);
     });
 
     testWidgets('home fallback states still expose the profile shortcut', (
@@ -320,6 +334,11 @@ Widget _buildShellApp({
       sellerRepositoryProvider.overrideWithValue(FakeSellerRepository()),
       chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
       plannerRepositoryProvider.overrideWithValue(FakePlannerRepository()),
+      notificationsProvider.overrideWith(
+        (ref) => Stream<List<AppNotificationItem>>.value(
+          const <AppNotificationItem>[],
+        ),
+      ),
       aiPremiumGateProvider.overrideWith(
         (ref) => AsyncValue<AiPremiumGateDecision>.data(
           AiPremiumGateDecision.freeAccess(),
