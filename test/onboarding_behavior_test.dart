@@ -69,9 +69,26 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('CONTINUE'));
+      await tester.tap(find.text('Lose Weight'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('CONTINUE'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Male'));
+      await tester.pumpAndSettle();
+      await tester.enterText(_fieldByLabel(tester, 'Height'), '170');
+      await tester.enterText(_fieldByLabel(tester, 'Weight'), '82');
+      await tester.enterText(_fieldByLabel(tester, 'Age'), '26');
+      await tester.enterText(_fieldByLabel(tester, 'City'), 'Cairo');
+      await tester.tap(find.text('CONTINUE'));
+      await tester.pumpAndSettle();
+      await tester.enterText(_fieldByLabel(tester, 'Monthly budget'), '1500');
+      await tester.tap(find.text('Online'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Arabic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Any'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('CONTINUE'));
       await tester.pumpAndSettle();
@@ -327,4 +344,16 @@ Future<void> _pumpScreen(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+Finder _fieldByLabel(WidgetTester tester, String label) {
+  final fields = tester.widgetList<TextField>(find.byType(TextField));
+  var index = 0;
+  for (final field in fields) {
+    if (field.decoration?.labelText == label) {
+      return find.byType(TextField).at(index);
+    }
+    index++;
+  }
+  fail('Could not find TextField with label $label');
 }

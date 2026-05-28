@@ -19,11 +19,11 @@ class _MemberOnboardingScreenState
     extends ConsumerState<MemberOnboardingScreen> {
   static const int _totalSteps = 4;
 
-  final _heightController = TextEditingController(text: '170');
-  final _weightController = TextEditingController(text: '82');
-  final _ageController = TextEditingController(text: '26');
-  final _budgetController = TextEditingController(text: '1500');
-  final _cityController = TextEditingController(text: 'Cairo');
+  final _heightController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _ageController = TextEditingController();
+  final _budgetController = TextEditingController();
+  final _cityController = TextEditingController();
 
   final List<_GoalOption> _goals = const <_GoalOption>[
     _GoalOption(
@@ -70,14 +70,14 @@ class _MemberOnboardingScreenState
   ];
 
   int _currentStep = 0;
-  int _selectedGoal = 0;
+  int _selectedGoal = -1;
   int _selectedExperience = -1;
   int _selectedFrequency = -1;
-  String _selectedGender = 'Male';
-  String _selectedCoachingPreference = 'online';
-  String _selectedTrainingPlace = 'home';
-  String _selectedLanguage = 'arabic';
-  String _selectedCoachGender = 'any';
+  String? _selectedGender;
+  String? _selectedCoachingPreference;
+  String? _selectedTrainingPlace;
+  String? _selectedLanguage;
+  String? _selectedCoachGender;
 
   @override
   void dispose() {
@@ -90,37 +90,37 @@ class _MemberOnboardingScreenState
   }
 
   Future<void> _nextStep() async {
+    if (!_validateCurrentStep()) {
+      return;
+    }
+
     if (_currentStep < _totalSteps - 1) {
       setState(() => _currentStep += 1);
       return;
     }
 
-    final age = int.tryParse(_ageController.text.trim());
-    final height = double.tryParse(_heightController.text.trim());
-    final weight = double.tryParse(_weightController.text.trim());
-    final budget = int.tryParse(_budgetController.text.trim());
-    if (age == null || age < 13) {
-      _showMessage('Enter a valid age to continue.');
-      return;
-    }
-    if (height == null || height <= 0) {
-      _showMessage('Enter a valid height in centimeters.');
-      return;
-    }
-    if (weight == null || weight <= 0) {
-      _showMessage('Enter a valid weight in kilograms.');
-      return;
-    }
-    if (_cityController.text.trim().isEmpty) {
-      _showMessage('Add your city so we can match you with the right coaches.');
-      return;
-    }
-    if (budget == null || budget <= 0) {
-      _showMessage('Add a realistic monthly budget in EGP.');
-      return;
-    }
-    if (_selectedExperience < 0 || _selectedFrequency < 0) {
-      _showMessage('Choose your current level and weekly training frequency.');
+    await _submitOnboarding();
+  }
+
+  Future<void> _submitOnboarding() async {
+    final age = _parseInt(_ageController);
+    final height = _parseDouble(_heightController);
+    final weight = _parseDouble(_weightController);
+    final budget = _parseInt(_budgetController);
+
+    if (_selectedGoal < 0 ||
+        age == null ||
+        height == null ||
+        weight == null ||
+        budget == null ||
+        _selectedGender == null ||
+        _selectedCoachingPreference == null ||
+        _selectedTrainingPlace == null ||
+        _selectedLanguage == null ||
+        _selectedCoachGender == null ||
+        _selectedExperience < 0 ||
+        _selectedFrequency < 0) {
+      _showMessage('Complete each onboarding step before getting started.');
       return;
     }
 
@@ -129,7 +129,7 @@ class _MemberOnboardingScreenState
         .completeMemberOnboarding(
           goal: _goals[_selectedGoal].value,
           age: age,
-          gender: _selectedGender.toLowerCase(),
+          gender: _selectedGender!.toLowerCase(),
           heightCm: height,
           currentWeightKg: weight,
           trainingFrequency: _frequencyValue(_frequencies[_selectedFrequency]),
@@ -160,6 +160,104 @@ class _MemberOnboardingScreenState
     );
   }
 
+  bool _validateCurrentStep() {
+    switch (_currentStep) {
+      case 0:
+        return _validateGoalStep();
+      case 1:
+        return _validateBaselineStep();
+      case 2:
+        return _validateMatchStep();
+      case 3:
+        return _validateTrainingStep();
+      default:
+        return false;
+    }
+  }
+
+  bool _validateGoalStep() {
+    if (_selectedGoal < 0) {
+      _showMessage('Choose a goal to continue.');
+      return false;
+    }
+    return true;
+  }
+
+  bool _validateBaselineStep() {
+    final height = _parseDouble(_heightController);
+    final weight = _parseDouble(_weightController);
+    final age = _parseInt(_ageController);
+    final city = _cityController.text.trim();
+
+    if (_selectedGender == null) {
+      _showMessage('Choose your gender to continue.');
+      return false;
+    }
+    if (height == null || height < 80 || height > 250) {
+      _showMessage('Enter a realistic height in centimeters.');
+      return false;
+    }
+    if (weight == null || weight < 30 || weight > 300) {
+      _showMessage('Enter a realistic weight in kilograms.');
+      return false;
+    }
+    if (age == null || age < 13 || age > 100) {
+      _showMessage('Enter a valid age between 13 and 100.');
+      return false;
+    }
+    if (city.isEmpty) {
+      _showMessage('Add your city so we can match you with the right coaches.');
+      return false;
+    }
+    return true;
+  }
+
+  bool _validateMatchStep() {
+    final budget = _parseInt(_budgetController);
+
+    if (budget == null || budget <= 0) {
+      _showMessage('Add a realistic monthly budget in EGP.');
+      return false;
+    }
+    if (_selectedCoachingPreference == null) {
+      _showMessage('Choose the coaching mode that fits you best.');
+      return false;
+    }
+    if (_selectedTrainingPlace == null) {
+      _showMessage('Choose where you plan to train.');
+      return false;
+    }
+    if (_selectedLanguage == null) {
+      _showMessage('Choose your preferred coaching language.');
+      return false;
+    }
+    if (_selectedCoachGender == null) {
+      _showMessage('Choose your preferred coach gender.');
+      return false;
+    }
+    return true;
+  }
+
+  bool _validateTrainingStep() {
+    if (_selectedExperience < 0) {
+      _showMessage('Choose your current experience level.');
+      return false;
+    }
+    if (_selectedFrequency < 0) {
+      _showMessage('Choose your weekly training frequency.');
+      return false;
+    }
+    return true;
+  }
+
+  int? _parseInt(TextEditingController controller) {
+    return int.tryParse(controller.text.trim());
+  }
+
+  double? _parseDouble(TextEditingController controller) {
+    return double.tryParse(controller.text.trim());
+  }
+
   void _previousStep() {
     if (_currentStep == 0) {
       Navigator.pop(context);
@@ -184,9 +282,9 @@ class _MemberOnboardingScreenState
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -319,10 +417,10 @@ class _MemberOnboardingScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _StepHeader(
-              eyebrow: 'Egypt-first setup',
+              eyebrow: 'Goal setup',
               title: 'What result do you want first?',
               subtitle:
-                  'We bias the app toward coaches, offers, and check-ins that actually move this goal.',
+                  'We tune coaches, offers, and check-ins toward the outcome you choose.',
             ),
             const SizedBox(height: 20),
             Expanded(
@@ -385,6 +483,7 @@ class _MemberOnboardingScreenState
                     child: _MetricField(
                       label: 'Height',
                       suffix: 'cm',
+                      hintText: 'e.g. 170',
                       controller: _heightController,
                     ),
                   ),
@@ -393,6 +492,7 @@ class _MemberOnboardingScreenState
                     child: _MetricField(
                       label: 'Weight',
                       suffix: 'kg',
+                      hintText: 'e.g. 82',
                       controller: _weightController,
                     ),
                   ),
@@ -405,6 +505,7 @@ class _MemberOnboardingScreenState
                     child: _MetricField(
                       label: 'Age',
                       suffix: 'years',
+                      hintText: 'e.g. 26',
                       controller: _ageController,
                     ),
                   ),
@@ -412,6 +513,7 @@ class _MemberOnboardingScreenState
                   Expanded(
                     child: _MetricField(
                       label: 'City',
+                      hintText: 'e.g. Cairo',
                       controller: _cityController,
                     ),
                   ),
@@ -436,6 +538,7 @@ class _MemberOnboardingScreenState
               _MetricField(
                 label: 'Monthly budget',
                 suffix: 'EGP',
+                hintText: 'e.g. 1500',
                 controller: _budgetController,
               ),
               const SizedBox(height: 16),
@@ -624,7 +727,7 @@ class _MemberOnboardingScreenState
   String _footerNote() {
     switch (_currentStep) {
       case 0:
-        return 'Lose Weight is the default because this version is optimized for first-time members in Egypt.';
+        return 'Choose the goal that best matches your current fitness priority. You can update it later.';
       case 1:
         return 'Your baseline drives weight, waist, and progress check-ins later.';
       case 2:
@@ -771,11 +874,13 @@ class _MetricField extends StatelessWidget {
     required this.label,
     required this.controller,
     this.suffix,
+    this.hintText,
   });
 
   final String label;
   final TextEditingController controller;
   final String? suffix;
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -787,6 +892,7 @@ class _MetricField extends StatelessWidget {
       style: GoogleFonts.inter(color: AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
+        hintText: hintText,
         suffixText: suffix,
         filled: true,
         fillColor: AppColors.fieldFill,
