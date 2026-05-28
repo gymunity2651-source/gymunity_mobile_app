@@ -124,210 +124,383 @@ class _CheckinCard extends ConsumerWidget {
   }
 
   Future<void> _openCheckinDialog(BuildContext context, WidgetRef ref) async {
-    final weightController = TextEditingController();
-    final waistController = TextEditingController();
-    final adherenceController = TextEditingController(text: '80');
-    final workoutsCompletedController = TextEditingController();
-    final missedWorkoutsController = TextEditingController();
-    final missedReasonController = TextEditingController();
-    final sorenessController = TextEditingController();
-    final fatigueController = TextEditingController();
-    final nutritionController = TextEditingController();
-    final habitController = TextEditingController();
-    final painController = TextEditingController();
-    final obstacleController = TextEditingController();
-    final supportController = TextEditingController();
-    final winsController = TextEditingController();
-    final blockersController = TextEditingController();
-    final questionsController = TextEditingController();
-
-    final confirmed = await showDialog<bool>(
+    await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Check-in for ${subscription.coachName ?? 'coach'}'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: weightController,
-                decoration: const InputDecoration(labelText: 'Weight (kg)'),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
-              TextField(
-                controller: waistController,
-                decoration: const InputDecoration(labelText: 'Waist (cm)'),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
-              TextField(
-                controller: adherenceController,
-                decoration: const InputDecoration(labelText: 'Adherence %'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: workoutsCompletedController,
-                decoration: const InputDecoration(
-                  labelText: 'Workouts completed',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: missedWorkoutsController,
-                decoration: const InputDecoration(labelText: 'Missed workouts'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: missedReasonController,
-                decoration: const InputDecoration(
-                  labelText: 'Reason for missed workouts',
-                ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: sorenessController,
-                      decoration: const InputDecoration(
-                        labelText: 'Soreness 1-10',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: fatigueController,
-                      decoration: const InputDecoration(
-                        labelText: 'Fatigue 1-10',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: nutritionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nutrition %',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: habitController,
-                      decoration: const InputDecoration(labelText: 'Habits %'),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
-              ),
-              TextField(
-                controller: painController,
-                decoration: const InputDecoration(
-                  labelText: 'Pain or injury warning',
-                ),
-              ),
-              TextField(
-                controller: obstacleController,
-                decoration: const InputDecoration(
-                  labelText: 'Biggest obstacle this week',
-                ),
-              ),
-              TextField(
-                controller: supportController,
-                decoration: const InputDecoration(
-                  labelText: 'Support needed from coach',
-                ),
-              ),
-              TextField(
-                controller: winsController,
-                decoration: const InputDecoration(labelText: 'Wins'),
-              ),
-              TextField(
-                controller: blockersController,
-                decoration: const InputDecoration(labelText: 'Blockers'),
-              ),
-              TextField(
-                controller: questionsController,
-                decoration: const InputDecoration(labelText: 'Questions'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Submit'),
-          ),
-        ],
-      ),
+      builder: (context) => _WeeklyCheckinDialog(subscription: subscription),
     );
+  }
+}
 
-    if (confirmed != true) {
+class _WeeklyCheckinDialog extends ConsumerStatefulWidget {
+  const _WeeklyCheckinDialog({required this.subscription});
+
+  final SubscriptionEntity subscription;
+
+  @override
+  ConsumerState<_WeeklyCheckinDialog> createState() =>
+      _WeeklyCheckinDialogState();
+}
+
+class _WeeklyCheckinDialogState extends ConsumerState<_WeeklyCheckinDialog> {
+  final _weightController = TextEditingController();
+  final _waistController = TextEditingController();
+  final _adherenceController = TextEditingController(text: '80');
+  final _workoutsCompletedController = TextEditingController();
+  final _missedWorkoutsController = TextEditingController();
+  final _missedReasonController = TextEditingController();
+  final _sorenessController = TextEditingController();
+  final _fatigueController = TextEditingController();
+  final _nutritionController = TextEditingController();
+  final _habitController = TextEditingController();
+  final _painController = TextEditingController();
+  final _obstacleController = TextEditingController();
+  final _supportController = TextEditingController();
+  final _winsController = TextEditingController();
+  final _blockersController = TextEditingController();
+  final _questionsController = TextEditingController();
+
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _weightController.dispose();
+    _waistController.dispose();
+    _adherenceController.dispose();
+    _workoutsCompletedController.dispose();
+    _missedWorkoutsController.dispose();
+    _missedReasonController.dispose();
+    _sorenessController.dispose();
+    _fatigueController.dispose();
+    _nutritionController.dispose();
+    _habitController.dispose();
+    _painController.dispose();
+    _obstacleController.dispose();
+    _supportController.dispose();
+    _winsController.dispose();
+    _blockersController.dispose();
+    _questionsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Check-in for ${widget.subscription.coachName ?? 'coach'}'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _weightController,
+              decoration: const InputDecoration(labelText: 'Weight (kg)'),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+            ),
+            TextField(
+              controller: _waistController,
+              decoration: const InputDecoration(labelText: 'Waist (cm)'),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+            ),
+            TextField(
+              controller: _adherenceController,
+              decoration: const InputDecoration(labelText: 'Adherence %'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _workoutsCompletedController,
+              decoration: const InputDecoration(
+                labelText: 'Workouts completed',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _missedWorkoutsController,
+              decoration: const InputDecoration(labelText: 'Missed workouts'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _missedReasonController,
+              decoration: const InputDecoration(
+                labelText: 'Reason for missed workouts',
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _sorenessController,
+                    decoration: const InputDecoration(
+                      labelText: 'Soreness 1-10',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _fatigueController,
+                    decoration: const InputDecoration(
+                      labelText: 'Fatigue 1-10',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _nutritionController,
+                    decoration: const InputDecoration(labelText: 'Nutrition %'),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _habitController,
+                    decoration: const InputDecoration(labelText: 'Habits %'),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            TextField(
+              controller: _painController,
+              decoration: const InputDecoration(
+                labelText: 'Pain or injury warning',
+              ),
+            ),
+            TextField(
+              controller: _obstacleController,
+              decoration: const InputDecoration(
+                labelText: 'Biggest obstacle this week',
+              ),
+            ),
+            TextField(
+              controller: _supportController,
+              decoration: const InputDecoration(
+                labelText: 'Support needed from coach',
+              ),
+            ),
+            TextField(
+              controller: _winsController,
+              decoration: const InputDecoration(labelText: 'Wins'),
+            ),
+            TextField(
+              controller: _blockersController,
+              decoration: const InputDecoration(labelText: 'Blockers'),
+            ),
+            TextField(
+              controller: _questionsController,
+              decoration: const InputDecoration(labelText: 'Questions'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: _isSubmitting
+              ? const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text('Submitting...'),
+                  ],
+                )
+              : const Text('Submit'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    if (_isSubmitting) {
       return;
     }
 
-    await ref
-        .read(memberRepositoryProvider)
-        .submitWeeklyCheckin(
-          subscriptionId: subscription.id,
-          weekStart: DateTime.now(),
-          weightKg: double.tryParse(weightController.text.trim()),
-          waistCm: double.tryParse(waistController.text.trim()),
-          adherenceScore: int.tryParse(adherenceController.text.trim()) ?? 0,
-          workoutsCompleted: int.tryParse(
-            workoutsCompletedController.text.trim(),
-          ),
-          missedWorkouts: int.tryParse(missedWorkoutsController.text.trim()),
-          missedWorkoutsReason: missedReasonController.text.trim().isEmpty
-              ? null
-              : missedReasonController.text.trim(),
-          sorenessScore: int.tryParse(sorenessController.text.trim()),
-          fatigueScore: int.tryParse(fatigueController.text.trim()),
-          painWarning: painController.text.trim().isEmpty
-              ? null
-              : painController.text.trim(),
-          nutritionAdherenceScore: int.tryParse(
-            nutritionController.text.trim(),
-          ),
-          habitAdherenceScore: int.tryParse(habitController.text.trim()),
-          biggestObstacle: obstacleController.text.trim().isEmpty
-              ? null
-              : obstacleController.text.trim(),
-          supportNeeded: supportController.text.trim().isEmpty
-              ? null
-              : supportController.text.trim(),
-          wins: winsController.text.trim().isEmpty
-              ? null
-              : winsController.text.trim(),
-          blockers: blockersController.text.trim().isEmpty
-              ? null
-              : blockersController.text.trim(),
-          questions: questionsController.text.trim().isEmpty
-              ? null
-              : questionsController.text.trim(),
-        );
-    ref.invalidate(memberWeeklyCheckinsProvider(subscription.id));
-    ref.invalidate(memberSubscriptionsProvider);
-    ref.invalidate(memberHomeSummaryProvider);
-    if (!context.mounted) {
+    final validationMessage = _validate();
+    if (validationMessage != null) {
+      _showSnackBar(validationMessage);
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Weekly check-in submitted.')));
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref
+          .read(memberRepositoryProvider)
+          .submitWeeklyCheckin(
+            subscriptionId: widget.subscription.id,
+            weekStart: DateTime.now(),
+            weightKg: _parseOptionalDouble(_weightController),
+            waistCm: _parseOptionalDouble(_waistController),
+            adherenceScore: _parseRequiredInt(_adherenceController),
+            workoutsCompleted: _parseOptionalInt(_workoutsCompletedController),
+            missedWorkouts: _parseOptionalInt(_missedWorkoutsController),
+            missedWorkoutsReason: _optionalText(_missedReasonController),
+            sorenessScore: _parseOptionalInt(_sorenessController),
+            fatigueScore: _parseOptionalInt(_fatigueController),
+            painWarning: _optionalText(_painController),
+            nutritionAdherenceScore: _parseOptionalInt(_nutritionController),
+            habitAdherenceScore: _parseOptionalInt(_habitController),
+            biggestObstacle: _optionalText(_obstacleController),
+            supportNeeded: _optionalText(_supportController),
+            wins: _optionalText(_winsController),
+            blockers: _optionalText(_blockersController),
+            questions: _optionalText(_questionsController),
+          );
+      ref.invalidate(memberWeeklyCheckinsProvider(widget.subscription.id));
+      ref.invalidate(memberSubscriptionsProvider);
+      ref.invalidate(memberHomeSummaryProvider);
+      if (!mounted) {
+        return;
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Weekly check-in submitted.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSubmitting = false);
+      _showSnackBar('Weekly check-in could not be submitted: $error');
+    }
+  }
+
+  String? _validate() {
+    return _validatePercent(
+          'Adherence',
+          _adherenceController,
+          required: true,
+        ) ??
+        _validateDoubleRange(
+          _weightController,
+          min: 30,
+          max: 300,
+          message: 'Enter a realistic weight in kilograms.',
+        ) ??
+        _validateDoubleRange(
+          _waistController,
+          min: 40,
+          max: 250,
+          message: 'Enter a realistic waist measurement in centimeters.',
+        ) ??
+        _validateIntRange(
+          _workoutsCompletedController,
+          min: 0,
+          max: 30,
+          message: 'Workouts completed must be 0 or more.',
+        ) ??
+        _validateIntRange(
+          _missedWorkoutsController,
+          min: 0,
+          max: 30,
+          message: 'Missed workouts must be 0 or more.',
+        ) ??
+        _validateIntRange(
+          _sorenessController,
+          min: 1,
+          max: 10,
+          message: 'Soreness must be between 1 and 10.',
+        ) ??
+        _validateIntRange(
+          _fatigueController,
+          min: 1,
+          max: 10,
+          message: 'Fatigue must be between 1 and 10.',
+        ) ??
+        _validatePercent('Nutrition adherence', _nutritionController) ??
+        _validatePercent('Habit adherence', _habitController);
+  }
+
+  String? _validatePercent(
+    String label,
+    TextEditingController controller, {
+    bool required = false,
+  }) {
+    final text = controller.text.trim();
+    if (text.isEmpty) {
+      return required ? '$label must be between 0 and 100.' : null;
+    }
+    final value = int.tryParse(text);
+    if (value == null || value < 0 || value > 100) {
+      return '$label must be between 0 and 100.';
+    }
+    return null;
+  }
+
+  String? _validateIntRange(
+    TextEditingController controller, {
+    required int min,
+    required int max,
+    required String message,
+  }) {
+    final text = controller.text.trim();
+    if (text.isEmpty) {
+      return null;
+    }
+    final value = int.tryParse(text);
+    if (value == null || value < min || value > max) {
+      return message;
+    }
+    return null;
+  }
+
+  String? _validateDoubleRange(
+    TextEditingController controller, {
+    required double min,
+    required double max,
+    required String message,
+  }) {
+    final text = controller.text.trim();
+    if (text.isEmpty) {
+      return null;
+    }
+    final value = double.tryParse(text);
+    if (value == null || value < min || value > max) {
+      return message;
+    }
+    return null;
+  }
+
+  int _parseRequiredInt(TextEditingController controller) {
+    return int.parse(controller.text.trim());
+  }
+
+  int? _parseOptionalInt(TextEditingController controller) {
+    final text = controller.text.trim();
+    return text.isEmpty ? null : int.parse(text);
+  }
+
+  double? _parseOptionalDouble(TextEditingController controller) {
+    final text = controller.text.trim();
+    return text.isEmpty ? null : double.parse(text);
+  }
+
+  String? _optionalText(TextEditingController controller) {
+    final text = controller.text.trim();
+    return text.isEmpty ? null : text;
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }

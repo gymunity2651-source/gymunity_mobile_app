@@ -1763,6 +1763,10 @@ class FakeMemberRepository implements MemberRepository {
   List<OrderEntity> orders = const <OrderEntity>[];
   MemberHomeSummaryEntity homeSummary = const MemberHomeSummaryEntity();
   Map<String, dynamic>? lastSentCoachingMessagePayload;
+  int submitWeeklyCheckinCalls = 0;
+  Map<String, dynamic>? lastWeeklyCheckinPayload;
+  Object? submitWeeklyCheckinError;
+  Completer<void>? submitWeeklyCheckinCompleter;
 
   Object? upsertError;
   Object? homeSummaryError;
@@ -2046,6 +2050,37 @@ class FakeMemberRepository implements MemberRepository {
     String? supportNeeded,
     Map<String, dynamic> metadata = const <String, dynamic>{},
   }) async {
+    submitWeeklyCheckinCalls++;
+    lastWeeklyCheckinPayload = <String, dynamic>{
+      'subscriptionId': subscriptionId,
+      'weekStart': weekStart,
+      'weightKg': weightKg,
+      'waistCm': waistCm,
+      'adherenceScore': adherenceScore,
+      'energyScore': energyScore,
+      'sleepScore': sleepScore,
+      'wins': wins,
+      'blockers': blockers,
+      'questions': questions,
+      'photos': photos,
+      'workoutsCompleted': workoutsCompleted,
+      'missedWorkouts': missedWorkouts,
+      'missedWorkoutsReason': missedWorkoutsReason,
+      'sorenessScore': sorenessScore,
+      'fatigueScore': fatigueScore,
+      'painWarning': painWarning,
+      'nutritionAdherenceScore': nutritionAdherenceScore,
+      'habitAdherenceScore': habitAdherenceScore,
+      'biggestObstacle': biggestObstacle,
+      'supportNeeded': supportNeeded,
+      'metadata': metadata,
+    };
+    if (submitWeeklyCheckinCompleter case final completer?) {
+      await completer.future;
+    }
+    if (submitWeeklyCheckinError != null) {
+      throw submitWeeklyCheckinError!;
+    }
     return WeeklyCheckinEntity(
       id: 'checkin-1',
       subscriptionId: subscriptionId,
