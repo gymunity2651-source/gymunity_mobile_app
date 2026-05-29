@@ -216,8 +216,18 @@ class _SubscriptionCard extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             OutlinedButton(
+              key: Key(
+                'member-subscription-pause-resume-action-${subscription.id}',
+              ),
               onPressed: subscription.canPause
-                  ? () => _togglePause(context, ref)
+                  ? () {
+                      showDialog<void>(
+                        context: context,
+                        builder: (context) => _PauseResumeSubscriptionDialog(
+                          subscription: subscription,
+                        ),
+                      );
+                    }
                   : null,
               child: Text(
                 subscription.isPaused
@@ -289,6 +299,7 @@ class _SubscriptionCard extends ConsumerWidget {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
+          key: Key('member-submit-payment-proof-action-${subscription.id}'),
           onPressed: () => _confirmPayment(context, ref),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.orange,
@@ -314,107 +325,12 @@ class _SubscriptionCard extends ConsumerWidget {
   }
 
   Future<void> _confirmPayment(BuildContext context, WidgetRef ref) async {
-    final referenceController = TextEditingController();
-    PlatformFile? pickedFile;
-    var submitted = false;
-    await showModalBottomSheet<void>(
+    final submitted = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: AppSizes.screenPadding,
-              right: AppSizes.screenPadding,
-              top: AppSizes.lg,
-              bottom: MediaQuery.of(context).viewInsets.bottom + AppSizes.lg,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Payment proof',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Close',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: referenceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Payment reference',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final result = await FilePicker.platform.pickFiles(
-                      allowMultiple: false,
-                      withData: true,
-                      type: FileType.custom,
-                      allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
-                    );
-                    setSheetState(() => pickedFile = result?.files.single);
-                  },
-                  icon: const Icon(Icons.upload_file_outlined, size: 18),
-                  label: Text(pickedFile?.name ?? 'Upload receipt'),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final repo = ref.read(memberRepositoryProvider);
-                      String? receiptPath;
-                      final bytes = pickedFile?.bytes;
-                      if (pickedFile != null && bytes != null) {
-                        receiptPath = await repo.uploadCoachPaymentReceipt(
-                          subscriptionId: subscription.id,
-                          bytes: bytes,
-                          fileName: pickedFile!.name,
-                        );
-                      }
-                      await repo.submitCoachPaymentReceipt(
-                        subscriptionId: subscription.id,
-                        paymentReference:
-                            referenceController.text.trim().isEmpty
-                            ? null
-                            : referenceController.text.trim(),
-                        receiptStoragePath: receiptPath,
-                        amount: subscription.amount,
-                      );
-                      submitted = true;
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.orange,
-                      foregroundColor: AppColors.white,
-                    ),
-                    child: const Text('Submit for verification'),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+      builder: (context) => _PaymentProofSheet(subscription: subscription),
     );
-    referenceController.dispose();
-    if (!submitted) {
+    if (submitted != true) {
       return;
     }
     ref.invalidate(memberSubscriptionsProvider);
@@ -428,26 +344,273 @@ class _SubscriptionCard extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Future<void> _togglePause(BuildContext context, WidgetRef ref) async {
-    await ref
-        .read(memberRepositoryProvider)
-        .pauseSubscription(
-          subscriptionId: subscription.id,
-          pauseNow: !subscription.isPaused,
-        );
-    ref.invalidate(memberSubscriptionsProvider);
-    if (!context.mounted) {
+class _PaymentProofSheet extends ConsumerStatefulWidget {
+  const _PaymentProofSheet({required this.subscription});
+
+  final SubscriptionEntity subscription;
+
+  @override
+  ConsumerState<_PaymentProofSheet> createState() => _PaymentProofSheetState();
+}
+
+class _PaymentProofSheetState extends ConsumerState<_PaymentProofSheet> {
+  final _referenceController = TextEditingController();
+  PlatformFile? _pickedFile;
+  bool _isSubmitting = false;
+  String? _validationMessage;
+
+  @override
+  void dispose() {
+    _referenceController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickReceipt() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      withData: true,
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
+    );
+    if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          subscription.isPaused
-              ? 'Subscription resumed.'
-              : 'Subscription paused.',
+    setState(() {
+      _pickedFile = result?.files.single;
+      _validationMessage = null;
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_isSubmitting) {
+      return;
+    }
+    final reference = _referenceController.text.trim();
+    final bytes = _pickedFile?.bytes;
+    if (reference.isEmpty && _pickedFile == null) {
+      setState(() {
+        _validationMessage =
+            'Add a payment reference or upload a receipt before submitting.';
+      });
+      return;
+    }
+    if (_pickedFile != null && (bytes == null || bytes.isEmpty)) {
+      setState(() {
+        _validationMessage =
+            'Selected receipt file could not be read. Please choose another file.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _validationMessage = null;
+    });
+
+    final repo = ref.read(memberRepositoryProvider);
+    String? receiptPath;
+    try {
+      if (_pickedFile != null && bytes != null) {
+        receiptPath = await repo.uploadCoachPaymentReceipt(
+          subscriptionId: widget.subscription.id,
+          bytes: bytes,
+          fileName: _pickedFile!.name,
+        );
+      }
+      await repo.submitCoachPaymentReceipt(
+        subscriptionId: widget.subscription.id,
+        paymentReference: reference.isEmpty ? null : reference,
+        receiptStoragePath: receiptPath,
+        amount: widget.subscription.amount,
+      );
+      if (!mounted) {
+        return;
+      }
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Payment proof could not be submitted: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: AppSizes.screenPadding,
+          right: AppSizes.screenPadding,
+          top: AppSizes.lg,
+          bottom: MediaQuery.of(context).viewInsets.bottom + AppSizes.lg,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Payment proof',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('member-payment-proof-reference-field'),
+              controller: _referenceController,
+              decoration: const InputDecoration(labelText: 'Payment reference'),
+            ),
+            if (_validationMessage != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _validationMessage!,
+                key: const Key('member-payment-proof-validation-message'),
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              key: const Key('member-payment-proof-upload-button'),
+              onPressed: _isSubmitting ? null : _pickReceipt,
+              icon: const Icon(Icons.upload_file_outlined, size: 18),
+              label: Text(_pickedFile?.name ?? 'Upload receipt'),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                key: const Key('member-payment-proof-submit-button'),
+                onPressed: _isSubmitting ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.orange,
+                  foregroundColor: AppColors.white,
+                ),
+                child: Text(
+                  _isSubmitting ? 'Submitting...' : 'Submit for verification',
+                ),
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _PauseResumeSubscriptionDialog extends ConsumerStatefulWidget {
+  const _PauseResumeSubscriptionDialog({required this.subscription});
+
+  final SubscriptionEntity subscription;
+
+  @override
+  ConsumerState<_PauseResumeSubscriptionDialog> createState() =>
+      _PauseResumeSubscriptionDialogState();
+}
+
+class _PauseResumeSubscriptionDialogState
+    extends ConsumerState<_PauseResumeSubscriptionDialog> {
+  bool _isSubmitting = false;
+
+  Future<void> _submit() async {
+    if (_isSubmitting) {
+      return;
+    }
+    final pauseNow = !widget.subscription.isPaused;
+    setState(() => _isSubmitting = true);
+    try {
+      await ref
+          .read(memberRepositoryProvider)
+          .pauseSubscription(
+            subscriptionId: widget.subscription.id,
+            pauseNow: pauseNow,
+          );
+      ref.invalidate(memberSubscriptionsProvider);
+      ref.invalidate(memberCoachingThreadsProvider);
+      ref.invalidate(memberHomeSummaryProvider);
+      if (!mounted) {
+        return;
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            pauseNow ? 'Subscription paused.' : 'Subscription resumed.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            pauseNow
+                ? 'Subscription could not be paused: $error'
+                : 'Subscription could not be resumed: $error',
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isPaused = widget.subscription.isPaused;
+    final title = isPaused ? 'Resume subscription?' : 'Pause subscription?';
+    final body = isPaused
+        ? 'Your coaching access will be restored.'
+        : 'Your coach access may be limited while this subscription is paused.';
+    final neutralLabel = isPaused ? 'Keep Paused' : 'Keep Active';
+    final confirmLabel = isPaused
+        ? 'Resume Subscription'
+        : 'Pause Subscription';
+    final loadingLabel = isPaused ? 'Resuming...' : 'Pausing...';
+
+    return AlertDialog(
+      title: Text(title),
+      content: Text(body),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: Text(neutralLabel),
+        ),
+        ElevatedButton(
+          key: const Key('member-confirm-pause-resume-button'),
+          onPressed: _isSubmitting ? null : _submit,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.orange,
+            foregroundColor: AppColors.white,
+          ),
+          child: Text(_isSubmitting ? loadingLabel : confirmLabel),
+        ),
+      ],
     );
   }
 }

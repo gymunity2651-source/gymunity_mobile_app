@@ -1772,6 +1772,22 @@ class FakeMemberRepository implements MemberRepository {
       const <CoachingMessageEntity>[];
   List<OrderEntity> orders = const <OrderEntity>[];
   MemberHomeSummaryEntity homeSummary = const MemberHomeSummaryEntity();
+  int uploadCoachPaymentReceiptCalls = 0;
+  String? lastUploadedCoachPaymentReceiptSubscriptionId;
+  String? lastUploadedCoachPaymentReceiptFileName;
+  List<int>? lastUploadedCoachPaymentReceiptBytes;
+  Object? uploadCoachPaymentReceiptError;
+  Completer<void>? uploadCoachPaymentReceiptCompleter;
+  String uploadedCoachPaymentReceiptPath = 'member-1/sub-1/receipt.pdf';
+  int submitCoachPaymentReceiptCalls = 0;
+  Map<String, dynamic>? lastSubmittedCoachPaymentReceiptPayload;
+  Object? submitCoachPaymentReceiptError;
+  Completer<void>? submitCoachPaymentReceiptCompleter;
+  int pauseSubscriptionCalls = 0;
+  String? lastPausedSubscriptionId;
+  bool? lastPauseNow;
+  Object? pauseSubscriptionError;
+  Completer<void>? pauseSubscriptionCompleter;
   Map<String, dynamic>? lastSentCoachingMessagePayload;
   int submitWeeklyCheckinCalls = 0;
   Map<String, dynamic>? lastWeeklyCheckinPayload;
@@ -2022,7 +2038,17 @@ class FakeMemberRepository implements MemberRepository {
     required List<int> bytes,
     required String fileName,
   }) async {
-    return 'member-1/$subscriptionId/$fileName';
+    uploadCoachPaymentReceiptCalls++;
+    lastUploadedCoachPaymentReceiptSubscriptionId = subscriptionId;
+    lastUploadedCoachPaymentReceiptFileName = fileName;
+    lastUploadedCoachPaymentReceiptBytes = List<int>.of(bytes);
+    if (uploadCoachPaymentReceiptCompleter case final completer?) {
+      await completer.future;
+    }
+    if (uploadCoachPaymentReceiptError != null) {
+      throw uploadCoachPaymentReceiptError!;
+    }
+    return uploadedCoachPaymentReceiptPath;
   }
 
   @override
@@ -2032,6 +2058,19 @@ class FakeMemberRepository implements MemberRepository {
     String? receiptStoragePath,
     double? amount,
   }) async {
+    submitCoachPaymentReceiptCalls++;
+    lastSubmittedCoachPaymentReceiptPayload = <String, dynamic>{
+      'subscriptionId': subscriptionId,
+      'paymentReference': paymentReference,
+      'receiptStoragePath': receiptStoragePath,
+      'amount': amount,
+    };
+    if (submitCoachPaymentReceiptCompleter case final completer?) {
+      await completer.future;
+    }
+    if (submitCoachPaymentReceiptError != null) {
+      throw submitCoachPaymentReceiptError!;
+    }
     final existing = subscriptions.firstWhere(
       (item) => item.id == subscriptionId,
     );
@@ -2048,6 +2087,15 @@ class FakeMemberRepository implements MemberRepository {
     required String subscriptionId,
     bool pauseNow = true,
   }) async {
+    pauseSubscriptionCalls++;
+    lastPausedSubscriptionId = subscriptionId;
+    lastPauseNow = pauseNow;
+    if (pauseSubscriptionCompleter case final completer?) {
+      await completer.future;
+    }
+    if (pauseSubscriptionError != null) {
+      throw pauseSubscriptionError!;
+    }
     final existing = subscriptions.firstWhere(
       (item) => item.id == subscriptionId,
     );
