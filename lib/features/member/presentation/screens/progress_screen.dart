@@ -28,11 +28,11 @@ class ProgressScreen extends ConsumerWidget {
         title: const Text('Progress Tracking'),
         actions: [
           IconButton(
-            onPressed: () => _showWeightDialog(context, ref),
+            onPressed: () => _showWeightDialog(context),
             icon: const Icon(Icons.monitor_weight_outlined),
           ),
           IconButton(
-            onPressed: () => _showMeasurementDialog(context, ref),
+            onPressed: () => _showMeasurementDialog(context),
             icon: const Icon(Icons.straighten_outlined),
           ),
         ],
@@ -69,7 +69,7 @@ class ProgressScreen extends ConsumerWidget {
                 data: (weights) => weights.isEmpty
                     ? _EmptyState(
                         message: 'No weight entries yet. Add your first entry.',
-                        onPressed: () => _showWeightDialog(context, ref),
+                        onPressed: () => _showWeightDialog(context),
                         cta: 'Add weight',
                       )
                     : Column(
@@ -94,23 +94,9 @@ class ProgressScreen extends ConsumerWidget {
                               trailing: PopupMenuButton<String>(
                                 onSelected: (value) {
                                   if (value == 'edit') {
-                                    _showWeightDialog(
-                                      context,
-                                      ref,
-                                      existing: entry,
-                                    );
+                                    _showWeightDialog(context, existing: entry);
                                   } else {
-                                    ref
-                                        .read(memberRepositoryProvider)
-                                        .deleteWeightEntry(entry.id)
-                                        .then((_) {
-                                          ref.invalidate(
-                                            memberWeightEntriesProvider,
-                                          );
-                                          ref.invalidate(
-                                            memberHomeSummaryProvider,
-                                          );
-                                        });
+                                    _deleteWeightEntry(context, ref, entry);
                                   }
                                 },
                                 itemBuilder: (context) => const [
@@ -149,7 +135,7 @@ class ProgressScreen extends ConsumerWidget {
                     ? _EmptyState(
                         message:
                             'No body measurements yet. Add your first measurement snapshot.',
-                        onPressed: () => _showMeasurementDialog(context, ref),
+                        onPressed: () => _showMeasurementDialog(context),
                         cta: 'Add measurement',
                       )
                     : Column(
@@ -182,21 +168,10 @@ class ProgressScreen extends ConsumerWidget {
                                   if (value == 'edit') {
                                     _showMeasurementDialog(
                                       context,
-                                      ref,
                                       existing: entry,
                                     );
                                   } else {
-                                    ref
-                                        .read(memberRepositoryProvider)
-                                        .deleteBodyMeasurement(entry.id)
-                                        .then((_) {
-                                          ref.invalidate(
-                                            memberBodyMeasurementsProvider,
-                                          );
-                                          ref.invalidate(
-                                            memberHomeSummaryProvider,
-                                          );
-                                        });
+                                    _deleteMeasurement(context, ref, entry);
                                   }
                                 },
                                 itemBuilder: (context) => const [
@@ -223,233 +198,90 @@ class ProgressScreen extends ConsumerWidget {
   }
 
   Future<void> _showWeightDialog(
-    BuildContext context,
-    WidgetRef ref, {
+    BuildContext context, {
     WeightEntryEntity? existing,
   }) async {
-    final weightController = TextEditingController(
-      text: existing?.weightKg.toString(),
-    );
-    final noteController = TextEditingController(text: existing?.note ?? '');
-    DateTime selectedDate = existing?.recordedAt ?? DateTime.now();
-    final confirmed = await showDialog<bool>(
+    await showDialog<void>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(
-                existing == null ? 'Add Weight Entry' : 'Edit Weight Entry',
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: weightController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(labelText: 'Weight (kg)'),
-                  ),
-                  TextField(
-                    controller: noteController,
-                    decoration: const InputDecoration(labelText: 'Note'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setDialogState(() => selectedDate = picked);
-                      }
-                    },
-                    child: Text(
-                      'Recorded on ${selectedDate.toLocal().toString().split(' ').first}',
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (_) => _WeightEntryDialog(existing: existing),
     );
-    if (confirmed != true) {
-      return;
-    }
-
-    if (!context.mounted) {
-      return;
-    }
-
-    final weight = double.tryParse(weightController.text.trim());
-    if (weight == null || weight <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid weight value.')),
-      );
-      return;
-    }
-
-    await ref
-        .read(memberRepositoryProvider)
-        .saveWeightEntry(
-          entryId: existing?.id,
-          weightKg: weight,
-          recordedAt: selectedDate,
-          note: noteController.text.trim().isEmpty
-              ? null
-              : noteController.text.trim(),
-        );
-    ref.invalidate(memberWeightEntriesProvider);
-    ref.invalidate(memberHomeSummaryProvider);
   }
 
   Future<void> _showMeasurementDialog(
-    BuildContext context,
-    WidgetRef ref, {
+    BuildContext context, {
     BodyMeasurementEntity? existing,
   }) async {
-    final waistController = TextEditingController(
-      text: existing?.waistCm?.toString() ?? '',
-    );
-    final chestController = TextEditingController(
-      text: existing?.chestCm?.toString() ?? '',
-    );
-    final hipsController = TextEditingController(
-      text: existing?.hipsCm?.toString() ?? '',
-    );
-    final bodyFatController = TextEditingController(
-      text: existing?.bodyFatPercent?.toString() ?? '',
-    );
-    final noteController = TextEditingController(text: existing?.note ?? '');
-    DateTime selectedDate = existing?.recordedAt ?? DateTime.now();
-    String? validationMessage;
-    final confirmed = await showDialog<bool>(
+    await showDialog<void>(
       context: context,
-      builder: (context) {
+      builder: (_) => _BodyMeasurementDialog(existing: existing),
+    );
+  }
+
+  Future<void> _deleteWeightEntry(
+    BuildContext context,
+    WidgetRef ref,
+    WeightEntryEntity entry,
+  ) async {
+    var isDeleting = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogContext, setDialogState) {
+            Future<void> delete() async {
+              if (isDeleting) {
+                return;
+              }
+              setDialogState(() => isDeleting = true);
+              try {
+                await ref
+                    .read(memberRepositoryProvider)
+                    .deleteWeightEntry(entry.id);
+                ref.invalidate(memberWeightEntriesProvider);
+                ref.invalidate(memberHomeSummaryProvider);
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                final messenger = ScaffoldMessenger.of(dialogContext);
+                Navigator.pop(dialogContext);
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Weight entry deleted.')),
+                );
+              } catch (error) {
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                setDialogState(() => isDeleting = false);
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Weight entry could not be deleted: $error'),
+                  ),
+                );
+              }
+            }
+
             return AlertDialog(
-              title: Text(
-                existing == null ? 'Add Measurement' : 'Edit Measurement',
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: waistController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Waist (cm)',
-                      ),
-                    ),
-                    TextField(
-                      controller: chestController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Chest (cm)',
-                      ),
-                    ),
-                    TextField(
-                      controller: hipsController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(labelText: 'Hips (cm)'),
-                    ),
-                    TextField(
-                      controller: bodyFatController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Body Fat %',
-                      ),
-                    ),
-                    TextField(
-                      controller: noteController,
-                      decoration: const InputDecoration(labelText: 'Note'),
-                    ),
-                    if (validationMessage != null) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        validationMessage!,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.error,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) {
-                          setDialogState(() => selectedDate = picked);
-                        }
-                      },
-                      child: Text(
-                        'Recorded on ${selectedDate.toLocal().toString().split(' ').first}',
-                      ),
-                    ),
-                  ],
-                ),
+              title: const Text('Delete weight entry?'),
+              content: const Text(
+                'This weight entry will be permanently removed from your progress history.',
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context, false),
+                  onPressed: isDeleting
+                      ? null
+                      : () => Navigator.pop(dialogContext),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    final values = <String>[
-                      waistController.text,
-                      chestController.text,
-                      hipsController.text,
-                      bodyFatController.text,
-                    ];
-                    if (!_hasAnyMeasurementValue(values)) {
-                      setDialogState(() {
-                        validationMessage =
-                            'Enter at least one measurement before saving.';
-                      });
-                      return;
-                    }
-                    if (_hasInvalidMeasurementValue(values)) {
-                      setDialogState(() {
-                        validationMessage =
-                            'Measurements must be positive numbers.';
-                      });
-                      return;
-                    }
-                    Navigator.pop(context, true);
-                  },
-                  child: const Text('Save'),
+                  key: const Key('progress-confirm-delete-weight-button'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: AppColors.white,
+                  ),
+                  onPressed: isDeleting ? null : delete,
+                  child: isDeleting
+                      ? const Text('Deleting...')
+                      : const Text('Delete'),
                 ),
               ],
             );
@@ -457,25 +289,80 @@ class ProgressScreen extends ConsumerWidget {
         );
       },
     );
-    if (confirmed != true) {
-      return;
-    }
+  }
 
-    await ref
-        .read(memberRepositoryProvider)
-        .saveBodyMeasurement(
-          entryId: existing?.id,
-          recordedAt: selectedDate,
-          waistCm: _parseNullableDouble(waistController.text),
-          chestCm: _parseNullableDouble(chestController.text),
-          hipsCm: _parseNullableDouble(hipsController.text),
-          bodyFatPercent: _parseNullableDouble(bodyFatController.text),
-          note: noteController.text.trim().isEmpty
-              ? null
-              : noteController.text.trim(),
+  Future<void> _deleteMeasurement(
+    BuildContext context,
+    WidgetRef ref,
+    BodyMeasurementEntity entry,
+  ) async {
+    var isDeleting = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            Future<void> delete() async {
+              if (isDeleting) {
+                return;
+              }
+              setDialogState(() => isDeleting = true);
+              try {
+                await ref
+                    .read(memberRepositoryProvider)
+                    .deleteBodyMeasurement(entry.id);
+                ref.invalidate(memberBodyMeasurementsProvider);
+                ref.invalidate(memberHomeSummaryProvider);
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                final messenger = ScaffoldMessenger.of(dialogContext);
+                Navigator.pop(dialogContext);
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Measurement deleted.')),
+                );
+              } catch (error) {
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                setDialogState(() => isDeleting = false);
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Measurement could not be deleted: $error'),
+                  ),
+                );
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Delete measurement?'),
+              content: const Text(
+                'This measurement will be permanently removed from your progress history.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  key: const Key('progress-confirm-delete-measurement-button'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: AppColors.white,
+                  ),
+                  onPressed: isDeleting ? null : delete,
+                  child: isDeleting
+                      ? const Text('Deleting...')
+                      : const Text('Delete'),
+                ),
+              ],
+            );
+          },
         );
-    ref.invalidate(memberBodyMeasurementsProvider);
-    ref.invalidate(memberHomeSummaryProvider);
+      },
+    );
   }
 
   static double? _parseNullableDouble(String raw) {
@@ -523,6 +410,343 @@ class ProgressScreen extends ConsumerWidget {
         'BF ${entry.bodyFatPercent!.toStringAsFixed(1)}%',
     ];
     return parts.join(' • ');
+  }
+}
+
+class _WeightEntryDialog extends ConsumerStatefulWidget {
+  const _WeightEntryDialog({this.existing});
+
+  final WeightEntryEntity? existing;
+
+  @override
+  ConsumerState<_WeightEntryDialog> createState() => _WeightEntryDialogState();
+}
+
+class _WeightEntryDialogState extends ConsumerState<_WeightEntryDialog> {
+  late final TextEditingController _weightController;
+  late final TextEditingController _noteController;
+  late DateTime _selectedDate;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _weightController = TextEditingController(
+      text: widget.existing?.weightKg.toString(),
+    );
+    _noteController = TextEditingController(text: widget.existing?.note ?? '');
+    _selectedDate = widget.existing?.recordedAt ?? DateTime.now();
+  }
+
+  @override
+  void dispose() {
+    _weightController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        widget.existing == null ? 'Add Weight Entry' : 'Edit Weight Entry',
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _weightController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Weight (kg)'),
+          ),
+          TextField(
+            controller: _noteController,
+            decoration: const InputDecoration(labelText: 'Note'),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _isSaving ? null : _pickDate,
+            child: Text(
+              'Recorded on ${_selectedDate.toLocal().toString().split(' ').first}',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          key: const Key('progress-save-weight-button'),
+          onPressed: _isSaving ? null : _save,
+          child: _isSaving ? const Text('Saving...') : const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
+  Future<void> _save() async {
+    if (_isSaving) {
+      return;
+    }
+    final weight = double.tryParse(_weightController.text.trim());
+    if (weight == null || weight <= 0) {
+      _showSnackBar('Enter a valid weight value.');
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await ref
+          .read(memberRepositoryProvider)
+          .saveWeightEntry(
+            entryId: widget.existing?.id,
+            weightKg: weight,
+            recordedAt: _selectedDate,
+            note: _noteController.text.trim().isEmpty
+                ? null
+                : _noteController.text.trim(),
+          );
+      ref.invalidate(memberWeightEntriesProvider);
+      ref.invalidate(memberHomeSummaryProvider);
+      if (!mounted) {
+        return;
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Weight entry saved.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSaving = false);
+      _showSnackBar('Weight entry could not be saved: $error');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _BodyMeasurementDialog extends ConsumerStatefulWidget {
+  const _BodyMeasurementDialog({this.existing});
+
+  final BodyMeasurementEntity? existing;
+
+  @override
+  ConsumerState<_BodyMeasurementDialog> createState() =>
+      _BodyMeasurementDialogState();
+}
+
+class _BodyMeasurementDialogState
+    extends ConsumerState<_BodyMeasurementDialog> {
+  late final TextEditingController _waistController;
+  late final TextEditingController _chestController;
+  late final TextEditingController _hipsController;
+  late final TextEditingController _bodyFatController;
+  late final TextEditingController _noteController;
+  late DateTime _selectedDate;
+  String? _validationMessage;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _waistController = TextEditingController(
+      text: widget.existing?.waistCm?.toString() ?? '',
+    );
+    _chestController = TextEditingController(
+      text: widget.existing?.chestCm?.toString() ?? '',
+    );
+    _hipsController = TextEditingController(
+      text: widget.existing?.hipsCm?.toString() ?? '',
+    );
+    _bodyFatController = TextEditingController(
+      text: widget.existing?.bodyFatPercent?.toString() ?? '',
+    );
+    _noteController = TextEditingController(text: widget.existing?.note ?? '');
+    _selectedDate = widget.existing?.recordedAt ?? DateTime.now();
+  }
+
+  @override
+  void dispose() {
+    _waistController.dispose();
+    _chestController.dispose();
+    _hipsController.dispose();
+    _bodyFatController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        widget.existing == null ? 'Add Measurement' : 'Edit Measurement',
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _waistController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(labelText: 'Waist (cm)'),
+            ),
+            TextField(
+              controller: _chestController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(labelText: 'Chest (cm)'),
+            ),
+            TextField(
+              controller: _hipsController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(labelText: 'Hips (cm)'),
+            ),
+            TextField(
+              controller: _bodyFatController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(labelText: 'Body Fat %'),
+            ),
+            TextField(
+              controller: _noteController,
+              decoration: const InputDecoration(labelText: 'Note'),
+            ),
+            if (_validationMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationMessage!,
+                style: GoogleFonts.inter(fontSize: 12, color: AppColors.error),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: _isSaving ? null : _pickDate,
+              child: Text(
+                'Recorded on ${_selectedDate.toLocal().toString().split(' ').first}',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          key: const Key('progress-save-measurement-button'),
+          onPressed: _isSaving ? null : _save,
+          child: _isSaving ? const Text('Saving...') : const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
+  Future<void> _save() async {
+    if (_isSaving) {
+      return;
+    }
+    final values = <String>[
+      _waistController.text,
+      _chestController.text,
+      _hipsController.text,
+      _bodyFatController.text,
+    ];
+    if (!ProgressScreen._hasAnyMeasurementValue(values)) {
+      setState(() {
+        _validationMessage = 'Enter at least one measurement before saving.';
+      });
+      return;
+    }
+    if (ProgressScreen._hasInvalidMeasurementValue(values)) {
+      setState(() {
+        _validationMessage = 'Measurements must be positive numbers.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _validationMessage = null;
+    });
+    try {
+      await ref
+          .read(memberRepositoryProvider)
+          .saveBodyMeasurement(
+            entryId: widget.existing?.id,
+            recordedAt: _selectedDate,
+            waistCm: ProgressScreen._parseNullableDouble(_waistController.text),
+            chestCm: ProgressScreen._parseNullableDouble(_chestController.text),
+            hipsCm: ProgressScreen._parseNullableDouble(_hipsController.text),
+            bodyFatPercent: ProgressScreen._parseNullableDouble(
+              _bodyFatController.text,
+            ),
+            note: _noteController.text.trim().isEmpty
+                ? null
+                : _noteController.text.trim(),
+          );
+      ref.invalidate(memberBodyMeasurementsProvider);
+      ref.invalidate(memberHomeSummaryProvider);
+      if (!mounted) {
+        return;
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Measurement saved.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSaving = false);
+      _showSnackBar('Measurement could not be saved: $error');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

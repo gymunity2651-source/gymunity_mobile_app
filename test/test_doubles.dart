@@ -1767,6 +1767,22 @@ class FakeMemberRepository implements MemberRepository {
   Map<String, dynamic>? lastWeeklyCheckinPayload;
   Object? submitWeeklyCheckinError;
   Completer<void>? submitWeeklyCheckinCompleter;
+  int saveWeightEntryCalls = 0;
+  int deleteWeightEntryCalls = 0;
+  String? lastDeletedWeightEntryId;
+  Map<String, dynamic>? lastSavedWeightEntryPayload;
+  Object? saveWeightEntryError;
+  Object? deleteWeightEntryError;
+  Completer<void>? saveWeightEntryCompleter;
+  Completer<void>? deleteWeightEntryCompleter;
+  int saveBodyMeasurementCalls = 0;
+  int deleteBodyMeasurementCalls = 0;
+  String? lastDeletedBodyMeasurementId;
+  Map<String, dynamic>? lastSavedBodyMeasurementPayload;
+  Object? saveBodyMeasurementError;
+  Object? deleteBodyMeasurementError;
+  Completer<void>? saveBodyMeasurementCompleter;
+  Completer<void>? deleteBodyMeasurementCompleter;
 
   Object? upsertError;
   Object? homeSummaryError;
@@ -1830,10 +1846,49 @@ class FakeMemberRepository implements MemberRepository {
     required double weightKg,
     required DateTime recordedAt,
     String? note,
-  }) async {}
+  }) async {
+    saveWeightEntryCalls++;
+    lastSavedWeightEntryPayload = <String, dynamic>{
+      'entryId': entryId,
+      'weightKg': weightKg,
+      'recordedAt': recordedAt,
+      'note': note,
+    };
+    if (saveWeightEntryCompleter case final completer?) {
+      await completer.future;
+    }
+    if (saveWeightEntryError != null) {
+      throw saveWeightEntryError!;
+    }
+
+    final saved = WeightEntryEntity(
+      id: entryId ?? 'weight-$saveWeightEntryCalls',
+      memberId: 'member-1',
+      weightKg: weightKg,
+      recordedAt: recordedAt,
+      note: note,
+    );
+    weightEntries = <WeightEntryEntity>[
+      saved,
+      for (final entry in weightEntries)
+        if (entry.id != saved.id) entry,
+    ];
+  }
 
   @override
-  Future<void> deleteWeightEntry(String entryId) async {}
+  Future<void> deleteWeightEntry(String entryId) async {
+    deleteWeightEntryCalls++;
+    lastDeletedWeightEntryId = entryId;
+    if (deleteWeightEntryCompleter case final completer?) {
+      await completer.future;
+    }
+    if (deleteWeightEntryError != null) {
+      throw deleteWeightEntryError!;
+    }
+    weightEntries = weightEntries
+        .where((entry) => entry.id != entryId)
+        .toList(growable: false);
+  }
 
   @override
   Future<List<BodyMeasurementEntity>> listBodyMeasurements() async =>
@@ -1850,10 +1905,59 @@ class FakeMemberRepository implements MemberRepository {
     double? thighCm,
     double? bodyFatPercent,
     String? note,
-  }) async {}
+  }) async {
+    saveBodyMeasurementCalls++;
+    lastSavedBodyMeasurementPayload = <String, dynamic>{
+      'entryId': entryId,
+      'recordedAt': recordedAt,
+      'waistCm': waistCm,
+      'chestCm': chestCm,
+      'hipsCm': hipsCm,
+      'armCm': armCm,
+      'thighCm': thighCm,
+      'bodyFatPercent': bodyFatPercent,
+      'note': note,
+    };
+    if (saveBodyMeasurementCompleter case final completer?) {
+      await completer.future;
+    }
+    if (saveBodyMeasurementError != null) {
+      throw saveBodyMeasurementError!;
+    }
+
+    final saved = BodyMeasurementEntity(
+      id: entryId ?? 'measurement-$saveBodyMeasurementCalls',
+      memberId: 'member-1',
+      recordedAt: recordedAt,
+      waistCm: waistCm,
+      chestCm: chestCm,
+      hipsCm: hipsCm,
+      armCm: armCm,
+      thighCm: thighCm,
+      bodyFatPercent: bodyFatPercent,
+      note: note,
+    );
+    measurements = <BodyMeasurementEntity>[
+      saved,
+      for (final entry in measurements)
+        if (entry.id != saved.id) entry,
+    ];
+  }
 
   @override
-  Future<void> deleteBodyMeasurement(String entryId) async {}
+  Future<void> deleteBodyMeasurement(String entryId) async {
+    deleteBodyMeasurementCalls++;
+    lastDeletedBodyMeasurementId = entryId;
+    if (deleteBodyMeasurementCompleter case final completer?) {
+      await completer.future;
+    }
+    if (deleteBodyMeasurementError != null) {
+      throw deleteBodyMeasurementError!;
+    }
+    measurements = measurements
+        .where((entry) => entry.id != entryId)
+        .toList(growable: false);
+  }
 
   @override
   Future<List<WorkoutPlanEntity>> listWorkoutPlans() async => workoutPlans;
