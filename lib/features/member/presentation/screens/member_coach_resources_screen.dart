@@ -153,21 +153,43 @@ class _ResourceCard extends ConsumerWidget {
   }
 
   Future<void> _open(BuildContext context, WidgetRef ref) async {
-    try {
-      final url = resource.externalUrl?.trim().isNotEmpty == true
-          ? resource.externalUrl!
-          : await ref
-                .read(memberRepositoryProvider)
-                .createCoachResourceSignedUrl(resource.storagePath ?? '');
-      await ExternalLinkService.openUrl(url);
+    final externalUrl = resource.externalUrl?.trim();
+    if (externalUrl != null && externalUrl.isNotEmpty) {
+      await _openUrlAndMarkViewed(context, ref, externalUrl);
+      return;
+    }
+
+    final storagePath = resource.storagePath?.trim();
+    if (storagePath == null || storagePath.isEmpty) {
       if (!context.mounted) return;
-      await _mark(context, ref, viewed: true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Resource file unavailable.')),
+      );
+      return;
+    }
+
+    try {
+      final url = await ref
+          .read(memberRepositoryProvider)
+          .createCoachResourceSignedUrl(storagePath);
+      if (!context.mounted) return;
+      await _openUrlAndMarkViewed(context, ref, url);
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Resource could not be opened: $error')),
       );
     }
+  }
+
+  Future<void> _openUrlAndMarkViewed(
+    BuildContext context,
+    WidgetRef ref,
+    String url,
+  ) async {
+    await ExternalLinkService.openUrl(url);
+    if (!context.mounted) return;
+    await _mark(context, ref, viewed: true);
   }
 
   Future<void> _mark(

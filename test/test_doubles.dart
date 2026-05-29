@@ -1753,6 +1753,10 @@ class FakeMemberRepository implements MemberRepository {
       const <MemberAssignedHabitEntity>[];
   List<MemberAssignedResourceEntity> assignedResources =
       const <MemberAssignedResourceEntity>[];
+  int createCoachResourceSignedUrlCalls = 0;
+  String? lastCoachResourceSignedUrlPath;
+  Object? createCoachResourceSignedUrlError;
+  String signedCoachResourceUrl = 'https://example.test/resource.pdf';
   List<CoachSessionTypeEntity> bookableSessionTypes =
       const <CoachSessionTypeEntity>[];
   List<MemberBookableSlotEntity> bookableSlots =
@@ -2380,7 +2384,12 @@ class FakeMemberRepository implements MemberRepository {
 
   @override
   Future<String> createCoachResourceSignedUrl(String storagePath) async {
-    return 'https://example.test/$storagePath';
+    createCoachResourceSignedUrlCalls++;
+    lastCoachResourceSignedUrlPath = storagePath;
+    if (createCoachResourceSignedUrlError != null) {
+      throw createCoachResourceSignedUrlError!;
+    }
+    return signedCoachResourceUrl;
   }
 
   @override
