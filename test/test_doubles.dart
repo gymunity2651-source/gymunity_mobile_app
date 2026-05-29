@@ -2549,6 +2549,8 @@ class FakeStoreRepository implements StoreRepository {
   final Set<String> favoriteIds = <String>{};
   final Map<String, int> _cartQuantities = <String, int>{};
   final List<ShippingAddressEntity> _addresses = <ShippingAddressEntity>[];
+  int addToCartCalls = 0;
+  int placeOrderFromCartCalls = 0;
   StoreRecommendationsEntity taiyoRecommendations =
       const StoreRecommendationsEntity(
         status: 'success',
@@ -2618,6 +2620,7 @@ class FakeStoreRepository implements StoreRepository {
     required ProductEntity product,
     int quantity = 1,
   }) async {
+    addToCartCalls++;
     _cartQuantities.update(
       product.id,
       (value) => value + quantity,
@@ -2746,6 +2749,7 @@ class FakeStoreRepository implements StoreRepository {
     required String addressId,
     required String idempotencyKey,
   }) async {
+    placeOrderFromCartCalls++;
     final cart = await getCart();
     final order = OrderEntity(
       id: 'order-${orders.length + 1}',

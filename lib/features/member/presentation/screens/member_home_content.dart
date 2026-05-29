@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/di/providers.dart';
@@ -15,7 +16,6 @@ import '../../../ai_coach/presentation/screens/ai_coach_home_screen.dart';
 import '../../../coaches/presentation/screens/coaches_screen.dart';
 import '../../../news/presentation/screens/news_feed_screen.dart';
 import '../../../planner/presentation/route_args.dart';
-import '../../../store/presentation/screens/store_home_screen.dart';
 import '../../domain/entities/member_home_summary_entity.dart';
 import '../providers/member_providers.dart';
 import '../widgets/member_profile_shortcut_button.dart';
@@ -148,7 +148,8 @@ class MemberHomeContent extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // ── Browse store row ──
-            AppReveal(delay: revealDelay(8), child: const _BrowseStoreCard()),
+            if (AppConfig.current.enableStorePurchases)
+              AppReveal(delay: revealDelay(8), child: const _BrowseStoreCard()),
           ],
         ),
       ),
@@ -1063,10 +1064,7 @@ class _NextStepCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(9999),
                 onTap: () {
                   if (needsCheckout) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CoachesScreen()),
-                    );
+                    Navigator.pushNamed(context, AppRoutes.coaches);
                   } else {
                     Navigator.push(
                       context,
@@ -1965,10 +1963,7 @@ class _DynamicNextStepCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(9999),
                 onTap: () {
                   if (hasPendingCoachCheckout || !hasActiveCoach) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CoachesScreen()),
-                    );
+                    Navigator.pushNamed(context, AppRoutes.coaches);
                     return;
                   }
                   Navigator.push(
@@ -2408,10 +2403,7 @@ class _BrowseStoreCardState extends State<_BrowseStoreCard> {
         onTapDown: (_) => setState(() => _pressed = true),
         onTapUp: (_) => setState(() => _pressed = false),
         onTapCancel: () => setState(() => _pressed = false),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const StoreHomeScreen()),
-        ),
+        onTap: () => Navigator.pushNamed(context, AppRoutes.storeHome),
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(

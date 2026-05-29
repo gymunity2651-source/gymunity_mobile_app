@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/theme/atelier_theme.dart';
 import '../../../coach/domain/entities/coach_entity.dart';
@@ -24,6 +25,7 @@ class CoachDetailsScreen extends ConsumerWidget {
     // The details provider enriches it with packages, reviews, etc.
     // On error/loading, we gracefully fall back to the existing data.
     final currentCoach = coachAsync.valueOrNull ?? coach!;
+    final subscriptionsEnabled = AppConfig.current.enableCoachSubscriptions;
 
     if (coachAsync.hasError) {
       debugPrint('[CoachDetailsScreen] Error: ${coachAsync.error}');
@@ -443,23 +445,33 @@ class CoachDetailsScreen extends ConsumerWidget {
                                 ),
                           if (currentCoach.packages.isNotEmpty) ...[
                             const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.subscriptionPackages,
-                                    arguments: currentCoach,
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AtelierColors.primary,
-                                  foregroundColor: AtelierColors.white,
+                            if (subscriptionsEnabled)
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.subscriptionPackages,
+                                      arguments: currentCoach,
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AtelierColors.primary,
+                                    foregroundColor: AtelierColors.white,
+                                  ),
+                                  child: const Text('View full offers'),
                                 ),
-                                child: const Text('View full offers'),
+                              )
+                            else
+                              Text(
+                                'Coach subscriptions are currently unavailable.',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 14,
+                                  height: 1.45,
+                                  color: AtelierColors.onSurfaceVariant,
+                                ),
                               ),
-                            ),
                           ],
                           if (currentCoach.faqItems.isNotEmpty) ...[
                             const SizedBox(height: 20),

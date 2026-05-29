@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
@@ -18,6 +19,10 @@ class ProductDetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!AppConfig.current.enableStorePurchases) {
+      return const _StorePurchasesUnavailableScreen();
+    }
+
     if (product == null) {
       return const _UnavailableProductScreen();
     }
@@ -268,6 +273,31 @@ class _MetaRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StorePurchasesUnavailableScreen extends StatelessWidget {
+  const _StorePurchasesUnavailableScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Product Details')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSizes.screenPadding),
+          child: Text(
+            'Store purchases are currently unavailable.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
       ),
     );
   }

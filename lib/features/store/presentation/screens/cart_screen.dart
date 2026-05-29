@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/widgets/app_feedback.dart';
@@ -16,6 +17,16 @@ class CartScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!AppConfig.current.enableStorePurchases) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(title: const Text('Your Cart')),
+        body: const _CartStateMessage(
+          message: 'Store purchases are currently unavailable.',
+        ),
+      );
+    }
+
     final cartAsync = ref.watch(storeCartControllerProvider);
     final total = ref.watch(storeCartTotalProvider);
     final hasInvalidItems = ref.watch(storeHasInvalidCartItemsProvider);

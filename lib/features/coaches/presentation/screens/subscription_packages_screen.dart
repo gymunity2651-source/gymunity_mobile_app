@@ -7,6 +7,7 @@ import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/services/external_link_service.dart';
+import '../../../../core/widgets/feature_placeholder_screen.dart';
 import '../../../coach/domain/entities/coach_entity.dart';
 import '../../../coach/domain/entities/subscription_entity.dart';
 import '../../../coach/presentation/providers/coach_providers.dart';
@@ -36,6 +37,15 @@ class _SubscriptionPackagesScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (!AppConfig.current.enableCoachSubscriptions) {
+      return const FeaturePlaceholderScreen(
+        title: 'Coach subscriptions unavailable',
+        description:
+            'Coach subscriptions are currently unavailable. You can continue using TAIYO, training, nutrition, and progress tracking.',
+        icon: Icons.workspace_premium_outlined,
+      );
+    }
+
     final coach = widget.coach;
     if (coach == null) {
       return const _UnavailablePackagesScreen();

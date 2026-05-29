@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/config/app_config.dart';
 import '../core/widgets/feature_placeholder_screen.dart';
 import '../features/ai_coach/presentation/screens/active_workout_session_screen.dart';
 import '../features/ai_chat/domain/entities/chat_session_entity.dart';
@@ -354,42 +355,82 @@ class AppRoutes {
         );
 
       case storeHome:
-        return _buildRoute(const StoreHomeScreen());
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableStorePurchases,
+          child: const StoreHomeScreen(),
+          disabledRoute: _storePurchasesDisabledRoute,
+        );
       case productList:
-        return _buildRoute(const StoreCatalogScreen());
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableStorePurchases,
+          child: const StoreCatalogScreen(),
+          disabledRoute: _storePurchasesDisabledRoute,
+        );
       case productDetails:
         final product = settings.arguments;
-        return _buildRoute(
-          ProductDetailsScreen(
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableStorePurchases,
+          child: ProductDetailsScreen(
             product: product is ProductEntity ? product : null,
           ),
+          disabledRoute: _storePurchasesDisabledRoute,
         );
       case favorites:
-        return _buildRoute(const FavoritesScreen());
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableStorePurchases,
+          child: const FavoritesScreen(),
+          disabledRoute: _storePurchasesDisabledRoute,
+        );
       case cart:
-        return _buildRoute(const CartScreen());
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableStorePurchases,
+          child: const CartScreen(),
+          disabledRoute: _storePurchasesDisabledRoute,
+        );
       case checkout:
-        return _buildRoute(const CheckoutScreen());
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableStorePurchases,
+          child: const CheckoutScreen(),
+          disabledRoute: _storePurchasesDisabledRoute,
+        );
       case orders:
-        return _buildRoute(const MyOrdersScreen());
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableStorePurchases,
+          child: const MyOrdersScreen(),
+          disabledRoute: _storePurchasesDisabledRoute,
+        );
 
       case coaches:
-        return _buildRoute(const CoachesScreen());
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableCoachSubscriptions,
+          child: const CoachesScreen(),
+          disabledRoute: _coachSubscriptionsDisabledRoute,
+        );
       case coachDetails:
         final coach = settings.arguments;
-        return _buildRoute(
-          CoachDetailsScreen(coach: coach is CoachEntity ? coach : null),
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableCoachSubscriptions,
+          child: CoachDetailsScreen(coach: coach is CoachEntity ? coach : null),
+          disabledRoute: _coachSubscriptionsDisabledRoute,
         );
       case subscriptionPackages:
         final coach = settings.arguments;
-        return _buildRoute(
-          SubscriptionPackagesScreen(
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableCoachSubscriptions,
+          child: SubscriptionPackagesScreen(
             coach: coach is CoachEntity ? coach : null,
           ),
+          disabledRoute: _coachSubscriptionsDisabledRoute,
         );
       case mySubscriptions:
-        return _buildRoute(const MySubscriptionsScreen());
+        return _guardedFeatureRoute(
+          enabled: AppConfig.current.enableCoachSubscriptions,
+          child: const MySubscriptionsScreen(),
+          disabledRoute: _coachSubscriptionsDisabledRoute,
+        );
       case myCoach:
+        // ENABLE_COACH_SUBSCRIPTIONS gates marketplace and commercial checkout
+        // routes only; active coaching workspace routes remain available.
         final args = settings.arguments;
         return _buildRoute(
           MemberCoachHubScreen(subscriptionId: args is String ? args : null),
@@ -550,6 +591,32 @@ class AppRoutes {
 
   static MaterialPageRoute _buildRoute(Widget page) {
     return MaterialPageRoute(builder: (_) => page);
+  }
+
+  static Route<dynamic> _guardedFeatureRoute({
+    required bool enabled,
+    required Widget child,
+    required Route<dynamic> Function() disabledRoute,
+  }) {
+    return enabled ? _buildRoute(child) : disabledRoute();
+  }
+
+  static Route<dynamic> _storePurchasesDisabledRoute() {
+    return _featureRoute(
+      title: 'Store purchases unavailable',
+      description:
+          'Store purchases are currently unavailable. You can continue using training, nutrition, and coaching features.',
+      icon: Icons.storefront_outlined,
+    );
+  }
+
+  static Route<dynamic> _coachSubscriptionsDisabledRoute() {
+    return _featureRoute(
+      title: 'Coach subscriptions unavailable',
+      description:
+          'Coach subscriptions are currently unavailable. You can continue using TAIYO, training, nutrition, and progress tracking.',
+      icon: Icons.workspace_premium_outlined,
+    );
   }
 
   static MaterialPageRoute _featureRoute({

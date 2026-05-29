@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/theme/atelier_theme.dart';
@@ -85,15 +86,16 @@ class MemberProfileScreen extends ConsumerWidget {
                             AppRoutes.editProfile,
                           ),
                         ),
-                        _ProfileActionCard(
-                          icon: Icons.spa_outlined,
-                          title: 'My Coaching',
-                          subtitle: _coachingSubtitle(subscriptions),
-                          onTap: () => Navigator.pushNamed(
-                            context,
-                            AppRoutes.mySubscriptions,
+                        if (AppConfig.current.enableCoachSubscriptions)
+                          _ProfileActionCard(
+                            icon: Icons.spa_outlined,
+                            title: 'My Coaching',
+                            subtitle: _coachingSubtitle(subscriptions),
+                            onTap: () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.mySubscriptions,
+                            ),
                           ),
-                        ),
                         _ProfileActionCard(
                           icon: Icons.calendar_month_outlined,
                           title: 'Weekly Check-ins',
@@ -148,17 +150,18 @@ class MemberProfileScreen extends ConsumerWidget {
                         const SizedBox(height: 14),
                         _ProfileActionGroup(
                           items: [
-                            _ProfileGroupItem(
-                              icon: Icons.shopping_bag_outlined,
-                              label: 'My Orders',
-                              onTap: () => Navigator.pushNamed(
-                                context,
-                                AppRoutes.orders,
+                            if (AppConfig.current.enableStorePurchases)
+                              _ProfileGroupItem(
+                                icon: Icons.shopping_bag_outlined,
+                                label: 'My Orders',
+                                onTap: () => Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.orders,
+                                ),
+                                detail: orders.isNotEmpty
+                                    ? '${orders.length}'
+                                    : null,
                               ),
-                              detail: orders.isNotEmpty
-                                  ? '${orders.length}'
-                                  : null,
-                            ),
                             _ProfileGroupItem(
                               icon: Icons.settings_outlined,
                               label: 'Settings',

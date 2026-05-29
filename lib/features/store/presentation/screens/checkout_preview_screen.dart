@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/widgets/app_feedback.dart';
+import '../../../../core/widgets/feature_placeholder_screen.dart';
 import '../../domain/entities/cart_entity.dart';
 import '../../domain/entities/shipping_address_entity.dart';
 import '../providers/store_providers.dart';
@@ -25,6 +27,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AppConfig.current.enableStorePurchases) {
+      return const FeaturePlaceholderScreen(
+        title: 'Store purchases unavailable',
+        description:
+            'Store purchases are currently unavailable. You can continue using training, nutrition, and coaching features.',
+        icon: Icons.storefront_outlined,
+      );
+    }
+
     final cartAsync = ref.watch(storeCartControllerProvider);
     final addressesAsync = ref.watch(shippingAddressesProvider);
     final defaultAddress = ref.watch(defaultShippingAddressProvider);
