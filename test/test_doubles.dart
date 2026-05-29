@@ -1762,6 +1762,12 @@ class FakeMemberRepository implements MemberRepository {
   List<MemberBookableSlotEntity> bookableSlots =
       const <MemberBookableSlotEntity>[];
   List<CoachBookingEntity> coachBookings = const <CoachBookingEntity>[];
+  int updateMemberBookingStatusCalls = 0;
+  String? lastUpdatedMemberBookingId;
+  String? lastUpdatedMemberBookingStatus;
+  String? lastUpdatedMemberBookingReason;
+  Object? updateMemberBookingStatusError;
+  Completer<void>? updateMemberBookingStatusCompleter;
   List<CoachingMessageEntity> coachingMessages =
       const <CoachingMessageEntity>[];
   List<OrderEntity> orders = const <OrderEntity>[];
@@ -2452,7 +2458,40 @@ class FakeMemberRepository implements MemberRepository {
     required String status,
     String? reason,
   }) async {
-    return coachBookings.firstWhere((item) => item.id == bookingId);
+    updateMemberBookingStatusCalls++;
+    lastUpdatedMemberBookingId = bookingId;
+    lastUpdatedMemberBookingStatus = status;
+    lastUpdatedMemberBookingReason = reason;
+    if (updateMemberBookingStatusCompleter case final completer?) {
+      await completer.future;
+    }
+    if (updateMemberBookingStatusError != null) {
+      throw updateMemberBookingStatusError!;
+    }
+
+    final existing = coachBookings.firstWhere((item) => item.id == bookingId);
+    final updated = CoachBookingEntity(
+      id: existing.id,
+      coachId: existing.coachId,
+      memberId: existing.memberId,
+      memberName: existing.memberName,
+      subscriptionId: existing.subscriptionId,
+      sessionTypeId: existing.sessionTypeId,
+      sessionTypeTitle: existing.sessionTypeTitle,
+      title: existing.title,
+      startsAt: existing.startsAt,
+      endsAt: existing.endsAt,
+      timezone: existing.timezone,
+      status: status,
+      deliveryMode: existing.deliveryMode,
+      locationNote: existing.locationNote,
+      videoJoinUrl: existing.videoJoinUrl,
+    );
+    coachBookings = <CoachBookingEntity>[
+      for (final booking in coachBookings)
+        if (booking.id == bookingId) updated else booking,
+    ];
+    return updated;
   }
 }
 

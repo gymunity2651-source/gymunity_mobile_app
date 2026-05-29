@@ -258,27 +258,96 @@ class _BookingTile extends ConsumerWidget {
       subtitle: Text('${_dateTime(booking.startsAt)} · ${booking.status}'),
       trailing: booking.status == 'scheduled' || booking.status == 'confirmed'
           ? TextButton(
-              onPressed: () async {
-                await ref
-                    .read(memberRepositoryProvider)
-                    .updateMemberBookingStatus(
-                      bookingId: booking.id,
-                      status: 'cancelled',
-                      reason: 'Cancelled by member',
-                    );
-                if (booking.subscriptionId != null) {
-                  ref.invalidate(
-                    memberCoachBookingsProvider(booking.subscriptionId!),
-                  );
-                  ref.invalidate(
-                    memberCoachHubProvider(booking.subscriptionId),
-                  );
-                }
-              },
+              key: Key('member-session-cancel-action-${booking.id}'),
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => _CancelSessionDialog(booking: booking),
+              ),
               child: const Text('Cancel'),
             )
           : null,
     );
+  }
+}
+
+class _CancelSessionDialog extends ConsumerStatefulWidget {
+  const _CancelSessionDialog({required this.booking});
+
+  final CoachBookingEntity booking;
+
+  @override
+  ConsumerState<_CancelSessionDialog> createState() =>
+      _CancelSessionDialogState();
+}
+
+class _CancelSessionDialogState extends ConsumerState<_CancelSessionDialog> {
+  bool _isCancelling = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Cancel session?'),
+      content: const Text(
+        'This coach session will be cancelled. Your coach may be notified.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isCancelling ? null : () => Navigator.pop(context),
+          child: const Text('Keep Session'),
+        ),
+        ElevatedButton(
+          key: const Key('member-confirm-cancel-session-button'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.error,
+            foregroundColor: AppColors.white,
+          ),
+          onPressed: _isCancelling ? null : _cancel,
+          child: _isCancelling
+              ? const Text('Cancelling...')
+              : const Text('Cancel Session'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _cancel() async {
+    if (_isCancelling) {
+      return;
+    }
+
+    setState(() => _isCancelling = true);
+    try {
+      await ref
+          .read(memberRepositoryProvider)
+          .updateMemberBookingStatus(
+            bookingId: widget.booking.id,
+            status: 'cancelled',
+            reason: 'Cancelled by member',
+          );
+
+      final subscriptionId = widget.booking.subscriptionId;
+      if (subscriptionId != null) {
+        ref.invalidate(memberCoachBookingsProvider(subscriptionId));
+        ref.invalidate(memberCoachHubProvider(subscriptionId));
+      }
+
+      if (!mounted) {
+        return;
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Session cancelled.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isCancelling = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Session could not be cancelled: $error')),
+      );
+    }
   }
 }
 
