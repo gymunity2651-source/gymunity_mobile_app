@@ -5,14 +5,128 @@ import 'package:my_app/app/routes.dart';
 import 'package:my_app/core/di/providers.dart';
 import 'package:my_app/features/coach/domain/entities/coach_workspace_entity.dart';
 import 'package:my_app/features/coach/domain/entities/subscription_entity.dart';
+import 'package:my_app/features/coach/presentation/providers/coach_providers.dart';
 import 'package:my_app/features/coach/presentation/screens/coach_billing_screen.dart';
 import 'package:my_app/features/coach/presentation/screens/coach_client_workspace_screen.dart';
+import 'package:my_app/features/coach_member_insights/domain/entities/visibility_settings_entity.dart';
 import 'package:my_app/features/member/domain/entities/coaching_engagement_entity.dart';
 import 'package:my_app/features/member/presentation/screens/my_subscriptions_screen.dart';
 
 import 'test_doubles.dart';
 
 void main() {
+  group('manual TAIYO coach brief', () {
+    setUp(debugClearTaiyoCoachClientBriefCacheForTests);
+
+    testWidgets('opening client workspace does not call TAIYO', (tester) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(visibility: _sharedVisibility),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+
+      expect(find.text('TAIYO Coach Brief'), findsOneWidget);
+      expect(find.text('Generate AI Brief'), findsOneWidget);
+      expect(repo.requestTaiyoCoachClientBriefCalls, 0);
+    });
+
+    testWidgets('tapping generate calls TAIYO once and shows timestamp', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(visibility: _sharedVisibility),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceText(tester, 'Generate AI Brief');
+      await tester.pumpAndSettle();
+
+      expect(repo.requestTaiyoCoachClientBriefCalls, 1);
+      expect(find.textContaining('Last generated:'), findsOneWidget);
+      expect(find.text('Refresh Brief'), findsOneWidget);
+    });
+
+    testWidgets('cached brief does not regenerate on rebuild', (tester) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(visibility: _sharedVisibility),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceText(tester, 'Generate AI Brief');
+      await tester.pumpAndSettle();
+      await _pumpClientWorkspace(tester, repo);
+
+      expect(repo.requestTaiyoCoachClientBriefCalls, 1);
+      await _ensureWorkspaceTextVisible(tester, 'Refresh Brief');
+      expect(find.textContaining('Client is steady.'), findsOneWidget);
+      expect(find.textContaining('Last generated:'), findsOneWidget);
+    });
+
+    testWidgets('refresh intentionally regenerates the cached brief', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(visibility: _sharedVisibility),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceText(tester, 'Generate AI Brief');
+      await tester.pumpAndSettle();
+      await _tapWorkspaceText(tester, 'Refresh Brief');
+      await tester.pumpAndSettle();
+
+      expect(repo.requestTaiyoCoachClientBriefCalls, 2);
+      expect(find.textContaining('Last generated:'), findsOneWidget);
+    });
+
+    testWidgets('no sharing consent blocks TAIYO generation', (tester) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(visibility: _lockedVisibility),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      expect(find.textContaining('member has not shared'), findsOneWidget);
+      final generate = find.text('Generate AI Brief');
+      expect(generate, findsOneWidget);
+      await _tapWorkspaceText(tester, 'Generate AI Brief', warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(repo.requestTaiyoCoachClientBriefCalls, 0);
+    });
+
+    testWidgets('TAIYO errors show a friendly retry state', (tester) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(visibility: _sharedVisibility),
+        }
+        ..taiyoCoachBriefError = Exception('backend exploded');
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceText(tester, 'Generate AI Brief');
+      await tester.pumpAndSettle();
+
+      expect(repo.requestTaiyoCoachClientBriefCalls, 1);
+      expect(find.text('Brief unavailable'), findsOneWidget);
+      expect(
+        find.text('TAIYO could not prepare this client brief right now.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Exception'), findsNothing);
+      expect(find.textContaining('backend'), findsNothing);
+    });
+  });
+
   testWidgets('client workspace overview actions run for the selected client', (
     tester,
   ) async {
@@ -534,7 +648,7 @@ void main() {
 
 Future<void> _useTallPhoneSurface(WidgetTester tester) async {
   tester.view.devicePixelRatio = 1;
-  tester.view.physicalSize = const Size(390, 1000);
+  tester.view.physicalSize = const Size(390, 1600);
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 }
@@ -543,6 +657,7 @@ CoachClientWorkspaceEntity _workspace({
   String status = 'checkout_pending',
   String checkoutStatus = 'checkout_pending',
   String pipelineStage = 'pending_payment',
+  VisibilitySettingsEntity? visibility,
 }) {
   final client = CoachClientPipelineEntry(
     subscriptionId: 'sub-1',
@@ -594,5 +709,61 @@ CoachClientWorkspaceEntity _workspace({
         status: 'receipt_uploaded',
       ),
     ],
+    visibility: visibility,
   );
 }
+
+Future<void> _pumpClientWorkspace(
+  WidgetTester tester,
+  FakeCoachRepository repo,
+) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: <Override>[coachRepositoryProvider.overrideWithValue(repo)],
+      child: const MaterialApp(
+        home: CoachClientWorkspaceScreen(subscriptionId: 'sub-1'),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapWorkspaceText(
+  WidgetTester tester,
+  String text, {
+  bool warnIfMissed = true,
+}) async {
+  final finder = find.text(text);
+  await tester.scrollUntilVisible(
+    finder,
+    250,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.tap(finder, warnIfMissed: warnIfMissed);
+}
+
+Future<void> _ensureWorkspaceTextVisible(
+  WidgetTester tester,
+  String text,
+) async {
+  await tester.scrollUntilVisible(
+    find.text(text),
+    250,
+    scrollable: find.byType(Scrollable).first,
+  );
+}
+
+const _sharedVisibility = VisibilitySettingsEntity(
+  id: 'visibility-1',
+  memberId: 'member-1',
+  coachId: 'coach-1',
+  subscriptionId: 'sub-1',
+  shareWorkoutAdherence: true,
+);
+
+const _lockedVisibility = VisibilitySettingsEntity(
+  id: 'visibility-1',
+  memberId: 'member-1',
+  coachId: 'coach-1',
+  subscriptionId: 'sub-1',
+);

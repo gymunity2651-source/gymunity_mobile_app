@@ -78,20 +78,100 @@ final coachClientWorkspaceProvider =
       return repo.getClientWorkspace(subscriptionId);
     });
 
-final taiyoCoachClientBriefProvider =
-    FutureProvider.family<CoachTaiyoClientBriefEntity, String>((
-      ref,
-      subscriptionId,
-    ) async {
-      final repo = ref.watch(coachRepositoryProvider);
-      final workspace = await ref.watch(
-        coachClientWorkspaceProvider(subscriptionId).future,
-      );
-      return repo.requestTaiyoCoachClientBrief(
-        clientId: workspace.client.memberId,
+final taiyoCoachClientBriefControllerProvider =
+    StateNotifierProvider.family<
+      TaiyoCoachClientBriefController,
+      TaiyoCoachClientBriefState,
+      String
+    >((ref, subscriptionId) {
+      return TaiyoCoachClientBriefController(
+        ref: ref,
         subscriptionId: subscriptionId,
       );
     });
+
+class TaiyoCoachClientBriefState {
+  const TaiyoCoachClientBriefState({
+    this.brief,
+    this.generatedAt,
+    this.isLoading = false,
+    this.error,
+  });
+
+  final CoachTaiyoClientBriefEntity? brief;
+  final DateTime? generatedAt;
+  final bool isLoading;
+  final Object? error;
+
+  TaiyoCoachClientBriefState copyWith({
+    CoachTaiyoClientBriefEntity? brief,
+    DateTime? generatedAt,
+    bool? isLoading,
+    Object? error,
+    bool clearError = false,
+  }) {
+    return TaiyoCoachClientBriefState(
+      brief: brief ?? this.brief,
+      generatedAt: generatedAt ?? this.generatedAt,
+      isLoading: isLoading ?? this.isLoading,
+      error: clearError ? null : error ?? this.error,
+    );
+  }
+}
+
+final Map<String, TaiyoCoachClientBriefState> _taiyoCoachBriefCache =
+    <String, TaiyoCoachClientBriefState>{};
+
+void debugClearTaiyoCoachClientBriefCacheForTests() {
+  _taiyoCoachBriefCache.clear();
+}
+
+class TaiyoCoachClientBriefController
+    extends StateNotifier<TaiyoCoachClientBriefState> {
+  TaiyoCoachClientBriefController({
+    required Ref ref,
+    required String subscriptionId,
+  }) : _ref = ref,
+       _subscriptionId = subscriptionId,
+       super(
+         _taiyoCoachBriefCache[subscriptionId] ??
+             const TaiyoCoachClientBriefState(),
+       );
+
+  final Ref _ref;
+  final String _subscriptionId;
+
+  Future<void> generate() => _requestBrief();
+
+  Future<void> refresh() => _requestBrief();
+
+  Future<void> _requestBrief() async {
+    final current = state;
+    state = current.copyWith(isLoading: true, clearError: true);
+    try {
+      final workspace = await _ref.read(
+        coachClientWorkspaceProvider(_subscriptionId).future,
+      );
+      if (workspace.visibility?.hasAnySharing != true) {
+        state = current.copyWith(isLoading: false, clearError: true);
+        return;
+      }
+      final repo = _ref.read(coachRepositoryProvider);
+      final brief = await repo.requestTaiyoCoachClientBrief(
+        clientId: workspace.client.memberId,
+        subscriptionId: _subscriptionId,
+      );
+      final next = TaiyoCoachClientBriefState(
+        brief: brief,
+        generatedAt: DateTime.now(),
+      );
+      _taiyoCoachBriefCache[_subscriptionId] = next;
+      state = next;
+    } catch (error) {
+      state = current.copyWith(isLoading: false, error: error);
+    }
+  }
+}
 
 final coachCheckinInboxProvider = FutureProvider((ref) async {
   final repo = ref.watch(coachRepositoryProvider);

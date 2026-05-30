@@ -563,6 +563,17 @@ class FakeCoachRepository implements CoachRepository {
   Object? upsertError;
   int getCoachDetailsCalls = 0;
   int getClientWorkspaceCalls = 0;
+  int requestTaiyoCoachClientBriefCalls = 0;
+  Object? taiyoCoachBriefError;
+  CoachTaiyoClientBriefEntity taiyoCoachBrief =
+      const CoachTaiyoClientBriefEntity(
+        requestType: 'coach_client_brief',
+        status: 'success',
+        clientStatus: 'on_track',
+        summary: 'Client is steady.',
+        suggestedAction: 'Review the latest shared check-in.',
+        riskLevel: 'low',
+      );
   int upsertCoachProfileCalls = 0;
   int saveAvailabilitySlotCalls = 0;
   Map<String, dynamic>? lastUpsertCoachProfilePayload;
@@ -1137,14 +1148,11 @@ class FakeCoachRepository implements CoachRepository {
     required String subscriptionId,
     String requestType = 'coach_client_brief',
   }) async {
-    return CoachTaiyoClientBriefEntity(
-      requestType: requestType,
-      status: 'success',
-      clientStatus: 'on_track',
-      summary: 'Client is steady.',
-      suggestedAction: 'Review the latest shared check-in.',
-      riskLevel: 'low',
-    );
+    requestTaiyoCoachClientBriefCalls++;
+    if (taiyoCoachBriefError != null) {
+      throw taiyoCoachBriefError!;
+    }
+    return taiyoCoachBrief;
   }
 
   @override

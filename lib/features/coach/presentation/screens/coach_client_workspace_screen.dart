@@ -229,26 +229,59 @@ class _TaiyoCoachBrief extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final briefAsync = ref.watch(
-      taiyoCoachClientBriefProvider(workspace.client.subscriptionId),
+    final subscriptionId = workspace.client.subscriptionId;
+    final briefState = ref.watch(
+      taiyoCoachClientBriefControllerProvider(subscriptionId),
     );
-    return briefAsync.when(
-      loading: () => const _SimplePanel(
+    final controller = ref.read(
+      taiyoCoachClientBriefControllerProvider(subscriptionId).notifier,
+    );
+
+    if (workspace.visibility?.hasAnySharing != true) {
+      return const _SimplePanel(
+        icon: Icons.privacy_tip_outlined,
+        title: 'TAIYO Coach Brief',
+        body:
+            'The member has not shared enough data to generate an AI brief. Ask the member to update visibility permissions first.',
+        actionLabel: 'Generate AI Brief',
+      );
+    }
+
+    if (briefState.isLoading) {
+      return const _SimplePanel(
         icon: Icons.auto_awesome_outlined,
         title: 'TAIYO Coach Brief',
         body: 'TAIYO is reviewing the shared client context.',
-      ),
-      error: (error, _) => _SimplePanel(
+      );
+    }
+
+    if (briefState.error != null) {
+      return _SimplePanel(
         icon: Icons.cloud_off_outlined,
-        title: 'TAIYO Coach Brief',
+        title: 'Brief unavailable',
         body: 'TAIYO could not prepare this client brief right now.',
-        actionLabel: 'Retry',
-        onTap: () => ref.invalidate(
-          taiyoCoachClientBriefProvider(workspace.client.subscriptionId),
-        ),
-      ),
-      data: (brief) =>
-          _TaiyoCoachBriefPanel(brief: brief, onReviewConsent: onReviewConsent),
+        actionLabel: 'Try again',
+        onTap: controller.generate,
+      );
+    }
+
+    final brief = briefState.brief;
+    if (brief == null) {
+      return _SimplePanel(
+        icon: Icons.auto_awesome_outlined,
+        title: 'TAIYO Coach Brief',
+        body:
+            "Generate a client brief after reviewing the member's sharing permissions.",
+        actionLabel: 'Generate AI Brief',
+        onTap: controller.generate,
+      );
+    }
+
+    return _TaiyoCoachBriefPanel(
+      brief: brief,
+      generatedAt: briefState.generatedAt ?? brief.generatedAt,
+      onReviewConsent: onReviewConsent,
+      onRefresh: controller.refresh,
     );
   }
 }
@@ -256,11 +289,15 @@ class _TaiyoCoachBrief extends ConsumerWidget {
 class _TaiyoCoachBriefPanel extends StatelessWidget {
   const _TaiyoCoachBriefPanel({
     required this.brief,
+    required this.generatedAt,
     required this.onReviewConsent,
+    required this.onRefresh,
   });
 
   final CoachTaiyoClientBriefEntity brief;
+  final DateTime? generatedAt;
   final VoidCallback onReviewConsent;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -283,13 +320,18 @@ class _TaiyoCoachBriefPanel extends StatelessWidget {
     final draft = brief.hasDraftMessage
         ? '\nDraft message: ${brief.suggestedMessage}'
         : '';
+    final generatedLabel = generatedAt == null
+        ? ''
+        : '\nLast generated: ${_dateTime(generatedAt!)}';
     return _SimplePanel(
       icon: brief.riskLevel == 'high'
           ? Icons.warning_amber_outlined
           : Icons.auto_awesome_outlined,
       title: 'TAIYO Coach Brief',
       body:
-          '${brief.summary.isEmpty ? 'TAIYO prepared a client brief.' : brief.summary}\n$redFlags\n$action$draft\nDraft only: review before the member sees anything.',
+          '${brief.summary.isEmpty ? 'TAIYO prepared a client brief.' : brief.summary}\n$redFlags\n$action$draft\nDraft only: review before the member sees anything.$generatedLabel',
+      actionLabel: 'Refresh Brief',
+      onTap: onRefresh,
     );
   }
 }
@@ -1182,7 +1224,7 @@ class _WorkspaceState extends StatelessWidget {
                   color: AppColors.textSecondary,
                 ),
               ),
-              if (actionLabel != null && onTap != null) ...[
+              if (actionLabel != null) ...[
                 const SizedBox(height: 12),
                 OutlinedButton(onPressed: onTap, child: Text(actionLabel!)),
               ],
@@ -2143,6 +2185,29 @@ String _date(DateTime value) {
 String _dateTimeInput(DateTime value) {
   final local = value.toLocal();
   return '${_date(local)} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+}
+
+String _dateTime(DateTime value) {
+  const months = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final local = value.toLocal();
+  final month = months[local.month - 1];
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$month $day, ${local.year} $hour:$minute';
 }
 
 DateTime? _parseDateTimeInput(String value) {
