@@ -31,6 +31,7 @@ import '../features/coach_member_insights/presentation/providers/insight_provide
 import '../features/coach_member_insights/presentation/screens/coach_member_insights_screen.dart';
 import '../features/coach_member_insights/presentation/screens/member_coach_visibility_settings_screen.dart';
 import '../features/coach/presentation/screens/coach_packages_screen.dart';
+import '../features/coach/presentation/widgets/coach_access_gate.dart';
 import '../features/coaches/presentation/screens/coaches_screen.dart';
 import '../features/coaches/presentation/screens/coach_details_screen.dart';
 import '../features/coaches/presentation/screens/subscription_packages_screen.dart';
@@ -501,18 +502,30 @@ class AppRoutes {
         return _buildRoute(const SellerProfileScreen());
 
       case coachDashboard:
-        return _buildRoute(const CoachDashboardScreen());
+        return _buildRoute(
+          const CoachAccessGate(child: CoachDashboardScreen()),
+        );
       case clients:
-        return _buildRoute(const CoachClientPipelineScreen());
+        return _buildRoute(
+          const CoachAccessGate(child: CoachClientPipelineScreen()),
+        );
       case coachClientWorkspace:
         final args = settings.arguments;
         if (args is CoachClientWorkspaceArgs) {
           return _buildRoute(
-            CoachClientWorkspaceScreen(subscriptionId: args.subscriptionId),
+            CoachAccessGate(
+              child: CoachClientWorkspaceScreen(
+                subscriptionId: args.subscriptionId,
+              ),
+            ),
           );
         }
         if (args is String && args.isNotEmpty) {
-          return _buildRoute(CoachClientWorkspaceScreen(subscriptionId: args));
+          return _buildRoute(
+            CoachAccessGate(
+              child: CoachClientWorkspaceScreen(subscriptionId: args),
+            ),
+          );
         }
         return _featureRoute(
           title: 'Client workspace',
@@ -520,33 +533,45 @@ class AppRoutes {
           icon: Icons.person_search_outlined,
         );
       case coachCheckins:
-        return _buildRoute(const CoachCheckinInboxScreen());
+        return _buildRoute(
+          const CoachAccessGate(child: CoachCheckinInboxScreen()),
+        );
       case coachCalendar:
-        return _buildRoute(const CoachCalendarScreen());
+        return _buildRoute(const CoachAccessGate(child: CoachCalendarScreen()));
       case coachBilling:
-        return _buildRoute(const CoachBillingScreen());
+        return _buildRoute(const CoachAccessGate(child: CoachBillingScreen()));
       case coachProgramLibrary:
-        return _buildRoute(const CoachProgramLibraryScreen());
+        return _buildRoute(
+          const CoachAccessGate(child: CoachProgramLibraryScreen()),
+        );
       case coachOnboardingFlows:
-        return _buildRoute(const CoachOnboardingFlowsScreen());
+        return _buildRoute(
+          const CoachAccessGate(child: CoachOnboardingFlowsScreen()),
+        );
       case coachResources:
-        return _buildRoute(const CoachResourcesScreen());
+        return _buildRoute(
+          const CoachAccessGate(child: CoachResourcesScreen()),
+        );
       case packages:
-        return _buildRoute(const CoachPackagesScreen());
+        return _buildRoute(const CoachAccessGate(child: CoachPackagesScreen()));
       case addPackage:
         final package = settings.arguments;
         return _buildRoute(
-          CoachPackageEditorScreen(
-            initialPackage: package is CoachPackageEntity ? package : null,
+          CoachAccessGate(
+            child: CoachPackageEditorScreen(
+              initialPackage: package is CoachPackageEntity ? package : null,
+            ),
           ),
         );
       case coachProfile:
-        return _buildRoute(const CoachProfileScreen());
+        return _buildRoute(const CoachAccessGate(child: CoachProfileScreen()));
 
       case coachMemberInsights:
         final args = settings.arguments;
         if (args is InsightDetailArgs) {
-          return _buildRoute(CoachMemberInsightsScreen(args: args));
+          return _buildRoute(
+            CoachAccessGate(child: CoachMemberInsightsScreen(args: args)),
+          );
         }
         return _featureRoute(
           title: 'Member Insights',
