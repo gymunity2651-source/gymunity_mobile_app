@@ -68,195 +68,270 @@ void main() {
     },
   );
 
-  testWidgets('coach dashboard blocks signed out users', (tester) async {
-    _overrideConfig();
-    final userRepository = FakeUserRepository();
+  group('CoachAccessGate route protection', () {
+    testWidgets('coach dashboard blocks signed out users', (tester) async {
+      _overrideConfig();
+      final userRepository = FakeUserRepository();
 
-    await _pumpRoute(
-      tester,
-      AppRoutes.coachDashboard,
-      userRepository: userRepository,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Sign in required'), findsOneWidget);
-    expect(
-      find.text('Please sign in to access the Coach workspace.'),
-      findsOneWidget,
-    );
-    expect(find.text('Coach workspace unavailable'), findsNothing);
-  });
-
-  testWidgets('coach operator routes block signed out users', (tester) async {
-    _overrideConfig();
-    final userRepository = FakeUserRepository();
-
-    for (final route in _coachOperatorRoutes) {
       await _pumpRoute(
         tester,
-        route.name,
-        arguments: route.arguments,
+        AppRoutes.coachDashboard,
         userRepository: userRepository,
       );
       await tester.pumpAndSettle();
 
       expect(find.text('Sign in required'), findsOneWidget);
-      expect(find.text('Unknown Route'), findsNothing);
+      expect(
+        find.text('Please sign in to access the Coach workspace.'),
+        findsOneWidget,
+      );
+      expect(find.text('Coach workspace unavailable'), findsNothing);
+    });
+
+    testWidgets('coach profile loading errors show retry state', (
+      tester,
+    ) async {
+      _overrideConfig();
+      final userRepository = FakeUserRepository()
+        ..profileError = Exception('backend details should stay hidden');
+
+      await _pumpRoute(
+        tester,
+        AppRoutes.coachDashboard,
+        userRepository: userRepository,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coach access unavailable'), findsOneWidget);
+      expect(
+        find.text(
+          'We could not verify your account permissions. Please try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Sign in required'), findsNothing);
+      expect(find.textContaining('backend details'), findsNothing);
+    });
+
+    testWidgets('coach operator routes block signed out users', (tester) async {
+      _overrideConfig();
+      final userRepository = FakeUserRepository();
+
+      for (final route in _coachOperatorRoutes) {
+        await _pumpRoute(
+          tester,
+          route.name,
+          arguments: route.arguments,
+          userRepository: userRepository,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Sign in required'), findsOneWidget);
+        expect(find.text('Unknown Route'), findsNothing);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    });
+
+    testWidgets('coach dashboard blocks member users', (tester) async {
+      _overrideConfig();
+      final userRepository = _userRepositoryForRole(AppRole.member);
+
+      await _pumpRoute(
+        tester,
+        AppRoutes.coachDashboard,
+        userRepository: userRepository,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coach access required'), findsOneWidget);
+      expect(
+        find.text('This workspace is only available for coach accounts.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('coach clients route blocks member users', (tester) async {
+      _overrideConfig();
+      final userRepository = _userRepositoryForRole(AppRole.member);
+
+      await _pumpRoute(
+        tester,
+        AppRoutes.clients,
+        userRepository: userRepository,
+        coachRepository: FakeCoachRepository(),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coach access required'), findsOneWidget);
+      expect(find.text('Client pipeline'), findsNothing);
+    });
+
+    testWidgets('coach client workspace route blocks member users', (
+      tester,
+    ) async {
+      _overrideConfig();
+      final userRepository = _userRepositoryForRole(AppRole.member);
+      final coachRepository = FakeCoachRepository();
+
+      await _pumpRoute(
+        tester,
+        AppRoutes.coachClientWorkspace,
+        arguments: const CoachClientWorkspaceArgs(subscriptionId: 'sub-1'),
+        userRepository: userRepository,
+        coachRepository: coachRepository,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coach access required'), findsOneWidget);
+      expect(find.text('Client workspace'), findsNothing);
+      expect(coachRepository.getClientWorkspaceCalls, 0);
+    });
+
+    testWidgets('coach dashboard blocks incomplete coach setup', (
+      tester,
+    ) async {
+      _overrideConfig();
+      final userRepository = _userRepositoryForRole(
+        AppRole.coach,
+        onboardingCompleted: false,
+      );
+
+      await _pumpRoute(
+        tester,
+        AppRoutes.coachDashboard,
+        userRepository: userRepository,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Complete coach setup'), findsOneWidget);
+      expect(
+        find.text('Finish your coach profile before accessing your workspace.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('coach role without coach profile completes setup first', (
+      tester,
+    ) async {
+      _overrideConfig();
+      final userRepository = _userRepositoryForRole(AppRole.coach);
+
+      await _pumpRoute(
+        tester,
+        AppRoutes.coachDashboard,
+        userRepository: userRepository,
+        coachRepository: FakeCoachRepository(),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Complete coach setup'), findsOneWidget);
+      expect(find.text('Coach workspace'), findsNothing);
+    });
+
+    testWidgets('completed coach can access dashboard', (tester) async {
+      _overrideConfig();
+      final userRepository = _userRepositoryForRole(AppRole.coach);
+
+      await _pumpRoute(
+        tester,
+        AppRoutes.coachDashboard,
+        userRepository: userRepository,
+        coachRepository: _coachRepositoryWithProfile(),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Today'), findsWidgets);
+      expect(find.text('Sign in required'), findsNothing);
+      expect(find.text('Coach access required'), findsNothing);
+    });
+
+    testWidgets('completed coach can access coach operator routes', (
+      tester,
+    ) async {
+      _overrideConfig();
+
+      for (final route in _validCoachOperatorRoutes) {
+        await _pumpRoute(
+          tester,
+          route.name,
+          arguments: route.arguments,
+          userRepository: _userRepositoryForRole(AppRole.coach),
+          coachRepository: _coachRepositoryWithProfile(),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(route.expectedText), findsWidgets);
+        expect(find.text('Sign in required'), findsNothing);
+        expect(find.text('Coach access required'), findsNothing);
+        expect(find.text('Complete coach setup'), findsNothing);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    });
+
+    testWidgets('coach dashboard blocks when coach workspace flag is off', (
+      tester,
+    ) async {
+      _overrideConfig(enableCoachSubscriptions: false);
+      final userRepository = _userRepositoryForRole(AppRole.coach);
+
+      await _pumpRoute(
+        tester,
+        AppRoutes.coachDashboard,
+        userRepository: userRepository,
+        coachRepository: FakeCoachRepository(),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Coach workspace unavailable'), findsOneWidget);
+      expect(
+        find.text('Coach features are currently unavailable.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('active coaching workspace routes remain available', (
+      tester,
+    ) async {
+      _overrideConfig(enableCoachSubscriptions: false);
+      final repo = FakeMemberRepository()
+        ..subscriptions = const <SubscriptionEntity>[
+          SubscriptionEntity(
+            id: 'subscription-1',
+            memberId: 'member-1',
+            coachId: 'coach-1',
+            coachName: 'Coach Alex',
+            packageTitle: 'Starter Coaching',
+            status: 'active',
+            checkoutStatus: 'paid',
+            amount: 200,
+            planName: 'Starter',
+            threadId: 'thread-1',
+          ),
+        ];
+
+      await _pumpRoute(
+        tester,
+        AppRoutes.myCoach,
+        arguments: 'subscription-1',
+        memberRepository: repo,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Coach subscriptions unavailable'), findsNothing);
+      expect(find.text('Coach access required'), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());
-    }
-  });
-
-  testWidgets('coach dashboard blocks member users', (tester) async {
-    _overrideConfig();
-    final userRepository = _userRepositoryForRole(AppRole.member);
-
-    await _pumpRoute(
-      tester,
-      AppRoutes.coachDashboard,
-      userRepository: userRepository,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Coach access required'), findsOneWidget);
-    expect(
-      find.text('This workspace is only available for coach accounts.'),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('coach clients route blocks member users', (tester) async {
-    _overrideConfig();
-    final userRepository = _userRepositoryForRole(AppRole.member);
-
-    await _pumpRoute(
-      tester,
-      AppRoutes.clients,
-      userRepository: userRepository,
-      coachRepository: FakeCoachRepository(),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Coach access required'), findsOneWidget);
-    expect(find.text('Client pipeline'), findsNothing);
-  });
-
-  testWidgets('coach client workspace route blocks member users', (
-    tester,
-  ) async {
-    _overrideConfig();
-    final userRepository = _userRepositoryForRole(AppRole.member);
-
-    await _pumpRoute(
-      tester,
-      AppRoutes.coachClientWorkspace,
-      arguments: const CoachClientWorkspaceArgs(subscriptionId: 'sub-1'),
-      userRepository: userRepository,
-      coachRepository: FakeCoachRepository(),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Coach access required'), findsOneWidget);
-    expect(find.text('Client workspace'), findsNothing);
-  });
-
-  testWidgets('coach dashboard blocks incomplete coach setup', (tester) async {
-    _overrideConfig();
-    final userRepository = _userRepositoryForRole(
-      AppRole.coach,
-      onboardingCompleted: false,
-    );
-
-    await _pumpRoute(
-      tester,
-      AppRoutes.coachDashboard,
-      userRepository: userRepository,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Complete coach setup'), findsOneWidget);
-    expect(
-      find.text('Finish your coach profile before accessing your workspace.'),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('completed coach can access dashboard', (tester) async {
-    _overrideConfig();
-    final userRepository = _userRepositoryForRole(AppRole.coach);
-
-    await _pumpRoute(
-      tester,
-      AppRoutes.coachDashboard,
-      userRepository: userRepository,
-      coachRepository: FakeCoachRepository(),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Today'), findsWidgets);
-    expect(find.text('Sign in required'), findsNothing);
-    expect(find.text('Coach access required'), findsNothing);
-  });
-
-  testWidgets('coach dashboard blocks when coach workspace flag is off', (
-    tester,
-  ) async {
-    _overrideConfig(enableCoachSubscriptions: false);
-    final userRepository = _userRepositoryForRole(AppRole.coach);
-
-    await _pumpRoute(
-      tester,
-      AppRoutes.coachDashboard,
-      userRepository: userRepository,
-      coachRepository: FakeCoachRepository(),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Coach workspace unavailable'), findsOneWidget);
-    expect(
-      find.text('Coach features are currently unavailable.'),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('active coaching workspace routes remain available', (
-    tester,
-  ) async {
-    _overrideConfig(enableCoachSubscriptions: false);
-    final repo = FakeMemberRepository()
-      ..subscriptions = const <SubscriptionEntity>[
-        SubscriptionEntity(
-          id: 'subscription-1',
-          memberId: 'member-1',
-          coachId: 'coach-1',
-          coachName: 'Coach Alex',
-          packageTitle: 'Starter Coaching',
-          status: 'active',
-          checkoutStatus: 'paid',
-          amount: 200,
-          planName: 'Starter',
-          threadId: 'thread-1',
-        ),
-      ];
-
-    await _pumpRoute(
-      tester,
-      AppRoutes.myCoach,
-      arguments: 'subscription-1',
-      memberRepository: repo,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Coach subscriptions unavailable'), findsNothing);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await _pumpRoute(
-      tester,
-      AppRoutes.memberCoachSessions,
-      arguments: 'subscription-1',
-      memberRepository: repo,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Coach subscriptions unavailable'), findsNothing);
+      await _pumpRoute(
+        tester,
+        AppRoutes.memberCoachSessions,
+        arguments: 'subscription-1',
+        memberRepository: repo,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Coach subscriptions unavailable'), findsNothing);
+      expect(find.text('Coach access required'), findsNothing);
+    });
   });
 
   testWidgets('product details disables add to cart when store flag is off', (
@@ -468,6 +543,29 @@ const _insightArgs = InsightDetailArgs(
   memberName: 'Member One',
 );
 
+const _validCoachOperatorRoutes = <_ExpectedRouteCase>[
+  _ExpectedRouteCase(AppRoutes.coachDashboard, 'Coach workspace'),
+  _ExpectedRouteCase(AppRoutes.clients, 'Client pipeline'),
+  _ExpectedRouteCase(
+    AppRoutes.coachClientWorkspace,
+    'Client workspace',
+    _workspaceArgs,
+  ),
+  _ExpectedRouteCase(AppRoutes.coachCheckins, 'Check-in inbox'),
+  _ExpectedRouteCase(AppRoutes.coachCalendar, 'Calendar'),
+  _ExpectedRouteCase(AppRoutes.coachBilling, 'Billing'),
+  _ExpectedRouteCase(AppRoutes.coachProgramLibrary, 'Program library'),
+  _ExpectedRouteCase(AppRoutes.coachResources, 'Resource library'),
+  _ExpectedRouteCase(AppRoutes.packages, 'Offer library'),
+  _ExpectedRouteCase(AppRoutes.coachProfile, 'Coach Profile'),
+];
+
+class _ExpectedRouteCase extends _RouteCase {
+  const _ExpectedRouteCase(super.name, this.expectedText, [super.arguments]);
+
+  final String expectedText;
+}
+
 const _product = ProductEntity(
   id: 'product-1',
   sellerId: 'seller-1',
@@ -519,4 +617,29 @@ FakeUserRepository _userRepositoryForRole(
       role: role,
       onboardingCompleted: onboardingCompleted,
     );
+}
+
+FakeCoachRepository _coachRepositoryWithProfile() {
+  return FakeCoachRepository()
+    ..coaches = const <CoachEntity>[
+      CoachEntity(
+        id: 'user-1',
+        name: 'Coach One',
+        specialties: <String>['Strength'],
+      ),
+    ]
+    ..subscriptions = const <SubscriptionEntity>[
+      SubscriptionEntity(
+        id: 'sub-1',
+        memberId: 'member-1',
+        coachId: 'user-1',
+        memberName: 'Member One',
+        packageTitle: 'Starter Coaching',
+        status: 'active',
+        checkoutStatus: 'paid',
+        amount: 200,
+        planName: 'Starter',
+        threadId: 'thread-1',
+      ),
+    ];
 }

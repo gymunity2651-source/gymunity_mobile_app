@@ -194,6 +194,13 @@ void main() {
         ..currentUser = const UserEntity(
           id: 'coach-1',
           email: 'coach@gymunity.com',
+        )
+        ..profile = const ProfileEntity(
+          userId: 'coach-1',
+          email: 'coach@gymunity.com',
+          fullName: 'Coach One',
+          role: AppRole.coach,
+          onboardingCompleted: true,
         );
       final coachRepository = FakeCoachRepository()
         ..coaches = const <CoachEntity>[
@@ -342,7 +349,26 @@ void main() {
     testWidgets('coach clients screen approves pending starter plan request', (
       tester,
     ) async {
+      final userRepository = FakeUserRepository()
+        ..currentUser = const UserEntity(
+          id: 'coach-1',
+          email: 'coach@gymunity.com',
+        )
+        ..profile = const ProfileEntity(
+          userId: 'coach-1',
+          email: 'coach@gymunity.com',
+          fullName: 'Coach One',
+          role: AppRole.coach,
+          onboardingCompleted: true,
+        );
       final coachRepository = FakeCoachRepository()
+        ..coaches = const <CoachEntity>[
+          CoachEntity(
+            id: 'coach-1',
+            name: 'Coach One',
+            specialties: <String>['Strength'],
+          ),
+        ]
         ..subscriptions = const <SubscriptionEntity>[
           SubscriptionEntity(
             id: 'subscription-1',
@@ -367,6 +393,7 @@ void main() {
       await _pumpNamedRoute(
         tester,
         AppRoutes.clients,
+        userRepository: userRepository,
         coachRepository: coachRepository,
       );
       await tester.pumpAndSettle();

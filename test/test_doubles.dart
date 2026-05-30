@@ -561,6 +561,8 @@ class FakeCoachRepository implements CoachRepository {
   Map<String, CoachClientWorkspaceEntity> clientWorkspaces =
       <String, CoachClientWorkspaceEntity>{};
   Object? upsertError;
+  int getCoachDetailsCalls = 0;
+  int getClientWorkspaceCalls = 0;
   int upsertCoachProfileCalls = 0;
   int saveAvailabilitySlotCalls = 0;
   Map<String, dynamic>? lastUpsertCoachProfilePayload;
@@ -605,6 +607,7 @@ class FakeCoachRepository implements CoachRepository {
 
   @override
   Future<CoachEntity?> getCoachDetails(String coachId) async {
+    getCoachDetailsCalls++;
     try {
       final coach = coaches.firstWhere((coach) => coach.id == coachId);
       final coachPackages = packages
@@ -1223,6 +1226,7 @@ class FakeCoachRepository implements CoachRepository {
   Future<CoachClientWorkspaceEntity> getClientWorkspace(
     String subscriptionId,
   ) async {
+    getClientWorkspaceCalls++;
     final direct = clientWorkspaces[subscriptionId];
     if (direct != null) {
       return direct;
