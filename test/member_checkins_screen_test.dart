@@ -10,7 +10,24 @@ import 'package:my_app/features/member/presentation/screens/member_checkins_scre
 import 'test_doubles.dart';
 
 void main() {
-  testWidgets('adherence outside 0 to 100 is rejected before submit', (
+  testWidgets('quick step is shown first', (tester) async {
+    final repo = _repoWithActiveSubscription();
+    await _pumpScreen(tester, repo);
+    await _openDialog(tester);
+
+    expect(find.text('Quick Check-in'), findsOneWidget);
+    expect(find.text('Adherence %'), findsOneWidget);
+    expect(find.text('Energy 1-10'), findsOneWidget);
+    expect(find.text('Sleep 1-10'), findsOneWidget);
+    expect(find.text('Pain or injury warning'), findsOneWidget);
+    expect(find.text('Biggest obstacle this week'), findsOneWidget);
+    expect(find.text('Support needed from coach'), findsOneWidget);
+    expect(find.text('Weight (kg)'), findsNothing);
+    expect(find.text('Nutrition %'), findsNothing);
+    expect(find.text('Wins'), findsNothing);
+  });
+
+  testWidgets('quick required validation blocks next and submit', (
     tester,
   ) async {
     final repo = _repoWithActiveSubscription();
@@ -18,101 +35,152 @@ void main() {
     await _openDialog(tester);
 
     await _enterText(tester, 'Adherence %', '120');
-    await _tapDialogSubmit(tester);
+    await _tapButton(tester, 'Next: Advanced Details');
 
-    expect(find.text('Check-in for Coach Lina'), findsOneWidget);
     expect(find.text('Adherence must be between 0 and 100.'), findsOneWidget);
+    expect(find.text('Advanced Details'), findsNothing);
+    expect(repo.submitWeeklyCheckinCalls, 0);
+
+    await _enterText(tester, 'Adherence %', '80');
+    await _enterText(tester, 'Energy 1-10', '11');
+    await _tapButton(tester, 'Submit Quick Check-in');
+
+    expect(find.text('Energy must be between 1 and 10.'), findsOneWidget);
+    expect(repo.submitWeeklyCheckinCalls, 0);
+
+    await _enterText(tester, 'Energy 1-10', '7');
+    await _enterText(tester, 'Sleep 1-10', '0');
+    await _tapButton(tester, 'Submit Quick Check-in');
+
+    expect(find.text('Sleep must be between 1 and 10.'), findsOneWidget);
     expect(repo.submitWeeklyCheckinCalls, 0);
   });
 
-  testWidgets('soreness outside 1 to 10 is rejected before submit', (
+  testWidgets('next validates quick fields before showing advanced', (
     tester,
   ) async {
     final repo = _repoWithActiveSubscription();
     await _pumpScreen(tester, repo);
     await _openDialog(tester);
 
-    await _enterText(tester, 'Adherence %', '80');
-    await _enterText(tester, 'Soreness 1-10', '11');
-    await _tapDialogSubmit(tester);
+    await _enterQuickRequired(tester);
+    await _tapButton(tester, 'Next: Advanced Details');
 
-    expect(find.text('Soreness must be between 1 and 10.'), findsOneWidget);
-    expect(repo.submitWeeklyCheckinCalls, 0);
+    expect(find.text('Advanced Details'), findsOneWidget);
+    expect(find.text('Weight (kg)'), findsOneWidget);
+    expect(find.text('Nutrition %'), findsOneWidget);
+    expect(find.text('Wins'), findsOneWidget);
   });
 
-  testWidgets('fatigue outside 1 to 10 is rejected before submit', (
+  testWidgets('submit quick check-in sends only quick fields', (tester) async {
+    final repo = _repoWithActiveSubscription();
+    await _pumpScreen(tester, repo);
+    await _openDialog(tester);
+
+    await _enterText(tester, 'Adherence %', '85');
+    await _enterText(tester, 'Energy 1-10', '7');
+    await _enterText(tester, 'Sleep 1-10', '6');
+    await _enterText(tester, 'Pain or injury warning', 'None');
+    await _enterText(tester, 'Biggest obstacle this week', 'Long workdays');
+    await _enterText(tester, 'Support needed from coach', 'Meal timing');
+    await _tapButton(tester, 'Submit Quick Check-in');
+    await tester.pumpAndSettle();
+
+    expect(repo.submitWeeklyCheckinCalls, 1);
+    expect(repo.lastWeeklyCheckinPayload?['subscriptionId'], 'sub-1');
+    expect(repo.lastWeeklyCheckinPayload?['adherenceScore'], 85);
+    expect(repo.lastWeeklyCheckinPayload?['energyScore'], 7);
+    expect(repo.lastWeeklyCheckinPayload?['sleepScore'], 6);
+    expect(repo.lastWeeklyCheckinPayload?['painWarning'], 'None');
+    expect(repo.lastWeeklyCheckinPayload?['biggestObstacle'], 'Long workdays');
+    expect(repo.lastWeeklyCheckinPayload?['supportNeeded'], 'Meal timing');
+    expect(repo.lastWeeklyCheckinPayload?['weightKg'], isNull);
+    expect(repo.lastWeeklyCheckinPayload?['nutritionAdherenceScore'], isNull);
+    expect(find.text('Weekly check-in submitted.'), findsOneWidget);
+  });
+
+  testWidgets('advanced submit sends quick and advanced fields', (
     tester,
   ) async {
     final repo = _repoWithActiveSubscription();
     await _pumpScreen(tester, repo);
     await _openDialog(tester);
 
-    await _enterText(tester, 'Adherence %', '80');
-    await _enterText(tester, 'Fatigue 1-10', '0');
-    await _tapDialogSubmit(tester);
+    await _enterText(tester, 'Adherence %', '85');
+    await _enterText(tester, 'Energy 1-10', '7');
+    await _enterText(tester, 'Sleep 1-10', '6');
+    await _enterText(tester, 'Pain or injury warning', 'None');
+    await _enterText(tester, 'Biggest obstacle this week', 'Long workdays');
+    await _enterText(tester, 'Support needed from coach', 'Meal timing');
+    await _goToAdvanced(tester);
+    await _enterText(tester, 'Weight (kg)', '82.5');
+    await _enterText(tester, 'Waist (cm)', '90.2');
+    await _enterText(tester, 'Nutrition %', '92');
+    await _enterText(tester, 'Habits %', '88');
+    await _enterText(tester, 'Workouts completed', '4');
+    await _enterText(tester, 'Missed workouts', '1');
+    await _enterText(tester, 'Reason for missed workouts', 'Travel');
+    await _enterText(tester, 'Soreness 1-10', '3');
+    await _enterText(tester, 'Fatigue 1-10', '4');
+    await _enterText(tester, 'Wins', 'Better sleep');
+    await _enterText(tester, 'Blockers', 'Late meetings');
+    await _enterText(tester, 'Questions', 'Adjust cardio?');
+    await _tapButton(tester, 'Submit Check-in');
+    await tester.pumpAndSettle();
 
-    expect(find.text('Fatigue must be between 1 and 10.'), findsOneWidget);
-    expect(repo.submitWeeklyCheckinCalls, 0);
+    expect(repo.submitWeeklyCheckinCalls, 1);
+    expect(repo.lastWeeklyCheckinPayload?['adherenceScore'], 85);
+    expect(repo.lastWeeklyCheckinPayload?['energyScore'], 7);
+    expect(repo.lastWeeklyCheckinPayload?['sleepScore'], 6);
+    expect(repo.lastWeeklyCheckinPayload?['weightKg'], 82.5);
+    expect(repo.lastWeeklyCheckinPayload?['waistCm'], 90.2);
+    expect(repo.lastWeeklyCheckinPayload?['nutritionAdherenceScore'], 92);
+    expect(repo.lastWeeklyCheckinPayload?['habitAdherenceScore'], 88);
+    expect(repo.lastWeeklyCheckinPayload?['workoutsCompleted'], 4);
+    expect(repo.lastWeeklyCheckinPayload?['missedWorkouts'], 1);
+    expect(repo.lastWeeklyCheckinPayload?['missedWorkoutsReason'], 'Travel');
+    expect(repo.lastWeeklyCheckinPayload?['sorenessScore'], 3);
+    expect(repo.lastWeeklyCheckinPayload?['fatigueScore'], 4);
+    expect(repo.lastWeeklyCheckinPayload?['painWarning'], 'None');
+    expect(repo.lastWeeklyCheckinPayload?['biggestObstacle'], 'Long workdays');
+    expect(repo.lastWeeklyCheckinPayload?['supportNeeded'], 'Meal timing');
+    expect(repo.lastWeeklyCheckinPayload?['wins'], 'Better sleep');
+    expect(repo.lastWeeklyCheckinPayload?['blockers'], 'Late meetings');
+    expect(repo.lastWeeklyCheckinPayload?['questions'], 'Adjust cardio?');
+    expect(find.text('Weekly check-in submitted.'), findsOneWidget);
   });
 
-  testWidgets('optional numeric fields reject non-numeric input', (
-    tester,
-  ) async {
+  testWidgets('advanced validation blocks final submit', (tester) async {
     final repo = _repoWithActiveSubscription();
     await _pumpScreen(tester, repo);
     await _openDialog(tester);
 
-    await _enterText(tester, 'Adherence %', '80');
-    await _enterText(tester, 'Weight (kg)', 'eighty');
-    await _tapDialogSubmit(tester);
-
-    expect(find.text('Enter a realistic weight in kilograms.'), findsOneWidget);
-    expect(repo.submitWeeklyCheckinCalls, 0);
-  });
-
-  testWidgets('nutrition and habit percentages are validated', (tester) async {
-    final repo = _repoWithActiveSubscription();
-    await _pumpScreen(tester, repo);
-    await _openDialog(tester);
-
-    await _enterText(tester, 'Adherence %', '80');
+    await _enterQuickRequired(tester);
+    await _goToAdvanced(tester);
     await _enterText(tester, 'Nutrition %', '130');
-    await _tapDialogSubmit(tester);
+    await _tapButton(tester, 'Submit Check-in');
 
     expect(
       find.text('Nutrition adherence must be between 0 and 100.'),
       findsOneWidget,
     );
     expect(repo.submitWeeklyCheckinCalls, 0);
-
-    await _enterText(tester, 'Nutrition %', '90');
-    await _enterText(tester, 'Habits %', '-5');
-    await _tapDialogSubmit(tester);
-
-    expect(
-      find.text('Habit adherence must be between 0 and 100.'),
-      findsOneWidget,
-    );
-    expect(repo.submitWeeklyCheckinCalls, 0);
   });
 
-  testWidgets('loading state prevents double submit', (tester) async {
+  testWidgets('quick loading state prevents double submit', (tester) async {
     final repo = _repoWithActiveSubscription()
       ..submitWeeklyCheckinCompleter = Completer<void>();
     await _pumpScreen(tester, repo);
     await _openDialog(tester);
 
-    await _enterValidRequiredFields(tester);
-    await _tapDialogSubmit(tester);
+    await _enterQuickRequired(tester);
+    await _tapButton(tester, 'Submit Quick Check-in');
     await tester.pump();
 
     expect(repo.submitWeeklyCheckinCalls, 1);
     expect(find.text('Submitting...'), findsOneWidget);
 
-    await tester.tap(
-      find.widgetWithText(ElevatedButton, 'Submitting...'),
-      warnIfMissed: false,
-    );
+    await tester.tap(find.text('Submitting...'), warnIfMissed: false);
     await tester.pump();
 
     expect(repo.submitWeeklyCheckinCalls, 1);
@@ -121,7 +189,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('submit failure keeps dialog open and preserves input', (
+  testWidgets('advanced submit failure keeps step and preserves input', (
     tester,
   ) async {
     final repo = _repoWithActiveSubscription()
@@ -129,67 +197,23 @@ void main() {
     await _pumpScreen(tester, repo);
     await _openDialog(tester);
 
-    await _enterValidRequiredFields(tester);
+    await _enterQuickRequired(tester);
+    await _goToAdvanced(tester);
     await _enterText(tester, 'Wins', 'Hit all sessions');
-    await _tapDialogSubmit(tester);
+    await _tapButton(tester, 'Submit Check-in');
     await tester.pumpAndSettle();
 
     expect(repo.submitWeeklyCheckinCalls, 1);
+    expect(find.text('Advanced Details'), findsOneWidget);
     expect(
       find.textContaining('Weekly check-in could not be submitted:'),
       findsOneWidget,
     );
-    expect(find.text('Check-in for Coach Lina'), findsOneWidget);
     expect(find.text('Hit all sessions'), findsOneWidget);
-    expect(find.widgetWithText(ElevatedButton, 'Submit'), findsOneWidget);
-  });
-
-  testWidgets('valid submit sends parsed values and shows success', (
-    tester,
-  ) async {
-    final repo = _repoWithActiveSubscription();
-    await _pumpScreen(tester, repo);
-    await _openDialog(tester);
-
-    await _enterText(tester, 'Weight (kg)', '82.5');
-    await _enterText(tester, 'Waist (cm)', '90.2');
-    await _enterText(tester, 'Adherence %', '85');
-    await _enterText(tester, 'Workouts completed', '4');
-    await _enterText(tester, 'Missed workouts', '1');
-    await _enterText(tester, 'Reason for missed workouts', 'Travel');
-    await _enterText(tester, 'Soreness 1-10', '3');
-    await _enterText(tester, 'Fatigue 1-10', '4');
-    await _enterText(tester, 'Nutrition %', '92');
-    await _enterText(tester, 'Habits %', '88');
-    await _enterText(tester, 'Pain or injury warning', 'None');
-    await _enterText(tester, 'Biggest obstacle this week', 'Long workdays');
-    await _enterText(tester, 'Support needed from coach', 'Meal timing');
-    await _enterText(tester, 'Wins', 'Better sleep');
-    await _enterText(tester, 'Blockers', 'Late meetings');
-    await _enterText(tester, 'Questions', 'Adjust cardio?');
-    await _tapDialogSubmit(tester);
-    await tester.pumpAndSettle();
-
-    expect(repo.submitWeeklyCheckinCalls, 1);
-    expect(repo.lastWeeklyCheckinPayload?['subscriptionId'], 'sub-1');
-    expect(repo.lastWeeklyCheckinPayload?['weightKg'], 82.5);
-    expect(repo.lastWeeklyCheckinPayload?['waistCm'], 90.2);
-    expect(repo.lastWeeklyCheckinPayload?['adherenceScore'], 85);
-    expect(repo.lastWeeklyCheckinPayload?['workoutsCompleted'], 4);
-    expect(repo.lastWeeklyCheckinPayload?['missedWorkouts'], 1);
-    expect(repo.lastWeeklyCheckinPayload?['missedWorkoutsReason'], 'Travel');
-    expect(repo.lastWeeklyCheckinPayload?['sorenessScore'], 3);
-    expect(repo.lastWeeklyCheckinPayload?['fatigueScore'], 4);
-    expect(repo.lastWeeklyCheckinPayload?['nutritionAdherenceScore'], 92);
-    expect(repo.lastWeeklyCheckinPayload?['habitAdherenceScore'], 88);
-    expect(repo.lastWeeklyCheckinPayload?['painWarning'], 'None');
-    expect(repo.lastWeeklyCheckinPayload?['biggestObstacle'], 'Long workdays');
-    expect(repo.lastWeeklyCheckinPayload?['supportNeeded'], 'Meal timing');
-    expect(repo.lastWeeklyCheckinPayload?['wins'], 'Better sleep');
-    expect(repo.lastWeeklyCheckinPayload?['blockers'], 'Late meetings');
-    expect(repo.lastWeeklyCheckinPayload?['questions'], 'Adjust cardio?');
-    expect(find.text('Check-in for Coach Lina'), findsNothing);
-    expect(find.text('Weekly check-in submitted.'), findsOneWidget);
+    expect(
+      find.widgetWithText(ElevatedButton, 'Submit Check-in'),
+      findsOneWidget,
+    );
   });
 }
 
@@ -230,16 +254,26 @@ Future<void> _openDialog(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _enterValidRequiredFields(WidgetTester tester) async {
+Future<void> _enterQuickRequired(WidgetTester tester) async {
   await _enterText(tester, 'Adherence %', '80');
+  await _enterText(tester, 'Energy 1-10', '7');
+  await _enterText(tester, 'Sleep 1-10', '6');
+}
+
+Future<void> _goToAdvanced(WidgetTester tester) async {
+  await _tapButton(tester, 'Next: Advanced Details');
 }
 
 Future<void> _enterText(WidgetTester tester, String label, String value) async {
-  await tester.enterText(find.widgetWithText(TextField, label), value);
+  final finder = find.widgetWithText(TextField, label);
+  await tester.ensureVisible(finder);
+  await tester.enterText(finder, value);
   await tester.pump();
 }
 
-Future<void> _tapDialogSubmit(WidgetTester tester) async {
-  await tester.tap(find.widgetWithText(ElevatedButton, 'Submit'));
+Future<void> _tapButton(WidgetTester tester, String label) async {
+  final finder = find.text(label);
+  await tester.ensureVisible(finder);
+  await tester.tap(finder);
   await tester.pump();
 }

@@ -144,7 +144,9 @@ class _WeeklyCheckinDialog extends ConsumerStatefulWidget {
 class _WeeklyCheckinDialogState extends ConsumerState<_WeeklyCheckinDialog> {
   final _weightController = TextEditingController();
   final _waistController = TextEditingController();
-  final _adherenceController = TextEditingController(text: '80');
+  final _adherenceController = TextEditingController();
+  final _energyController = TextEditingController();
+  final _sleepController = TextEditingController();
   final _workoutsCompletedController = TextEditingController();
   final _missedWorkoutsController = TextEditingController();
   final _missedReasonController = TextEditingController();
@@ -160,12 +162,15 @@ class _WeeklyCheckinDialogState extends ConsumerState<_WeeklyCheckinDialog> {
   final _questionsController = TextEditingController();
 
   bool _isSubmitting = false;
+  int _stepIndex = 0;
 
   @override
   void dispose() {
     _weightController.dispose();
     _waistController.dispose();
     _adherenceController.dispose();
+    _energyController.dispose();
+    _sleepController.dispose();
     _workoutsCompletedController.dispose();
     _missedWorkoutsController.dispose();
     _missedReasonController.dispose();
@@ -185,155 +190,239 @@ class _WeeklyCheckinDialogState extends ConsumerState<_WeeklyCheckinDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Check-in for ${widget.subscription.coachName ?? 'coach'}'),
+      title: Text(_stepIndex == 0 ? 'Quick Check-in' : 'Advanced Details'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: _weightController,
-              decoration: const InputDecoration(labelText: 'Weight (kg)'),
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
+            Text(
+              _stepIndex == 0 ? 'Step 1 of 2' : 'Step 2 of 2',
+              style: Theme.of(context).textTheme.labelMedium,
             ),
-            TextField(
-              controller: _waistController,
-              decoration: const InputDecoration(labelText: 'Waist (cm)'),
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
+            const SizedBox(height: 8),
+            Text(
+              _stepIndex == 0
+                  ? 'Submit the essentials first. You can add details on the next step.'
+                  : 'Optional details help your coach adjust the plan.',
             ),
-            TextField(
-              controller: _adherenceController,
-              decoration: const InputDecoration(labelText: 'Adherence %'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: _workoutsCompletedController,
-              decoration: const InputDecoration(
-                labelText: 'Workouts completed',
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: _missedWorkoutsController,
-              decoration: const InputDecoration(labelText: 'Missed workouts'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: _missedReasonController,
-              decoration: const InputDecoration(
-                labelText: 'Reason for missed workouts',
-              ),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _sorenessController,
-                    decoration: const InputDecoration(
-                      labelText: 'Soreness 1-10',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _fatigueController,
-                    decoration: const InputDecoration(
-                      labelText: 'Fatigue 1-10',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _nutritionController,
-                    decoration: const InputDecoration(labelText: 'Nutrition %'),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _habitController,
-                    decoration: const InputDecoration(labelText: 'Habits %'),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
-            TextField(
-              controller: _painController,
-              decoration: const InputDecoration(
-                labelText: 'Pain or injury warning',
-              ),
-            ),
-            TextField(
-              controller: _obstacleController,
-              decoration: const InputDecoration(
-                labelText: 'Biggest obstacle this week',
-              ),
-            ),
-            TextField(
-              controller: _supportController,
-              decoration: const InputDecoration(
-                labelText: 'Support needed from coach',
-              ),
-            ),
-            TextField(
-              controller: _winsController,
-              decoration: const InputDecoration(labelText: 'Wins'),
-            ),
-            TextField(
-              controller: _blockersController,
-              decoration: const InputDecoration(labelText: 'Blockers'),
-            ),
-            TextField(
-              controller: _questionsController,
-              decoration: const InputDecoration(labelText: 'Questions'),
-            ),
+            const SizedBox(height: 16),
+            if (_stepIndex == 0) _buildQuickStep() else _buildAdvancedStep(),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
+      actions: _buildActions(),
+    );
+  }
+
+  Widget _buildQuickStep() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _adherenceController,
+          decoration: const InputDecoration(labelText: 'Adherence %'),
+          keyboardType: TextInputType.number,
         ),
-        ElevatedButton(
-          onPressed: _isSubmitting ? null : _submit,
-          child: _isSubmitting
-              ? const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(width: 8),
-                    Text('Submitting...'),
-                  ],
-                )
-              : const Text('Submit'),
+        TextField(
+          controller: _energyController,
+          decoration: const InputDecoration(labelText: 'Energy 1-10'),
+          keyboardType: TextInputType.number,
+        ),
+        TextField(
+          controller: _sleepController,
+          decoration: const InputDecoration(labelText: 'Sleep 1-10'),
+          keyboardType: TextInputType.number,
+        ),
+        TextField(
+          controller: _painController,
+          decoration: const InputDecoration(
+            labelText: 'Pain or injury warning',
+          ),
+        ),
+        TextField(
+          controller: _obstacleController,
+          decoration: const InputDecoration(
+            labelText: 'Biggest obstacle this week',
+          ),
+        ),
+        TextField(
+          controller: _supportController,
+          decoration: const InputDecoration(
+            labelText: 'Support needed from coach',
+          ),
         ),
       ],
     );
   }
 
-  Future<void> _submit() async {
+  Widget _buildAdvancedStep() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _weightController,
+          decoration: const InputDecoration(labelText: 'Weight (kg)'),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+        TextField(
+          controller: _waistController,
+          decoration: const InputDecoration(labelText: 'Waist (cm)'),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _nutritionController,
+                decoration: const InputDecoration(labelText: 'Nutrition %'),
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _habitController,
+                decoration: const InputDecoration(labelText: 'Habits %'),
+                keyboardType: TextInputType.number,
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _workoutsCompletedController,
+                decoration: const InputDecoration(
+                  labelText: 'Workouts completed',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _missedWorkoutsController,
+                decoration: const InputDecoration(labelText: 'Missed workouts'),
+                keyboardType: TextInputType.number,
+              ),
+            ),
+          ],
+        ),
+        TextField(
+          controller: _missedReasonController,
+          decoration: const InputDecoration(
+            labelText: 'Reason for missed workouts',
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _sorenessController,
+                decoration: const InputDecoration(labelText: 'Soreness 1-10'),
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _fatigueController,
+                decoration: const InputDecoration(labelText: 'Fatigue 1-10'),
+                keyboardType: TextInputType.number,
+              ),
+            ),
+          ],
+        ),
+        TextField(
+          controller: _winsController,
+          decoration: const InputDecoration(labelText: 'Wins'),
+        ),
+        TextField(
+          controller: _blockersController,
+          decoration: const InputDecoration(labelText: 'Blockers'),
+        ),
+        TextField(
+          controller: _questionsController,
+          decoration: const InputDecoration(labelText: 'Questions'),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Progress photos can be added from the progress area when available.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildActions() {
+    if (_stepIndex == 0) {
+      return [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: _isSubmitting
+              ? null
+              : () => _submit(includeAdvanced: false),
+          child: Text(
+            _isSubmitting ? 'Submitting...' : 'Submit Quick Check-in',
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _isSubmitting ? null : _showAdvancedStep,
+          child: const Text('Next: Advanced Details'),
+        ),
+      ];
+    }
+
+    return [
+      TextButton(
+        onPressed: _isSubmitting ? null : () => setState(() => _stepIndex = 0),
+        child: const Text('Back'),
+      ),
+      ElevatedButton(
+        onPressed: _isSubmitting ? null : () => _submit(includeAdvanced: true),
+        child: _isSubmitting
+            ? const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 8),
+                  Text('Submitting...'),
+                ],
+              )
+            : const Text('Submit Check-in'),
+      ),
+    ];
+  }
+
+  void _showAdvancedStep() {
+    final validationMessage = _validateQuickStep();
+    if (validationMessage != null) {
+      _showSnackBar(validationMessage);
+      return;
+    }
+    setState(() => _stepIndex = 1);
+  }
+
+  Future<void> _submit({required bool includeAdvanced}) async {
     if (_isSubmitting) {
       return;
     }
 
-    final validationMessage = _validate();
+    final validationMessage = includeAdvanced
+        ? _validateAll()
+        : _validateQuickStep();
     if (validationMessage != null) {
       _showSnackBar(validationMessage);
       return;
@@ -346,22 +435,46 @@ class _WeeklyCheckinDialogState extends ConsumerState<_WeeklyCheckinDialog> {
           .submitWeeklyCheckin(
             subscriptionId: widget.subscription.id,
             weekStart: DateTime.now(),
-            weightKg: _parseOptionalDouble(_weightController),
-            waistCm: _parseOptionalDouble(_waistController),
+            weightKg: includeAdvanced
+                ? _parseOptionalDouble(_weightController)
+                : null,
+            waistCm: includeAdvanced
+                ? _parseOptionalDouble(_waistController)
+                : null,
             adherenceScore: _parseRequiredInt(_adherenceController),
-            workoutsCompleted: _parseOptionalInt(_workoutsCompletedController),
-            missedWorkouts: _parseOptionalInt(_missedWorkoutsController),
-            missedWorkoutsReason: _optionalText(_missedReasonController),
-            sorenessScore: _parseOptionalInt(_sorenessController),
-            fatigueScore: _parseOptionalInt(_fatigueController),
+            energyScore: _parseRequiredInt(_energyController),
+            sleepScore: _parseRequiredInt(_sleepController),
+            workoutsCompleted: includeAdvanced
+                ? _parseOptionalInt(_workoutsCompletedController)
+                : null,
+            missedWorkouts: includeAdvanced
+                ? _parseOptionalInt(_missedWorkoutsController)
+                : null,
+            missedWorkoutsReason: includeAdvanced
+                ? _optionalText(_missedReasonController)
+                : null,
+            sorenessScore: includeAdvanced
+                ? _parseOptionalInt(_sorenessController)
+                : null,
+            fatigueScore: includeAdvanced
+                ? _parseOptionalInt(_fatigueController)
+                : null,
             painWarning: _optionalText(_painController),
-            nutritionAdherenceScore: _parseOptionalInt(_nutritionController),
-            habitAdherenceScore: _parseOptionalInt(_habitController),
+            nutritionAdherenceScore: includeAdvanced
+                ? _parseOptionalInt(_nutritionController)
+                : null,
+            habitAdherenceScore: includeAdvanced
+                ? _parseOptionalInt(_habitController)
+                : null,
             biggestObstacle: _optionalText(_obstacleController),
             supportNeeded: _optionalText(_supportController),
-            wins: _optionalText(_winsController),
-            blockers: _optionalText(_blockersController),
-            questions: _optionalText(_questionsController),
+            wins: includeAdvanced ? _optionalText(_winsController) : null,
+            blockers: includeAdvanced
+                ? _optionalText(_blockersController)
+                : null,
+            questions: includeAdvanced
+                ? _optionalText(_questionsController)
+                : null,
           );
       ref.invalidate(memberWeeklyCheckinsProvider(widget.subscription.id));
       ref.invalidate(memberSubscriptionsProvider);
@@ -383,13 +496,30 @@ class _WeeklyCheckinDialogState extends ConsumerState<_WeeklyCheckinDialog> {
     }
   }
 
-  String? _validate() {
+  String? _validateQuickStep() {
     return _validatePercent(
           'Adherence',
           _adherenceController,
           required: true,
         ) ??
-        _validateDoubleRange(
+        _validateIntRange(
+          _energyController,
+          min: 1,
+          max: 10,
+          message: 'Energy must be between 1 and 10.',
+          required: true,
+        ) ??
+        _validateIntRange(
+          _sleepController,
+          min: 1,
+          max: 10,
+          message: 'Sleep must be between 1 and 10.',
+          required: true,
+        );
+  }
+
+  String? _validateAdvancedFields() {
+    return _validateDoubleRange(
           _weightController,
           min: 30,
           max: 300,
@@ -429,6 +559,10 @@ class _WeeklyCheckinDialogState extends ConsumerState<_WeeklyCheckinDialog> {
         _validatePercent('Habit adherence', _habitController);
   }
 
+  String? _validateAll() {
+    return _validateQuickStep() ?? _validateAdvancedFields();
+  }
+
   String? _validatePercent(
     String label,
     TextEditingController controller, {
@@ -450,10 +584,11 @@ class _WeeklyCheckinDialogState extends ConsumerState<_WeeklyCheckinDialog> {
     required int min,
     required int max,
     required String message,
+    bool required = false,
   }) {
     final text = controller.text.trim();
     if (text.isEmpty) {
-      return null;
+      return required ? message : null;
     }
     final value = int.tryParse(text);
     if (value == null || value < min || value > max) {

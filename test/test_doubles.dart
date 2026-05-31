@@ -2264,6 +2264,8 @@ class FakeMemberRepository implements MemberRepository {
       weightKg: weightKg,
       waistCm: waistCm,
       adherenceScore: adherenceScore,
+      energyScore: energyScore,
+      sleepScore: sleepScore,
       wins: wins,
       blockers: blockers,
       questions: questions,
