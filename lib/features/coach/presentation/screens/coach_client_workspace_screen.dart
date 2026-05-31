@@ -591,6 +591,7 @@ class _ProgressUnlocked extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final latest = workspace.checkins.isEmpty ? null : workspace.checkins.first;
+    final canViewWorkout = workspace.visibility?.shareWorkoutAdherence == true;
     if (latest == null) {
       return const _SimplePanel(
         icon: Icons.show_chart_outlined,
@@ -599,22 +600,23 @@ class _ProgressUnlocked extends StatelessWidget {
             'Progress sharing is active, but no progress entries are available yet.',
       );
     }
-    return _InfoGrid(
-      items: [
+    final items = <_InfoItem>[
+      _InfoItem('Training week', _date(latest.weekStart)),
+      _InfoItem('Coach review', latest.coachReply == null ? 'Pending' : 'Sent'),
+      _InfoItem(
+        'Risk state',
+        workspace.client.riskFlags.isEmpty
+            ? 'Stable'
+            : workspace.client.riskFlags.join(', '),
+      ),
+    ];
+    if (canViewWorkout) {
+      items.insert(
+        0,
         _InfoItem('Latest adherence', '${latest.adherenceScore}/10'),
-        _InfoItem('Training week', _date(latest.weekStart)),
-        _InfoItem(
-          'Coach review',
-          latest.coachReply == null ? 'Pending' : 'Sent',
-        ),
-        _InfoItem(
-          'Risk state',
-          workspace.client.riskFlags.isEmpty
-              ? 'Stable'
-              : workspace.client.riskFlags.join(', '),
-        ),
-      ],
-    );
+      );
+    }
+    return _InfoGrid(items: items);
   }
 }
 
@@ -626,6 +628,9 @@ class _NutritionUnlocked extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final latest = workspace.checkins.isEmpty ? null : workspace.checkins.first;
+    final canViewWorkout = workspace.visibility?.shareWorkoutAdherence == true;
+    final canViewProgress = workspace.visibility?.shareProgressMetrics == true;
+    final canViewAiContext = workspace.visibility?.shareAiPlanSummary == true;
     if (latest == null) {
       return const _SimplePanel(
         icon: Icons.restaurant_menu_outlined,
@@ -634,27 +639,47 @@ class _NutritionUnlocked extends StatelessWidget {
             'The client has granted access, but no nutrition-linked check-in data is available yet.',
       );
     }
-    return _InfoGrid(
-      items: [
-        _InfoItem('Adherence', '${latest.adherenceScore}/10'),
-        _InfoItem(
-          'Energy',
-          latest.energyScore == null
-              ? 'Not logged'
-              : '${latest.energyScore}/10',
-        ),
-        _InfoItem(
-          'Sleep',
-          latest.sleepScore == null ? 'Not logged' : '${latest.sleepScore}/10',
-        ),
+    final items = <_InfoItem>[
+      _InfoItem(
+        'Nutrition',
+        latest.nutritionAdherenceScore == null
+            ? 'Not logged'
+            : '${latest.nutritionAdherenceScore}%',
+      ),
+    ];
+    if (canViewWorkout) {
+      items.add(_InfoItem('Adherence', '${latest.adherenceScore}/10'));
+    }
+    if (canViewProgress) {
+      items
+        ..add(
+          _InfoItem(
+            'Energy',
+            latest.energyScore == null
+                ? 'Not logged'
+                : '${latest.energyScore}/10',
+          ),
+        )
+        ..add(
+          _InfoItem(
+            'Sleep',
+            latest.sleepScore == null
+                ? 'Not logged'
+                : '${latest.sleepScore}/10',
+          ),
+        );
+    }
+    if (canViewAiContext) {
+      items.add(
         _InfoItem(
           'Wins',
           latest.wins == null || latest.wins!.trim().isEmpty
               ? 'No notes submitted'
               : 'Submitted',
         ),
-      ],
-    );
+      );
+    }
+    return _InfoGrid(items: items);
   }
 }
 

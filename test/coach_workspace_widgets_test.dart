@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -305,6 +307,128 @@ void main() {
       expect(find.textContaining('/10'), findsNothing);
       expect(find.textContaining('Check-in submitted'), findsOneWidget);
     });
+
+    testWidgets('progress-only visibility does not show workout adherence', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _progressVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceTab(tester, 'Progress');
+
+      expect(find.text('Latest adherence'), findsNothing);
+      expect(find.text('8/10'), findsNothing);
+    });
+
+    testWidgets(
+      'progress tab shows adherence when workout sharing is enabled',
+      (tester) async {
+        await _useTallPhoneSurface(tester);
+        final repo = FakeCoachRepository()
+          ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+            'sub-1': _workspace(
+              visibility: _progressWorkoutVisibility,
+              includeSensitiveCheckin: true,
+            ),
+          };
+
+        await _pumpClientWorkspace(tester, repo);
+        await _tapWorkspaceTab(tester, 'Progress');
+
+        expect(find.text('Latest adherence'), findsOneWidget);
+        expect(find.text('8/10'), findsOneWidget);
+      },
+    );
+
+    testWidgets('nutrition-only visibility does not show other categories', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _nutritionVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceTab(tester, 'Nutrition');
+
+      expect(find.text('Nutrition'), findsWidgets);
+      expect(find.text('70%'), findsOneWidget);
+      expect(find.text('Adherence'), findsNothing);
+      expect(find.text('Energy'), findsNothing);
+      expect(find.text('Sleep'), findsNothing);
+      expect(find.text('Wins'), findsNothing);
+      expect(find.text('8/10'), findsNothing);
+      expect(find.text('7/10'), findsNothing);
+      expect(find.text('6/10'), findsNothing);
+    });
+
+    testWidgets('nutrition tab shows extra fields only with matching toggles', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _fullVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceTab(tester, 'Nutrition');
+
+      expect(find.text('Nutrition'), findsWidgets);
+      expect(find.text('70%'), findsOneWidget);
+      expect(find.text('Adherence'), findsOneWidget);
+      expect(find.text('Energy'), findsOneWidget);
+      expect(find.text('Sleep'), findsOneWidget);
+      expect(find.text('Wins'), findsOneWidget);
+    });
+  });
+
+  group('coach workspace SQL privacy guard', () {
+    test(
+      'latest check-in visibility migration filters check-ins explicitly',
+      () {
+        final migrations =
+            Directory('supabase/migrations')
+                .listSync()
+                .whereType<File>()
+                .where(
+                  (file) => file.path.endsWith(
+                    'filter_client_workspace_checkins_by_visibility.sql',
+                  ),
+                )
+                .toList()
+              ..sort((a, b) => a.path.compareTo(b.path));
+
+        expect(migrations, isNotEmpty);
+        final migrationContents = migrations.last.readAsStringSync();
+
+        expect(migrationContents, isNot(contains('row_to_json(wc)')));
+        expect(migrationContents, contains('jsonb_build_object'));
+        expect(migrationContents, contains('share_workout_adherence'));
+        expect(migrationContents, contains('share_progress_metrics'));
+        expect(migrationContents, contains('share_nutrition_summary'));
+        expect(migrationContents, contains('share_ai_plan_summary'));
+        expect(migrationContents, contains('progress_photos'));
+        expect(
+          migrationContents,
+          contains('public.get_coach_client_workspace'),
+        );
+      },
+    );
   });
 
   testWidgets('client workspace overview actions run for the selected client', (
@@ -932,6 +1056,16 @@ Future<void> _openCheckinReview(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _tapWorkspaceTab(WidgetTester tester, String text) async {
+  final tabBar = find.byType(TabBar);
+  if (text == 'Progress' || text == 'Nutrition') {
+    await tester.drag(tabBar, const Offset(-360, 0));
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.text(text));
+  await tester.pumpAndSettle();
+}
+
 Future<void> _pumpClientWorkspace(
   WidgetTester tester,
   FakeCoachRepository repo,
@@ -996,6 +1130,15 @@ const _progressVisibility = VisibilitySettingsEntity(
   shareProgressMetrics: true,
 );
 
+const _progressWorkoutVisibility = VisibilitySettingsEntity(
+  id: 'visibility-progress-workout',
+  memberId: 'member-1',
+  coachId: 'coach-1',
+  subscriptionId: 'sub-1',
+  shareProgressMetrics: true,
+  shareWorkoutAdherence: true,
+);
+
 const _nutritionVisibility = VisibilitySettingsEntity(
   id: 'visibility-nutrition',
   memberId: 'member-1',
@@ -1010,6 +1153,17 @@ const _aiPlanVisibility = VisibilitySettingsEntity(
   coachId: 'coach-1',
   subscriptionId: 'sub-1',
   shareAiPlanSummary: true,
+);
+
+const _fullVisibility = VisibilitySettingsEntity(
+  id: 'visibility-full',
+  memberId: 'member-1',
+  coachId: 'coach-1',
+  subscriptionId: 'sub-1',
+  shareAiPlanSummary: true,
+  shareWorkoutAdherence: true,
+  shareProgressMetrics: true,
+  shareNutritionSummary: true,
 );
 
 const _lockedVisibility = VisibilitySettingsEntity(
