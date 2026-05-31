@@ -29,7 +29,7 @@ class _CoachClientWorkspaceScreenState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 10, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -54,15 +54,10 @@ class _CoachClientWorkspaceScreenState
           isScrollable: true,
           tabs: const [
             Tab(text: 'Overview'),
-            Tab(text: 'Plan'),
-            Tab(text: 'Check-ins'),
-            Tab(text: 'Progress'),
-            Tab(text: 'Nutrition'),
-            Tab(text: 'Messages'),
-            Tab(text: 'Notes'),
-            Tab(text: 'Files'),
-            Tab(text: 'Billing'),
-            Tab(text: 'Privacy'),
+            Tab(text: 'Coach Work'),
+            Tab(text: 'Communication'),
+            Tab(text: 'Client Data'),
+            Tab(text: 'Admin'),
           ],
         ),
       ),
@@ -82,32 +77,13 @@ class _CoachClientWorkspaceScreenState
           children: [
             _OverviewTab(
               workspace: workspace,
-              onReviewPayment: () => _tabController.animateTo(8),
-              onReviewConsent: () => _tabController.animateTo(9),
+              onReviewPayment: () => _tabController.animateTo(4),
+              onReviewConsent: () => _tabController.animateTo(4),
             ),
-            _PlanTab(workspace: workspace),
-            _CheckinsTab(workspace: workspace),
-            _ConsentLockedTab(
-              enabled:
-                  workspace.visibility?.shareProgressMetrics == true ||
-                  workspace.visibility?.shareWorkoutAdherence == true,
-              title: 'Progress',
-              unlocked: _ProgressUnlocked(workspace: workspace),
-              lockedBody:
-                  'Progress photos, body metrics, and adherence are available only when the member grants progress or workout visibility.',
-            ),
-            _ConsentLockedTab(
-              enabled: workspace.visibility?.shareNutritionSummary == true,
-              title: 'Nutrition',
-              unlocked: _NutritionUnlocked(workspace: workspace),
-              lockedBody:
-                  'Nutrition summary is hidden until the member enables nutrition sharing for this subscription.',
-            ),
-            _MessagesTab(workspace: workspace),
-            _NotesTab(workspace: workspace),
-            _FilesTab(workspace: workspace),
-            _BillingTab(workspace: workspace),
-            _PrivacyTab(workspace: workspace),
+            _CoachWorkTab(workspace: workspace),
+            _CommunicationTab(workspace: workspace),
+            _ClientDataTab(workspace: workspace),
+            _AdminTab(workspace: workspace),
           ],
         ),
       ),
@@ -188,9 +164,16 @@ class _OverviewTab extends ConsumerWidget {
           onReviewConsent: onReviewConsent,
         ),
         const SizedBox(height: 14),
+        _TaiyoCoachBrief(
+          workspace: workspace,
+          onReviewConsent: onReviewConsent,
+        ),
+        const SizedBox(height: 14),
         _InfoGrid(
           items: [
             _InfoItem('Package', client.packageTitle ?? 'Coaching'),
+            _InfoItem('Status', client.status.replaceAll('_', ' ')),
+            _InfoItem('Risk', client.hasRisk ? 'At risk' : 'Stable'),
             _InfoItem('Payment', client.checkoutStatus.replaceAll('_', ' ')),
             _InfoItem(
               'Started',
@@ -198,18 +181,25 @@ class _OverviewTab extends ConsumerWidget {
                   ? 'Not started'
                   : _date(client.startedAt!),
             ),
-            _InfoItem(
-              'Adherence',
-              client.riskFlags.isEmpty
-                  ? 'No active flags'
-                  : client.riskFlags.join(', '),
-            ),
           ],
         ),
         const SizedBox(height: 14),
-        _TaiyoCoachBrief(
-          workspace: workspace,
-          onReviewConsent: onReviewConsent,
+        _SimplePanel(
+          icon: Icons.flag_outlined,
+          title: 'Next action',
+          body: _nextCoachAction(workspace),
+        ),
+        const SizedBox(height: 14),
+        _SimplePanel(
+          icon: Icons.fact_check_outlined,
+          title: 'Latest check-in',
+          body: _latestCheckinSummary(workspace),
+        ),
+        const SizedBox(height: 14),
+        _SimplePanel(
+          icon: Icons.chat_bubble_outline,
+          title: 'Latest message',
+          body: _latestMessageSummary(workspace),
         ),
         const SizedBox(height: 14),
         _Timeline(workspace: workspace),
@@ -445,8 +435,39 @@ class _ActionTile extends StatelessWidget {
   }
 }
 
-class _PlanTab extends ConsumerWidget {
-  const _PlanTab({required this.workspace});
+class _WorkspaceSection extends StatelessWidget {
+  const _WorkspaceSection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
+    );
+  }
+}
+
+class _CoachWorkTab extends ConsumerWidget {
+  const _CoachWorkTab({required this.workspace});
 
   final CoachClientWorkspaceEntity workspace;
 
@@ -543,13 +564,59 @@ class _PlanTab extends ConsumerWidget {
             );
           },
         ),
+        const SizedBox(height: 18),
+        _WorkspaceSection(
+          title: 'Assigned files/resources',
+          child: _AssignedResourcesSection(workspace: workspace),
+        ),
       ],
     );
   }
 }
 
-class _CheckinsTab extends ConsumerWidget {
-  const _CheckinsTab({required this.workspace});
+class _AssignedResourcesSection extends ConsumerWidget {
+  const _AssignedResourcesSection({required this.workspace});
+
+  final CoachClientWorkspaceEntity workspace;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.add_link_outlined, size: 18),
+            onPressed: () => _openAssignResourceSheet(context, ref, workspace),
+            label: const Text('Assign resource'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (workspace.resources.isEmpty)
+          _WorkspaceState(
+            icon: Icons.folder_outlined,
+            title: 'No assigned files',
+            body:
+                'Client resources assigned from the resource library appear here.',
+            actionLabel: 'Resources',
+            onTap: () => Navigator.pushNamed(context, AppRoutes.coachResources),
+          )
+        else
+          ...workspace.resources.map(
+            (resource) => _ListPanel(
+              icon: Icons.attach_file,
+              title: resource.title,
+              subtitle: resource.externalUrl ?? resource.resourceType,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _CheckinsSection extends ConsumerWidget {
+  const _CheckinsSection({required this.workspace});
 
   final CoachClientWorkspaceEntity workspace;
 
@@ -563,8 +630,7 @@ class _CheckinsTab extends ConsumerWidget {
         body: 'Submitted weekly check-ins appear here for review.',
       );
     }
-    return ListView(
-      padding: const EdgeInsets.all(AppSizes.screenPadding),
+    return Column(
       children: workspace.checkins
           .map(
             (checkin) => _ListPanel(
@@ -683,8 +749,80 @@ class _NutritionUnlocked extends StatelessWidget {
   }
 }
 
-class _MessagesTab extends ConsumerWidget {
-  const _MessagesTab({required this.workspace});
+class _ClientDataTab extends StatelessWidget {
+  const _ClientDataTab({required this.workspace});
+
+  final CoachClientWorkspaceEntity workspace;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(AppSizes.screenPadding),
+      children: [
+        _WorkspaceSection(
+          title: 'Check-ins',
+          child: _CheckinsSection(workspace: workspace),
+        ),
+        const SizedBox(height: 18),
+        _WorkspaceSection(
+          title: 'Progress',
+          child: _ConsentLockedPanel(
+            enabled:
+                workspace.visibility?.shareProgressMetrics == true ||
+                workspace.visibility?.shareWorkoutAdherence == true,
+            title: 'Progress',
+            unlocked: _ProgressUnlocked(workspace: workspace),
+            lockedBody:
+                'Progress photos, body metrics, and adherence are available only when the member grants progress or workout visibility.',
+          ),
+        ),
+        const SizedBox(height: 18),
+        _WorkspaceSection(
+          title: 'Nutrition',
+          child: _ConsentLockedPanel(
+            enabled: workspace.visibility?.shareNutritionSummary == true,
+            title: 'Nutrition',
+            unlocked: _NutritionUnlocked(workspace: workspace),
+            lockedBody:
+                'Nutrition summary is hidden until the member enables nutrition sharing for this subscription.',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CommunicationTab extends ConsumerWidget {
+  const _CommunicationTab({required this.workspace});
+
+  final CoachClientWorkspaceEntity workspace;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListView(
+      padding: const EdgeInsets.all(AppSizes.screenPadding),
+      children: [
+        _WorkspaceSection(
+          title: 'Messages',
+          child: _MessagesSection(workspace: workspace),
+        ),
+        const SizedBox(height: 18),
+        _WorkspaceSection(
+          title: 'Feedback queue',
+          child: _FeedbackQueueSection(workspace: workspace),
+        ),
+        const SizedBox(height: 18),
+        _WorkspaceSection(
+          title: 'Notes',
+          child: _NotesSection(workspace: workspace),
+        ),
+      ],
+    );
+  }
+}
+
+class _MessagesSection extends ConsumerWidget {
+  const _MessagesSection({required this.workspace});
 
   final CoachClientWorkspaceEntity workspace;
 
@@ -697,8 +835,7 @@ class _MessagesTab extends ConsumerWidget {
         body: 'The coaching thread is created when payment is activated.',
       );
     }
-    return ListView(
-      padding: const EdgeInsets.all(AppSizes.screenPadding),
+    return Column(
       children: workspace.threads
           .map(
             (thread) => _ListPanel(
@@ -722,16 +859,50 @@ class _MessagesTab extends ConsumerWidget {
   }
 }
 
-class _NotesTab extends ConsumerStatefulWidget {
-  const _NotesTab({required this.workspace});
+class _FeedbackQueueSection extends ConsumerWidget {
+  const _FeedbackQueueSection({required this.workspace});
 
   final CoachClientWorkspaceEntity workspace;
 
   @override
-  ConsumerState<_NotesTab> createState() => _NotesTabState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending = workspace.checkins
+        .where((checkin) => checkin.coachReply == null)
+        .toList(growable: false);
+    if (pending.isEmpty) {
+      return const _SimplePanel(
+        icon: Icons.rate_review_outlined,
+        title: 'No pending feedback',
+        body: 'Reviewed check-ins stay available under Client Data.',
+      );
+    }
+    return Column(
+      children: pending
+          .map(
+            (checkin) => _ListPanel(
+              icon: Icons.rate_review_outlined,
+              title: 'Week of ${_date(checkin.weekStart)}',
+              subtitle: 'Pending coach feedback',
+              actionLabel: 'Review',
+              onTap: () =>
+                  _openCheckinReviewSheet(context, ref, workspace, checkin),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
 }
 
-class _NotesTabState extends ConsumerState<_NotesTab> {
+class _NotesSection extends ConsumerStatefulWidget {
+  const _NotesSection({required this.workspace});
+
+  final CoachClientWorkspaceEntity workspace;
+
+  @override
+  ConsumerState<_NotesSection> createState() => _NotesSectionState();
+}
+
+class _NotesSectionState extends ConsumerState<_NotesSection> {
   final TextEditingController _controller = TextEditingController();
 
   @override
@@ -742,8 +913,8 @@ class _NotesTabState extends ConsumerState<_NotesTab> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(AppSizes.screenPadding),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
           controller: _controller,
@@ -797,57 +968,40 @@ class _NotesTabState extends ConsumerState<_NotesTab> {
   }
 }
 
-class _FilesTab extends ConsumerWidget {
-  const _FilesTab({required this.workspace});
+class _AdminTab extends StatelessWidget {
+  const _AdminTab({required this.workspace});
 
   final CoachClientWorkspaceEntity workspace;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(AppSizes.screenPadding),
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.add_link_outlined, size: 18),
-            onPressed: () => _openAssignResourceSheet(context, ref, workspace),
-            label: const Text('Assign resource'),
-          ),
+        _WorkspaceSection(
+          title: 'Billing',
+          child: _BillingSection(workspace: workspace),
         ),
-        const SizedBox(height: 12),
-        if (workspace.resources.isEmpty)
-          _WorkspaceState(
-            icon: Icons.folder_outlined,
-            title: 'No assigned files',
-            body:
-                'Client resources assigned from the resource library appear here.',
-            actionLabel: 'Resources',
-            onTap: () => Navigator.pushNamed(context, AppRoutes.coachResources),
-          )
-        else
-          ...workspace.resources.map(
-            (resource) => _ListPanel(
-              icon: Icons.attach_file,
-              title: resource.title,
-              subtitle: resource.externalUrl ?? resource.resourceType,
-            ),
-          ),
+        const SizedBox(height: 18),
+        _WorkspaceSection(
+          title: 'Privacy',
+          child: _PrivacySection(workspace: workspace),
+        ),
       ],
     );
   }
 }
 
-class _BillingTab extends ConsumerWidget {
-  const _BillingTab({required this.workspace});
+class _BillingSection extends ConsumerWidget {
+  const _BillingSection({required this.workspace});
 
   final CoachClientWorkspaceEntity workspace;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final billing = workspace.billing;
-    return ListView(
-      padding: const EdgeInsets.all(AppSizes.screenPadding),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (billing.isEmpty)
           _WorkspaceState(
@@ -903,16 +1057,16 @@ class _BillingTab extends ConsumerWidget {
   }
 }
 
-class _PrivacyTab extends StatelessWidget {
-  const _PrivacyTab({required this.workspace});
+class _PrivacySection extends StatelessWidget {
+  const _PrivacySection({required this.workspace});
 
   final CoachClientWorkspaceEntity workspace;
 
   @override
   Widget build(BuildContext context) {
     final visibility = workspace.visibility;
-    return ListView(
-      padding: const EdgeInsets.all(AppSizes.screenPadding),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SimplePanel(
           icon: Icons.shield_outlined,
@@ -948,8 +1102,8 @@ class _PrivacyTab extends StatelessWidget {
   }
 }
 
-class _ConsentLockedTab extends StatelessWidget {
-  const _ConsentLockedTab({
+class _ConsentLockedPanel extends StatelessWidget {
+  const _ConsentLockedPanel({
     required this.enabled,
     required this.title,
     required this.unlocked,
@@ -964,10 +1118,7 @@ class _ConsentLockedTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (enabled) {
-      return ListView(
-        padding: const EdgeInsets.all(AppSizes.screenPadding),
-        children: [unlocked],
-      );
+      return unlocked;
     }
     return _WorkspaceState(
       icon: Icons.lock_outline,
@@ -2261,6 +2412,49 @@ String _dateTime(DateTime value) {
   final hour = local.hour.toString().padLeft(2, '0');
   final minute = local.minute.toString().padLeft(2, '0');
   return '$month $day, ${local.year} $hour:$minute';
+}
+
+String _nextCoachAction(CoachClientWorkspaceEntity workspace) {
+  final client = workspace.client;
+  if (client.isPendingPayment) {
+    return 'Review payment status before assigning more work.';
+  }
+  if (workspace.checkins.any((checkin) => checkin.coachReply == null)) {
+    return 'Review the latest check-in and send feedback.';
+  }
+  if (client.unreadMessages > 0) {
+    return 'Reply to unread client messages.';
+  }
+  if (workspace.visibility?.hasAnySharing != true) {
+    return 'Ask the member to review visibility permissions.';
+  }
+  if (client.canScheduleBookings) {
+    return 'Schedule or confirm the next coaching touchpoint.';
+  }
+  return 'Client workspace is up to date.';
+}
+
+String _latestCheckinSummary(CoachClientWorkspaceEntity workspace) {
+  if (workspace.checkins.isEmpty) {
+    return 'No check-ins submitted yet.';
+  }
+  final latest = workspace.checkins.first;
+  final status = latest.coachReply == null ? 'pending feedback' : 'reviewed';
+  final adherence = workspace.visibility?.shareWorkoutAdherence == true
+      ? ' Adherence ${latest.adherenceScore}/10.'
+      : '';
+  return 'Week of ${_date(latest.weekStart)} is $status.$adherence';
+}
+
+String _latestMessageSummary(CoachClientWorkspaceEntity workspace) {
+  if (workspace.threads.isEmpty) {
+    return 'No coaching thread yet.';
+  }
+  final preview = workspace.threads.first.lastMessagePreview.trim();
+  if (preview.isEmpty) {
+    return 'No recent message.';
+  }
+  return preview;
 }
 
 DateTime? _parseDateTimeInput(String value) {

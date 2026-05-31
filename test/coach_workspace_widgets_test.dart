@@ -129,6 +129,110 @@ void main() {
     });
   });
 
+  group('coach client workspace five-tab layout', () {
+    testWidgets('renders five focused top-level tabs', (tester) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(visibility: _fullVisibility),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+
+      expect(find.byType(Tab), findsNWidgets(5));
+      expect(find.text('Overview'), findsOneWidget);
+      expect(find.text('Coach Work'), findsOneWidget);
+      expect(find.text('Communication'), findsOneWidget);
+      expect(find.text('Client Data'), findsOneWidget);
+      expect(find.text('Admin'), findsOneWidget);
+    });
+
+    testWidgets('Coach Work groups program and resource actions', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..programTemplates = const <CoachProgramTemplateEntity>[
+          CoachProgramTemplateEntity(
+            id: 'template-1',
+            title: 'Build muscle starter',
+            goalType: 'build_muscle',
+          ),
+        ]
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(visibility: _fullVisibility),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceTab(tester, 'Coach Work');
+
+      expect(find.text('Program delivery'), findsOneWidget);
+      expect(find.text('Assign habits'), findsOneWidget);
+      expect(find.text('Assign resources'), findsOneWidget);
+      expect(find.text('Build muscle starter'), findsOneWidget);
+      expect(find.textContaining('Assigned'), findsWidgets);
+    });
+
+    testWidgets('Communication groups messages notes and feedback', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _fullVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceTab(tester, 'Communication');
+
+      expect(find.text('Coaching thread'), findsOneWidget);
+      expect(
+        find.widgetWithText(TextField, 'Private coach note'),
+        findsOneWidget,
+      );
+      expect(find.text('Feedback queue'), findsOneWidget);
+      expect(find.text('Review'), findsOneWidget);
+    });
+
+    testWidgets('Client Data groups check-ins progress and nutrition', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _fullVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceTab(tester, 'Client Data');
+
+      expect(find.text('Check-ins'), findsOneWidget);
+      expect(find.text('Progress'), findsOneWidget);
+      expect(find.text('Nutrition'), findsWidgets);
+    });
+
+    testWidgets('Admin groups billing and privacy', (tester) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _tapWorkspaceTab(tester, 'Admin');
+
+      expect(find.text('Billing'), findsOneWidget);
+      expect(find.text('Privacy'), findsOneWidget);
+      expect(find.text('Privacy locked'), findsOneWidget);
+    });
+  });
+
   group('coach check-in visibility privacy', () {
     testWidgets('locked visibility hides sensitive check-in details', (
       tester,
@@ -300,8 +404,7 @@ void main() {
         };
 
       await _pumpClientWorkspace(tester, repo);
-      await tester.tap(find.text('Check-ins'));
-      await tester.pumpAndSettle();
+      await _tapWorkspaceTab(tester, 'Client Data');
 
       expect(find.textContaining('Adherence'), findsNothing);
       expect(find.textContaining('/10'), findsNothing);
@@ -321,7 +424,8 @@ void main() {
         };
 
       await _pumpClientWorkspace(tester, repo);
-      await _tapWorkspaceTab(tester, 'Progress');
+      await _tapWorkspaceTab(tester, 'Client Data');
+      await tester.ensureVisible(find.text('Progress'));
 
       expect(find.text('Latest adherence'), findsNothing);
       expect(find.text('8/10'), findsNothing);
@@ -340,7 +444,8 @@ void main() {
           };
 
         await _pumpClientWorkspace(tester, repo);
-        await _tapWorkspaceTab(tester, 'Progress');
+        await _tapWorkspaceTab(tester, 'Client Data');
+        await tester.ensureVisible(find.text('Progress'));
 
         expect(find.text('Latest adherence'), findsOneWidget);
         expect(find.text('8/10'), findsOneWidget);
@@ -360,7 +465,8 @@ void main() {
         };
 
       await _pumpClientWorkspace(tester, repo);
-      await _tapWorkspaceTab(tester, 'Nutrition');
+      await _tapWorkspaceTab(tester, 'Client Data');
+      await tester.ensureVisible(find.text('Nutrition').last);
 
       expect(find.text('Nutrition'), findsWidgets);
       expect(find.text('70%'), findsOneWidget);
@@ -386,7 +492,8 @@ void main() {
         };
 
       await _pumpClientWorkspace(tester, repo);
-      await _tapWorkspaceTab(tester, 'Nutrition');
+      await _tapWorkspaceTab(tester, 'Client Data');
+      await tester.ensureVisible(find.text('Nutrition').last);
 
       expect(find.text('Nutrition'), findsWidgets);
       expect(find.text('70%'), findsOneWidget);
@@ -524,6 +631,7 @@ void main() {
     await tester.ensureVisible(find.text('Review consent'));
     await tester.tap(find.text('Review consent'));
     await tester.pumpAndSettle();
+    expect(find.text('Admin'), findsOneWidget);
     expect(find.text('Privacy locked'), findsOneWidget);
   });
 
@@ -582,8 +690,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Check-ins'));
-    await tester.pumpAndSettle();
+    await _tapWorkspaceTab(tester, 'Client Data');
     await tester.tap(find.text('Review'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -1050,18 +1157,13 @@ Finder _sheetText(String text) {
 }
 
 Future<void> _openCheckinReview(WidgetTester tester) async {
-  await tester.tap(find.text('Check-ins'));
-  await tester.pumpAndSettle();
+  await _tapWorkspaceTab(tester, 'Client Data');
   await tester.tap(find.text('Review'));
   await tester.pumpAndSettle();
 }
 
 Future<void> _tapWorkspaceTab(WidgetTester tester, String text) async {
-  final tabBar = find.byType(TabBar);
-  if (text == 'Progress' || text == 'Nutrition') {
-    await tester.drag(tabBar, const Offset(-360, 0));
-    await tester.pumpAndSettle();
-  }
+  await tester.ensureVisible(find.text(text));
   await tester.tap(find.text(text));
   await tester.pumpAndSettle();
 }
