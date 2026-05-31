@@ -564,7 +564,9 @@ class FakeCoachRepository implements CoachRepository {
   int getCoachDetailsCalls = 0;
   int getClientWorkspaceCalls = 0;
   int requestTaiyoCoachClientBriefCalls = 0;
+  int requestTaiyoFeedbackDraftCalls = 0;
   Object? taiyoCoachBriefError;
+  Object? taiyoFeedbackDraftError;
   CoachTaiyoClientBriefEntity taiyoCoachBrief =
       const CoachTaiyoClientBriefEntity(
         requestType: 'coach_client_brief',
@@ -573,6 +575,20 @@ class FakeCoachRepository implements CoachRepository {
         summary: 'Client is steady.',
         suggestedAction: 'Review the latest shared check-in.',
         riskLevel: 'low',
+      );
+  CoachTaiyoClientBriefEntity taiyoFeedbackDraft =
+      const CoachTaiyoClientBriefEntity(
+        requestType: 'checkin_reply_draft',
+        status: 'success',
+        clientStatus: 'watch',
+        summary: 'Strong consistency this week.',
+        redFlags: <String>['Sleep was low.'],
+        suggestedAction: 'Reduce volume slightly and prioritize recovery.',
+        suggestedMessage:
+            "Great work staying consistent. Let's adjust recovery this week.",
+        privacyNotes: <String>['Draft only. Review before sending.'],
+        riskLevel: 'medium',
+        confidence: 'medium',
       );
   int upsertCoachProfileCalls = 0;
   int saveAvailabilitySlotCalls = 0;
@@ -1149,6 +1165,13 @@ class FakeCoachRepository implements CoachRepository {
     String requestType = 'coach_client_brief',
   }) async {
     requestTaiyoCoachClientBriefCalls++;
+    if (requestType == 'checkin_reply_draft') {
+      requestTaiyoFeedbackDraftCalls++;
+      if (taiyoFeedbackDraftError != null) {
+        throw taiyoFeedbackDraftError!;
+      }
+      return taiyoFeedbackDraft;
+    }
     if (taiyoCoachBriefError != null) {
       throw taiyoCoachBriefError!;
     }

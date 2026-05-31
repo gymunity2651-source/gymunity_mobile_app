@@ -671,6 +671,161 @@ void main() {
     expect(repo.lastCreatedBookingPayload, isNull);
   });
 
+  group('TAIYO check-in feedback draft', () {
+    testWidgets('review sheet shows draft button without auto-calling TAIYO', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _fullVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _openCheckinReview(tester);
+
+      expect(_sheetText('Draft feedback with TAIYO'), findsOneWidget);
+      expect(repo.requestTaiyoFeedbackDraftCalls, 0);
+      expect(repo.lastCheckinFeedbackPayload, isNull);
+    });
+
+    testWidgets('draft fills empty feedback fields but does not send', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _fullVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _openCheckinReview(tester);
+      await _tapSheetText(tester, 'Draft feedback with TAIYO');
+      await tester.pumpAndSettle();
+
+      expect(repo.requestTaiyoFeedbackDraftCalls, 1);
+      expect(repo.lastCheckinFeedbackPayload, isNull);
+      expect(
+        find.text('TAIYO draft applied. Review and edit before sending.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          "Great work staying consistent. Let's adjust recovery this week.",
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Reduce volume slightly and prioritize recovery.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Sleep was low.'), findsOneWidget);
+
+      await _tapSheetText(tester, 'Send feedback');
+      await tester.pumpAndSettle();
+
+      expect(
+        repo.lastCheckinFeedbackPayload?['feedback'],
+        contains('Great work'),
+      );
+    });
+
+    testWidgets('draft preserves existing coach edits', (tester) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _fullVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _openCheckinReview(tester);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Member-facing feedback message'),
+        'Manual coach note',
+      );
+      await tester.pump();
+      await _tapSheetText(tester, 'Draft feedback with TAIYO');
+      await tester.pumpAndSettle();
+
+      expect(repo.requestTaiyoFeedbackDraftCalls, 1);
+      expect(find.text('Manual coach note'), findsOneWidget);
+      expect(
+        find.text(
+          "Great work staying consistent. Let's adjust recovery this week.",
+        ),
+        findsNothing,
+      );
+      expect(
+        find.text(
+          'TAIYO filled empty draft fields. Existing coach edits were preserved.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('draft requires member visibility sharing', (tester) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _lockedVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _openCheckinReview(tester);
+      await _tapSheetText(tester, 'Draft feedback with TAIYO');
+      await tester.pumpAndSettle();
+
+      expect(repo.requestTaiyoFeedbackDraftCalls, 0);
+      expect(
+        find.text(
+          'TAIYO needs member visibility permissions before drafting feedback.',
+        ),
+        findsOneWidget,
+      );
+      expect(repo.lastCheckinFeedbackPayload, isNull);
+    });
+
+    testWidgets('draft error shows friendly message without raw details', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _fullVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        }
+        ..taiyoFeedbackDraftError = Exception('backend exploded');
+
+      await _pumpClientWorkspace(tester, repo);
+      await _openCheckinReview(tester);
+      await _tapSheetText(tester, 'Draft feedback with TAIYO');
+      await tester.pumpAndSettle();
+
+      expect(repo.requestTaiyoFeedbackDraftCalls, 1);
+      expect(
+        find.text('TAIYO could not draft feedback right now.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Exception'), findsNothing);
+      expect(find.textContaining('backend'), findsNothing);
+      expect(repo.lastCheckinFeedbackPayload, isNull);
+    });
+  });
+
   testWidgets('client workspace check-in review submits coach feedback', (
     tester,
   ) async {
@@ -1154,6 +1309,26 @@ Finder _sheetText(String text) {
     of: find.byType(BottomSheet),
     matching: find.text(text),
   );
+}
+
+Future<void> _tapSheetText(WidgetTester tester, String text) async {
+  final sheetFinder = _sheetText(text);
+  if (sheetFinder.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      find.text(text),
+      250,
+      scrollable: find
+          .descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+  }
+  final finder = sheetFinder.evaluate().isEmpty ? find.text(text) : sheetFinder;
+  await tester.ensureVisible(finder);
+  await tester.tap(finder);
+  await tester.pump();
 }
 
 Future<void> _openCheckinReview(WidgetTester tester) async {

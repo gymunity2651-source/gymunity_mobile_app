@@ -1713,227 +1713,362 @@ Future<void> _openCheckinReviewSheet(
   final canViewNutrition = visibility?.shareNutritionSummary == true;
   final canViewAiContext = visibility?.shareAiPlanSummary == true;
   final canViewHealthSignals = canViewProgress;
+  final canDraftWithTaiyo =
+      canViewWorkout || canViewProgress || canViewNutrition || canViewAiContext;
   final hasHiddenCheckinDetails =
       !canViewWorkout ||
       !canViewProgress ||
       !canViewNutrition ||
       !canViewAiContext;
+  var isDraftingFeedback = false;
+  String? draftFeedbackNotice;
+  String? draftFeedbackError;
 
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => Padding(
-      padding: EdgeInsets.only(
-        left: AppSizes.screenPadding,
-        right: AppSizes.screenPadding,
-        top: AppSizes.lg,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSizes.lg,
-      ),
-      child: ListView(
-        shrinkWrap: true,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Review check-in',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setSheetState) => Padding(
+        padding: EdgeInsets.only(
+          left: AppSizes.screenPadding,
+          right: AppSizes.screenPadding,
+          top: AppSizes.lg,
+          bottom: MediaQuery.of(context).viewInsets.bottom + AppSizes.lg,
+        ),
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Review check-in',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            _WorkspaceDetailLine('Week', _date(checkin.weekStart)),
+            if (canViewWorkout)
+              _WorkspaceDetailLine('Adherence', '${checkin.adherenceScore}/10'),
+            if (canViewWorkout && checkin.workoutsCompleted != null)
+              _WorkspaceDetailLine(
+                'Workouts completed',
+                checkin.workoutsCompleted.toString(),
               ),
-              IconButton(
-                tooltip: 'Close',
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close),
+            if (canViewWorkout && checkin.missedWorkouts != null)
+              _WorkspaceDetailLine(
+                'Missed workouts',
+                checkin.missedWorkouts.toString(),
+              ),
+            if (canViewWorkout &&
+                _textOrNull(checkin.missedWorkoutsReason) != null)
+              _WorkspaceDetailLine(
+                'Missed reason',
+                checkin.missedWorkoutsReason!,
+              ),
+            if (canViewProgress && checkin.weightKg != null)
+              _WorkspaceDetailLine('Weight', '${checkin.weightKg} kg'),
+            if (canViewProgress && checkin.waistCm != null)
+              _WorkspaceDetailLine('Waist', '${checkin.waistCm} cm'),
+            if (canViewHealthSignals && checkin.energyScore != null)
+              _WorkspaceDetailLine('Energy', '${checkin.energyScore}/10'),
+            if (canViewHealthSignals && checkin.sleepScore != null)
+              _WorkspaceDetailLine('Sleep', '${checkin.sleepScore}/10'),
+            if (canViewHealthSignals && checkin.sorenessScore != null)
+              _WorkspaceDetailLine('Soreness', '${checkin.sorenessScore}/10'),
+            if (canViewHealthSignals && checkin.fatigueScore != null)
+              _WorkspaceDetailLine('Fatigue', '${checkin.fatigueScore}/10'),
+            if (canViewHealthSignals &&
+                _textOrNull(checkin.painWarning) != null)
+              _WorkspaceDetailLine('Pain warning', checkin.painWarning!),
+            if (canViewNutrition && checkin.nutritionAdherenceScore != null)
+              _WorkspaceDetailLine(
+                'Nutrition',
+                '${checkin.nutritionAdherenceScore}%',
+              ),
+            if (canViewWorkout && checkin.habitAdherenceScore != null)
+              _WorkspaceDetailLine('Habits', '${checkin.habitAdherenceScore}%'),
+            if (canViewAiContext &&
+                _textOrNull(checkin.biggestObstacle) != null)
+              _WorkspaceDetailLine(
+                'Biggest obstacle',
+                checkin.biggestObstacle!,
+              ),
+            if (canViewAiContext && _textOrNull(checkin.supportNeeded) != null)
+              _WorkspaceDetailLine('Support needed', checkin.supportNeeded!),
+            if (canViewAiContext && _textOrNull(checkin.wins) != null)
+              _WorkspaceDetailLine('Wins', checkin.wins!),
+            if (canViewAiContext && _textOrNull(checkin.blockers) != null)
+              _WorkspaceDetailLine('Blockers', checkin.blockers!),
+            if (canViewAiContext && _textOrNull(checkin.questions) != null)
+              _WorkspaceDetailLine('Questions', checkin.questions!),
+            if (canViewProgress && checkin.photos.isNotEmpty)
+              _WorkspaceDetailLine('Photos', '${checkin.photos.length} shared'),
+            if (hasHiddenCheckinDetails) ...[
+              const SizedBox(height: 8),
+              const _SimplePanel(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Some details hidden',
+                body:
+                    'Some check-in details are hidden because the member has not shared those categories.',
               ),
             ],
-          ),
-          _WorkspaceDetailLine('Week', _date(checkin.weekStart)),
-          if (canViewWorkout)
-            _WorkspaceDetailLine('Adherence', '${checkin.adherenceScore}/10'),
-          if (canViewWorkout && checkin.workoutsCompleted != null)
-            _WorkspaceDetailLine(
-              'Workouts completed',
-              checkin.workoutsCompleted.toString(),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                onPressed: isDraftingFeedback
+                    ? null
+                    : () async {
+                        if (!canDraftWithTaiyo) {
+                          setSheetState(() {
+                            draftFeedbackNotice = null;
+                            draftFeedbackError =
+                                'TAIYO needs member visibility permissions before drafting feedback.';
+                          });
+                          return;
+                        }
+
+                        setSheetState(() {
+                          isDraftingFeedback = true;
+                          draftFeedbackNotice = null;
+                          draftFeedbackError = null;
+                        });
+
+                        try {
+                          final draft = await ref
+                              .read(coachRepositoryProvider)
+                              .requestTaiyoCoachClientBrief(
+                                clientId: workspace.client.memberId,
+                                subscriptionId: workspace.client.subscriptionId,
+                                requestType: 'checkin_reply_draft',
+                              );
+                          if (!context.mounted) return;
+                          if (draft.needsVisibilityPermission) {
+                            setSheetState(() {
+                              isDraftingFeedback = false;
+                              draftFeedbackError =
+                                  'TAIYO needs member visibility permissions before drafting feedback.';
+                            });
+                            return;
+                          }
+
+                          final preservedExisting = _applyTaiyoFeedbackDraft(
+                            draft: draft,
+                            feedbackController: feedbackController,
+                            wentWellController: wentWellController,
+                            attentionController: attentionController,
+                            adjustmentController: adjustmentController,
+                            coachNoteController: coachNoteController,
+                          );
+                          setSheetState(() {
+                            isDraftingFeedback = false;
+                            draftFeedbackNotice = preservedExisting
+                                ? 'TAIYO filled empty draft fields. Existing coach edits were preserved.'
+                                : 'TAIYO draft applied. Review and edit before sending.';
+                          });
+                        } catch (_) {
+                          if (!context.mounted) return;
+                          setSheetState(() {
+                            isDraftingFeedback = false;
+                            draftFeedbackError =
+                                'TAIYO could not draft feedback right now.';
+                          });
+                        }
+                      },
+                label: Text(
+                  isDraftingFeedback
+                      ? 'Drafting...'
+                      : 'Draft feedback with TAIYO',
+                ),
+              ),
             ),
-          if (canViewWorkout && checkin.missedWorkouts != null)
-            _WorkspaceDetailLine(
-              'Missed workouts',
-              checkin.missedWorkouts.toString(),
+            if (draftFeedbackNotice != null) ...[
+              const SizedBox(height: 8),
+              _SimplePanel(
+                icon: Icons.auto_awesome_outlined,
+                title: 'TAIYO draft',
+                body: draftFeedbackNotice!,
+              ),
+            ],
+            if (draftFeedbackError != null) ...[
+              const SizedBox(height: 8),
+              _SimplePanel(
+                icon: Icons.cloud_off_outlined,
+                title: 'Draft unavailable',
+                body: draftFeedbackError!,
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: wentWellController,
+              decoration: const InputDecoration(labelText: 'What went well'),
             ),
-          if (canViewWorkout &&
-              _textOrNull(checkin.missedWorkoutsReason) != null)
-            _WorkspaceDetailLine(
-              'Missed reason',
-              checkin.missedWorkoutsReason!,
+            TextField(
+              controller: attentionController,
+              decoration: const InputDecoration(
+                labelText: 'What needs attention',
+              ),
             ),
-          if (canViewProgress && checkin.weightKg != null)
-            _WorkspaceDetailLine('Weight', '${checkin.weightKg} kg'),
-          if (canViewProgress && checkin.waistCm != null)
-            _WorkspaceDetailLine('Waist', '${checkin.waistCm} cm'),
-          if (canViewHealthSignals && checkin.energyScore != null)
-            _WorkspaceDetailLine('Energy', '${checkin.energyScore}/10'),
-          if (canViewHealthSignals && checkin.sleepScore != null)
-            _WorkspaceDetailLine('Sleep', '${checkin.sleepScore}/10'),
-          if (canViewHealthSignals && checkin.sorenessScore != null)
-            _WorkspaceDetailLine('Soreness', '${checkin.sorenessScore}/10'),
-          if (canViewHealthSignals && checkin.fatigueScore != null)
-            _WorkspaceDetailLine('Fatigue', '${checkin.fatigueScore}/10'),
-          if (canViewHealthSignals && _textOrNull(checkin.painWarning) != null)
-            _WorkspaceDetailLine('Pain warning', checkin.painWarning!),
-          if (canViewNutrition && checkin.nutritionAdherenceScore != null)
-            _WorkspaceDetailLine(
-              'Nutrition',
-              '${checkin.nutritionAdherenceScore}%',
+            TextField(
+              controller: adjustmentController,
+              decoration: const InputDecoration(
+                labelText: 'Adjustment for next week',
+              ),
             ),
-          if (canViewWorkout && checkin.habitAdherenceScore != null)
-            _WorkspaceDetailLine('Habits', '${checkin.habitAdherenceScore}%'),
-          if (canViewAiContext && _textOrNull(checkin.biggestObstacle) != null)
-            _WorkspaceDetailLine('Biggest obstacle', checkin.biggestObstacle!),
-          if (canViewAiContext && _textOrNull(checkin.supportNeeded) != null)
-            _WorkspaceDetailLine('Support needed', checkin.supportNeeded!),
-          if (canViewAiContext && _textOrNull(checkin.wins) != null)
-            _WorkspaceDetailLine('Wins', checkin.wins!),
-          if (canViewAiContext && _textOrNull(checkin.blockers) != null)
-            _WorkspaceDetailLine('Blockers', checkin.blockers!),
-          if (canViewAiContext && _textOrNull(checkin.questions) != null)
-            _WorkspaceDetailLine('Questions', checkin.questions!),
-          if (canViewProgress && checkin.photos.isNotEmpty)
-            _WorkspaceDetailLine('Photos', '${checkin.photos.length} shared'),
-          if (hasHiddenCheckinDetails) ...[
-            const SizedBox(height: 8),
-            const _SimplePanel(
-              icon: Icons.privacy_tip_outlined,
-              title: 'Some details hidden',
-              body:
-                  'Some check-in details are hidden because the member has not shared those categories.',
+            TextField(
+              controller: priorityController,
+              decoration: const InputDecoration(labelText: 'One priority'),
             ),
-          ],
-          const SizedBox(height: 12),
-          TextField(
-            controller: wentWellController,
-            decoration: const InputDecoration(labelText: 'What went well'),
-          ),
-          TextField(
-            controller: attentionController,
-            decoration: const InputDecoration(
-              labelText: 'What needs attention',
+            TextField(
+              controller: planChangesController,
+              decoration: const InputDecoration(
+                labelText: 'Plan changes summary',
+              ),
             ),
-          ),
-          TextField(
-            controller: adjustmentController,
-            decoration: const InputDecoration(
-              labelText: 'Adjustment for next week',
+            TextField(
+              controller: nextCheckinController,
+              decoration: const InputDecoration(
+                labelText: 'Next check-in date (YYYY-MM-DD)',
+              ),
+              keyboardType: TextInputType.datetime,
             ),
-          ),
-          TextField(
-            controller: priorityController,
-            decoration: const InputDecoration(labelText: 'One priority'),
-          ),
-          TextField(
-            controller: planChangesController,
-            decoration: const InputDecoration(
-              labelText: 'Plan changes summary',
+            TextField(
+              controller: coachNoteController,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Private coach note',
+                alignLabelWithHint: true,
+              ),
             ),
-          ),
-          TextField(
-            controller: nextCheckinController,
-            decoration: const InputDecoration(
-              labelText: 'Next check-in date (YYYY-MM-DD)',
+            TextField(
+              controller: feedbackController,
+              minLines: 2,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Member-facing feedback message',
+                alignLabelWithHint: true,
+              ),
             ),
-            keyboardType: TextInputType.datetime,
-          ),
-          TextField(
-            controller: coachNoteController,
-            minLines: 2,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Private coach note',
-              alignLabelWithHint: true,
-            ),
-          ),
-          TextField(
-            controller: feedbackController,
-            minLines: 2,
-            maxLines: 5,
-            decoration: const InputDecoration(
-              labelText: 'Member-facing feedback message',
-              alignLabelWithHint: true,
-            ),
-          ),
-          if (threadId == null) ...[
-            const SizedBox(height: 10),
-            const _SimplePanel(
-              icon: Icons.chat_bubble_outline,
-              title: 'No coaching thread',
-              body:
-                  'Feedback needs an active coaching thread. Activate payment or open messages after the thread is created.',
-            ),
-          ],
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.rate_review_outlined, size: 18),
-              onPressed: threadId == null
-                  ? null
-                  : () async {
-                      final feedback = feedbackController.text.trim();
-                      if (feedback.isEmpty) return;
-                      final nextCheckin = nextCheckinController.text.trim();
-                      try {
-                        await ref
-                            .read(coachRepositoryProvider)
-                            .submitCheckinFeedback(
-                              checkinId: checkin.id,
-                              threadId: threadId,
-                              feedback: feedback,
-                              whatWentWell:
-                                  _textOrNull(wentWellController.text) ?? '',
-                              whatNeedsAttention:
-                                  _textOrNull(attentionController.text) ?? '',
-                              adjustmentForNextWeek:
-                                  _textOrNull(adjustmentController.text) ?? '',
-                              onePriority:
-                                  _textOrNull(priorityController.text) ?? '',
-                              coachNote:
-                                  _textOrNull(coachNoteController.text) ?? '',
-                              planChangesSummary:
-                                  _textOrNull(planChangesController.text) ?? '',
-                              nextCheckinDate: nextCheckin.isEmpty
-                                  ? null
-                                  : DateTime.tryParse(nextCheckin),
-                            );
-                        ref.invalidate(coachCheckinInboxProvider);
-                        ref.invalidate(
-                          coachClientWorkspaceProvider(
-                            workspace.client.subscriptionId,
-                          ),
-                        );
-                        if (context.mounted) {
-                          Navigator.pop(context);
+            if (threadId == null) ...[
+              const SizedBox(height: 10),
+              const _SimplePanel(
+                icon: Icons.chat_bubble_outline,
+                title: 'No coaching thread',
+                body:
+                    'Feedback needs an active coaching thread. Activate payment or open messages after the thread is created.',
+              ),
+            ],
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.rate_review_outlined, size: 18),
+                onPressed: threadId == null
+                    ? null
+                    : () async {
+                        final feedback = feedbackController.text.trim();
+                        if (feedback.isEmpty) return;
+                        final nextCheckin = nextCheckinController.text.trim();
+                        try {
+                          await ref
+                              .read(coachRepositoryProvider)
+                              .submitCheckinFeedback(
+                                checkinId: checkin.id,
+                                threadId: threadId,
+                                feedback: feedback,
+                                whatWentWell:
+                                    _textOrNull(wentWellController.text) ?? '',
+                                whatNeedsAttention:
+                                    _textOrNull(attentionController.text) ?? '',
+                                adjustmentForNextWeek:
+                                    _textOrNull(adjustmentController.text) ??
+                                    '',
+                                onePriority:
+                                    _textOrNull(priorityController.text) ?? '',
+                                coachNote:
+                                    _textOrNull(coachNoteController.text) ?? '',
+                                planChangesSummary:
+                                    _textOrNull(planChangesController.text) ??
+                                    '',
+                                nextCheckinDate: nextCheckin.isEmpty
+                                    ? null
+                                    : DateTime.tryParse(nextCheckin),
+                              );
+                          ref.invalidate(coachCheckinInboxProvider);
+                          ref.invalidate(
+                            coachClientWorkspaceProvider(
+                              workspace.client.subscriptionId,
+                            ),
+                          );
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            if (rootContext.mounted) {
+                              _showWorkspaceSnack(
+                                rootContext,
+                                'Feedback sent.',
+                              );
+                            }
+                          }
+                        } catch (error) {
                           if (rootContext.mounted) {
-                            _showWorkspaceSnack(rootContext, 'Feedback sent.');
+                            _showWorkspaceSnack(
+                              rootContext,
+                              'Feedback could not be sent: $error',
+                            );
                           }
                         }
-                      } catch (error) {
-                        if (rootContext.mounted) {
-                          _showWorkspaceSnack(
-                            rootContext,
-                            'Feedback could not be sent: $error',
-                          );
-                        }
-                      }
-                    },
-              label: const Text('Send feedback'),
+                      },
+                label: const Text('Send feedback'),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
+}
+
+bool _applyTaiyoFeedbackDraft({
+  required CoachTaiyoClientBriefEntity draft,
+  required TextEditingController feedbackController,
+  required TextEditingController wentWellController,
+  required TextEditingController attentionController,
+  required TextEditingController adjustmentController,
+  required TextEditingController coachNoteController,
+}) {
+  var preservedExisting = false;
+
+  void applyIfEmpty(TextEditingController controller, String value) {
+    final draftValue = value.trim();
+    if (draftValue.isEmpty) {
+      return;
+    }
+    if (controller.text.trim().isEmpty) {
+      controller.text = draftValue;
+      return;
+    }
+    preservedExisting = true;
+  }
+
+  applyIfEmpty(wentWellController, draft.summary);
+  applyIfEmpty(attentionController, draft.redFlags.join('\n'));
+  applyIfEmpty(adjustmentController, draft.suggestedAction);
+  applyIfEmpty(coachNoteController, draft.privacyNotes.join('\n'));
+  applyIfEmpty(feedbackController, draft.suggestedMessage);
+
+  return preservedExisting;
 }
 
 Future<void> _openMessageSheet(
