@@ -592,6 +592,9 @@ class FakeCoachRepository implements CoachRepository {
       );
   int upsertCoachProfileCalls = 0;
   int saveAvailabilitySlotCalls = 0;
+  int updateBookingStatusCalls = 0;
+  Object? updateBookingStatusError;
+  Completer<CoachBookingEntity>? updateBookingStatusCompleter;
   Map<String, dynamic>? lastUpsertCoachProfilePayload;
   Map<String, dynamic>? lastAvailabilitySlotPayload;
   List<CoachPackageEntity> packages = const <CoachPackageEntity>[];
@@ -608,6 +611,7 @@ class FakeCoachRepository implements CoachRepository {
   Map<String, dynamic>? lastSavedSessionTypePayload;
   Map<String, dynamic>? lastCreatedBookingPayload;
   Map<String, dynamic>? lastUpdatedBookingPayload;
+  Map<String, dynamic>? lastUpdatedBookingStatusPayload;
   Map<String, dynamic>? lastSavedOnboardingTemplatePayload;
   Map<String, dynamic>? lastAppliedOnboardingTemplatePayload;
   Map<String, dynamic>? lastSavedResourcePayload;
@@ -1657,20 +1661,49 @@ class FakeCoachRepository implements CoachRepository {
     required String status,
     String? reason,
   }) async {
-    lastUpdatedBookingPayload = <String, dynamic>{
+    updateBookingStatusCalls++;
+    lastUpdatedBookingStatusPayload = <String, dynamic>{
       'bookingId': bookingId,
       'status': status,
       'reason': reason,
     };
-    return CoachBookingEntity(
+    lastUpdatedBookingPayload = lastUpdatedBookingStatusPayload;
+    if (updateBookingStatusCompleter case final completer?) {
+      await completer.future;
+    }
+    if (updateBookingStatusError != null) {
+      throw updateBookingStatusError!;
+    }
+    CoachBookingEntity? existing;
+    for (final booking in bookings) {
+      if (booking.id == bookingId) {
+        existing = booking;
+        break;
+      }
+    }
+    final updated = CoachBookingEntity(
       id: bookingId,
-      coachId: 'coach-1',
-      memberId: 'member-1',
-      title: 'Session',
-      startsAt: DateTime.now(),
-      endsAt: DateTime.now().add(const Duration(minutes: 45)),
+      coachId: existing?.coachId ?? 'coach-1',
+      memberId: existing?.memberId ?? 'member-1',
+      memberName: existing?.memberName,
+      subscriptionId: existing?.subscriptionId,
+      sessionTypeId: existing?.sessionTypeId,
+      sessionTypeTitle: existing?.sessionTypeTitle,
+      title: existing?.title ?? 'Session',
+      startsAt: existing?.startsAt ?? DateTime.now(),
+      endsAt:
+          existing?.endsAt ?? DateTime.now().add(const Duration(minutes: 45)),
+      timezone: existing?.timezone ?? 'UTC',
       status: status,
+      deliveryMode: existing?.deliveryMode ?? 'online',
+      locationNote: existing?.locationNote,
+      videoJoinUrl: existing?.videoJoinUrl,
     );
+    bookings = <CoachBookingEntity>[
+      for (final booking in bookings)
+        if (booking.id == bookingId) updated else booking,
+    ];
+    return updated;
   }
 
   @override

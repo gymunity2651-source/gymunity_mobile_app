@@ -678,8 +678,10 @@ class _BookingCard extends ConsumerWidget {
   }
 
   Future<void> _openStatusSheet(BuildContext context, WidgetRef ref) async {
+    final rootContext = context;
     final reasonController = TextEditingController();
     String status = booking.status;
+    var isSaving = false;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -716,30 +718,68 @@ class _BookingCard extends ConsumerWidget {
                     child: Text('Rescheduled'),
                   ),
                 ],
-                onChanged: (value) =>
-                    setSheetState(() => status = value ?? 'scheduled'),
+                onChanged: isSaving
+                    ? null
+                    : (value) =>
+                          setSheetState(() => status = value ?? 'scheduled'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: reasonController,
                 decoration: const InputDecoration(labelText: 'Reason'),
+                enabled: !isSaving,
               ),
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () async {
-                    await ref
-                        .read(coachRepositoryProvider)
-                        .updateBookingStatus(
-                          bookingId: booking.id,
-                          status: status,
-                          reason: _textOrNull(reasonController.text),
-                        );
-                    ref.invalidate(coachBookingsProvider);
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                  child: const Text('Save'),
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          if (status == 'cancelled') {
+                            final confirmed = await _confirmCancelBooking(
+                              context,
+                              booking,
+                            );
+                            if (!confirmed) {
+                              return;
+                            }
+                          }
+
+                          setSheetState(() => isSaving = true);
+                          try {
+                            await ref
+                                .read(coachRepositoryProvider)
+                                .updateBookingStatus(
+                                  bookingId: booking.id,
+                                  status: status,
+                                  reason: _textOrNull(reasonController.text),
+                                );
+                            ref.invalidate(coachBookingsProvider);
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                            if (rootContext.mounted) {
+                              _showCalendarSnack(
+                                rootContext,
+                                status == 'cancelled'
+                                    ? 'Booking cancelled.'
+                                    : 'Booking updated.',
+                              );
+                            }
+                          } catch (_) {
+                            if (context.mounted) {
+                              setSheetState(() => isSaving = false);
+                            }
+                            if (rootContext.mounted) {
+                              _showCalendarSnack(
+                                rootContext,
+                                'Booking status could not be updated. Please try again.',
+                              );
+                            }
+                          }
+                        },
+                  child: Text(isSaving ? 'Saving...' : 'Save'),
                 ),
               ),
             ],
@@ -747,6 +787,7 @@ class _BookingCard extends ConsumerWidget {
         ),
       ),
     );
+    await Future<void>.delayed(const Duration(milliseconds: 300));
     reasonController.dispose();
   }
 }
@@ -908,6 +949,39 @@ IconData _sessionIcon(String kind) {
 String? _textOrNull(String value) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? null : trimmed;
+}
+
+Future<bool> _confirmCancelBooking(
+  BuildContext context,
+  CoachBookingEntity booking,
+) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Cancel this booking?'),
+      content: Text(
+        'This will mark ${booking.title} as cancelled. The client may see this update.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Keep booking'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Cancel booking'),
+        ),
+      ],
+    ),
+  );
+
+  return result == true;
+}
+
+void _showCalendarSnack(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
 }
 
 DateTime? _parseDateTimeInput(String value) {
