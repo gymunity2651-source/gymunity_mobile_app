@@ -555,6 +555,7 @@ class _CheckinsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final canViewWorkout = workspace.visibility?.shareWorkoutAdherence == true;
     if (workspace.checkins.isEmpty) {
       return const _WorkspaceState(
         icon: Icons.fact_check_outlined,
@@ -569,8 +570,9 @@ class _CheckinsTab extends ConsumerWidget {
             (checkin) => _ListPanel(
               icon: Icons.fact_check_outlined,
               title: 'Week of ${_date(checkin.weekStart)}',
-              subtitle:
-                  'Adherence ${checkin.adherenceScore}/10 · ${checkin.coachReply == null ? 'pending feedback' : 'reviewed'}',
+              subtitle: canViewWorkout
+                  ? 'Adherence ${checkin.adherenceScore}/10 - ${checkin.coachReply == null ? 'pending feedback' : 'reviewed'}'
+                  : 'Check-in submitted - ${checkin.coachReply == null ? 'pending feedback' : 'reviewed'}',
               actionLabel: 'Review',
               onTap: () =>
                   _openCheckinReviewSheet(context, ref, workspace, checkin),
@@ -1529,6 +1531,17 @@ Future<void> _openCheckinReviewSheet(
   final threadId =
       checkin.threadId ??
       (workspace.threads.isEmpty ? null : workspace.threads.first.id);
+  final visibility = workspace.visibility;
+  final canViewWorkout = visibility?.shareWorkoutAdherence == true;
+  final canViewProgress = visibility?.shareProgressMetrics == true;
+  final canViewNutrition = visibility?.shareNutritionSummary == true;
+  final canViewAiContext = visibility?.shareAiPlanSummary == true;
+  final canViewHealthSignals = canViewProgress;
+  final hasHiddenCheckinDetails =
+      !canViewWorkout ||
+      !canViewProgress ||
+      !canViewNutrition ||
+      !canViewAiContext;
 
   await showModalBottomSheet<void>(
     context: context,
@@ -1562,51 +1575,66 @@ Future<void> _openCheckinReviewSheet(
             ],
           ),
           _WorkspaceDetailLine('Week', _date(checkin.weekStart)),
-          _WorkspaceDetailLine('Adherence', '${checkin.adherenceScore}/10'),
-          if (checkin.workoutsCompleted != null)
+          if (canViewWorkout)
+            _WorkspaceDetailLine('Adherence', '${checkin.adherenceScore}/10'),
+          if (canViewWorkout && checkin.workoutsCompleted != null)
             _WorkspaceDetailLine(
               'Workouts completed',
               checkin.workoutsCompleted.toString(),
             ),
-          if (checkin.missedWorkouts != null)
+          if (canViewWorkout && checkin.missedWorkouts != null)
             _WorkspaceDetailLine(
               'Missed workouts',
               checkin.missedWorkouts.toString(),
             ),
-          if (_textOrNull(checkin.missedWorkoutsReason) != null)
+          if (canViewWorkout &&
+              _textOrNull(checkin.missedWorkoutsReason) != null)
             _WorkspaceDetailLine(
               'Missed reason',
               checkin.missedWorkoutsReason!,
             ),
-          if (checkin.energyScore != null)
+          if (canViewProgress && checkin.weightKg != null)
+            _WorkspaceDetailLine('Weight', '${checkin.weightKg} kg'),
+          if (canViewProgress && checkin.waistCm != null)
+            _WorkspaceDetailLine('Waist', '${checkin.waistCm} cm'),
+          if (canViewHealthSignals && checkin.energyScore != null)
             _WorkspaceDetailLine('Energy', '${checkin.energyScore}/10'),
-          if (checkin.sleepScore != null)
+          if (canViewHealthSignals && checkin.sleepScore != null)
             _WorkspaceDetailLine('Sleep', '${checkin.sleepScore}/10'),
-          if (checkin.sorenessScore != null)
+          if (canViewHealthSignals && checkin.sorenessScore != null)
             _WorkspaceDetailLine('Soreness', '${checkin.sorenessScore}/10'),
-          if (checkin.fatigueScore != null)
+          if (canViewHealthSignals && checkin.fatigueScore != null)
             _WorkspaceDetailLine('Fatigue', '${checkin.fatigueScore}/10'),
-          if (_textOrNull(checkin.painWarning) != null)
+          if (canViewHealthSignals && _textOrNull(checkin.painWarning) != null)
             _WorkspaceDetailLine('Pain warning', checkin.painWarning!),
-          if (checkin.nutritionAdherenceScore != null)
+          if (canViewNutrition && checkin.nutritionAdherenceScore != null)
             _WorkspaceDetailLine(
               'Nutrition',
               '${checkin.nutritionAdherenceScore}%',
             ),
-          if (checkin.habitAdherenceScore != null)
+          if (canViewWorkout && checkin.habitAdherenceScore != null)
             _WorkspaceDetailLine('Habits', '${checkin.habitAdherenceScore}%'),
-          if (_textOrNull(checkin.biggestObstacle) != null)
+          if (canViewAiContext && _textOrNull(checkin.biggestObstacle) != null)
             _WorkspaceDetailLine('Biggest obstacle', checkin.biggestObstacle!),
-          if (_textOrNull(checkin.supportNeeded) != null)
+          if (canViewAiContext && _textOrNull(checkin.supportNeeded) != null)
             _WorkspaceDetailLine('Support needed', checkin.supportNeeded!),
-          if (_textOrNull(checkin.wins) != null)
+          if (canViewAiContext && _textOrNull(checkin.wins) != null)
             _WorkspaceDetailLine('Wins', checkin.wins!),
-          if (_textOrNull(checkin.blockers) != null)
+          if (canViewAiContext && _textOrNull(checkin.blockers) != null)
             _WorkspaceDetailLine('Blockers', checkin.blockers!),
-          if (_textOrNull(checkin.questions) != null)
+          if (canViewAiContext && _textOrNull(checkin.questions) != null)
             _WorkspaceDetailLine('Questions', checkin.questions!),
-          if (checkin.photos.isNotEmpty)
+          if (canViewProgress && checkin.photos.isNotEmpty)
             _WorkspaceDetailLine('Photos', '${checkin.photos.length} shared'),
+          if (hasHiddenCheckinDetails) ...[
+            const SizedBox(height: 8),
+            const _SimplePanel(
+              icon: Icons.privacy_tip_outlined,
+              title: 'Some details hidden',
+              body:
+                  'Some check-in details are hidden because the member has not shared those categories.',
+            ),
+          ],
           const SizedBox(height: 12),
           TextField(
             controller: wentWellController,

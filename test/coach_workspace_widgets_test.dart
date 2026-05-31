@@ -127,6 +127,186 @@ void main() {
     });
   });
 
+  group('coach check-in visibility privacy', () {
+    testWidgets('locked visibility hides sensitive check-in details', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _lockedVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _openCheckinReview(tester);
+
+      expect(_sheetText('Energy'), findsNothing);
+      expect(_sheetText('Sleep'), findsNothing);
+      expect(_sheetText('Soreness'), findsNothing);
+      expect(_sheetText('Fatigue'), findsNothing);
+      expect(_sheetText('Pain warning'), findsNothing);
+      expect(_sheetText('Nutrition'), findsNothing);
+      expect(_sheetText('Photos'), findsNothing);
+      expect(_sheetText('Workouts completed'), findsNothing);
+      expect(_sheetText('Missed workouts'), findsNothing);
+      expect(_sheetText('Missed reason'), findsNothing);
+      expect(_sheetText('Wins'), findsNothing);
+      expect(_sheetText('Blockers'), findsNothing);
+      expect(_sheetText('Questions'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.textContaining(
+            'hidden because the member has not shared',
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('workout visibility shows only workout check-in fields', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _workoutVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _openCheckinReview(tester);
+
+      expect(_sheetText('Adherence'), findsOneWidget);
+      expect(_sheetText('Workouts completed'), findsOneWidget);
+      expect(_sheetText('Missed workouts'), findsOneWidget);
+      expect(_sheetText('Missed reason'), findsOneWidget);
+      expect(_sheetText('Habits'), findsOneWidget);
+      expect(_sheetText('Energy'), findsNothing);
+      expect(_sheetText('Sleep'), findsNothing);
+      expect(_sheetText('Soreness'), findsNothing);
+      expect(_sheetText('Fatigue'), findsNothing);
+      expect(_sheetText('Pain warning'), findsNothing);
+      expect(_sheetText('Nutrition'), findsNothing);
+      expect(_sheetText('Photos'), findsNothing);
+      expect(_sheetText('Weight'), findsNothing);
+      expect(_sheetText('Waist'), findsNothing);
+      expect(_sheetText('Wins'), findsNothing);
+      expect(_sheetText('Blockers'), findsNothing);
+      expect(_sheetText('Questions'), findsNothing);
+    });
+
+    testWidgets('progress visibility shows body and health check-in fields', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _progressVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _openCheckinReview(tester);
+
+      expect(_sheetText('Weight'), findsOneWidget);
+      expect(_sheetText('Waist'), findsOneWidget);
+      expect(_sheetText('Energy'), findsOneWidget);
+      expect(_sheetText('Sleep'), findsOneWidget);
+      expect(_sheetText('Soreness'), findsOneWidget);
+      expect(_sheetText('Fatigue'), findsOneWidget);
+      expect(_sheetText('Pain warning'), findsOneWidget);
+      expect(_sheetText('Photos'), findsOneWidget);
+      expect(_sheetText('Nutrition'), findsNothing);
+      expect(_sheetText('Wins'), findsNothing);
+      expect(_sheetText('Blockers'), findsNothing);
+      expect(_sheetText('Questions'), findsNothing);
+    });
+
+    testWidgets('nutrition visibility shows only nutrition check-in field', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _nutritionVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _openCheckinReview(tester);
+
+      expect(_sheetText('Nutrition'), findsOneWidget);
+      expect(_sheetText('Energy'), findsNothing);
+      expect(_sheetText('Sleep'), findsNothing);
+      expect(_sheetText('Soreness'), findsNothing);
+      expect(_sheetText('Fatigue'), findsNothing);
+      expect(_sheetText('Pain warning'), findsNothing);
+      expect(_sheetText('Workouts completed'), findsNothing);
+      expect(_sheetText('Photos'), findsNothing);
+      expect(_sheetText('Wins'), findsNothing);
+      expect(_sheetText('Blockers'), findsNothing);
+      expect(_sheetText('Questions'), findsNothing);
+    });
+
+    testWidgets('AI plan visibility shows general check-in context only', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _aiPlanVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await _openCheckinReview(tester);
+
+      expect(_sheetText('Biggest obstacle'), findsOneWidget);
+      expect(_sheetText('Support needed'), findsOneWidget);
+      expect(_sheetText('Wins'), findsOneWidget);
+      expect(_sheetText('Blockers'), findsOneWidget);
+      expect(_sheetText('Questions'), findsOneWidget);
+      expect(_sheetText('Energy'), findsNothing);
+      expect(_sheetText('Sleep'), findsNothing);
+      expect(_sheetText('Nutrition'), findsNothing);
+      expect(_sheetText('Photos'), findsNothing);
+      expect(_sheetText('Workouts completed'), findsNothing);
+    });
+
+    testWidgets('check-in row subtitle does not leak adherence when locked', (
+      tester,
+    ) async {
+      await _useTallPhoneSurface(tester);
+      final repo = FakeCoachRepository()
+        ..clientWorkspaces = <String, CoachClientWorkspaceEntity>{
+          'sub-1': _workspace(
+            visibility: _lockedVisibility,
+            includeSensitiveCheckin: true,
+          ),
+        };
+
+      await _pumpClientWorkspace(tester, repo);
+      await tester.tap(find.text('Check-ins'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Adherence'), findsNothing);
+      expect(find.textContaining('/10'), findsNothing);
+      expect(find.textContaining('Check-in submitted'), findsOneWidget);
+    });
+  });
+
   testWidgets('client workspace overview actions run for the selected client', (
     tester,
   ) async {
@@ -658,6 +838,7 @@ CoachClientWorkspaceEntity _workspace({
   String checkoutStatus = 'checkout_pending',
   String pipelineStage = 'pending_payment',
   VisibilitySettingsEntity? visibility,
+  bool includeSensitiveCheckin = false,
 }) {
   final client = CoachClientPipelineEntry(
     subscriptionId: 'sub-1',
@@ -694,7 +875,31 @@ CoachClientWorkspaceEntity _workspace({
         coachId: 'coach-1',
         weekStart: DateTime(2026, 4, 20),
         adherenceScore: 8,
+        weightKg: includeSensitiveCheckin ? 82 : null,
+        waistCm: includeSensitiveCheckin ? 92 : null,
+        energyScore: includeSensitiveCheckin ? 7 : null,
+        sleepScore: includeSensitiveCheckin ? 6 : null,
+        sorenessScore: includeSensitiveCheckin ? 4 : null,
+        fatigueScore: includeSensitiveCheckin ? 5 : null,
+        painWarning: includeSensitiveCheckin ? 'Knee pain' : null,
+        nutritionAdherenceScore: includeSensitiveCheckin ? 70 : null,
+        habitAdherenceScore: includeSensitiveCheckin ? 80 : null,
+        workoutsCompleted: includeSensitiveCheckin ? 4 : null,
+        missedWorkouts: includeSensitiveCheckin ? 1 : null,
+        missedWorkoutsReason: includeSensitiveCheckin ? 'Travel' : null,
+        biggestObstacle: includeSensitiveCheckin ? 'Late work nights' : null,
+        supportNeeded: includeSensitiveCheckin ? 'Need plan adjustment' : null,
         wins: 'Completed four workouts',
+        blockers: includeSensitiveCheckin ? 'Low sleep' : null,
+        questions: includeSensitiveCheckin ? 'Can we reduce leg volume?' : null,
+        photos: includeSensitiveCheckin
+            ? const <ProgressPhotoEntity>[
+                ProgressPhotoEntity(
+                  id: 'photo-1',
+                  storagePath: 'member-1/front.jpg',
+                ),
+              ]
+            : const <ProgressPhotoEntity>[],
       ),
     ],
     billing: const <CoachPaymentReceiptEntity>[
@@ -711,6 +916,20 @@ CoachClientWorkspaceEntity _workspace({
     ],
     visibility: visibility,
   );
+}
+
+Finder _sheetText(String text) {
+  return find.descendant(
+    of: find.byType(BottomSheet),
+    matching: find.text(text),
+  );
+}
+
+Future<void> _openCheckinReview(WidgetTester tester) async {
+  await tester.tap(find.text('Check-ins'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Review'));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpClientWorkspace(
@@ -759,6 +978,38 @@ const _sharedVisibility = VisibilitySettingsEntity(
   coachId: 'coach-1',
   subscriptionId: 'sub-1',
   shareWorkoutAdherence: true,
+);
+
+const _workoutVisibility = VisibilitySettingsEntity(
+  id: 'visibility-workout',
+  memberId: 'member-1',
+  coachId: 'coach-1',
+  subscriptionId: 'sub-1',
+  shareWorkoutAdherence: true,
+);
+
+const _progressVisibility = VisibilitySettingsEntity(
+  id: 'visibility-progress',
+  memberId: 'member-1',
+  coachId: 'coach-1',
+  subscriptionId: 'sub-1',
+  shareProgressMetrics: true,
+);
+
+const _nutritionVisibility = VisibilitySettingsEntity(
+  id: 'visibility-nutrition',
+  memberId: 'member-1',
+  coachId: 'coach-1',
+  subscriptionId: 'sub-1',
+  shareNutritionSummary: true,
+);
+
+const _aiPlanVisibility = VisibilitySettingsEntity(
+  id: 'visibility-ai-plan',
+  memberId: 'member-1',
+  coachId: 'coach-1',
+  subscriptionId: 'sub-1',
+  shareAiPlanSummary: true,
 );
 
 const _lockedVisibility = VisibilitySettingsEntity(
