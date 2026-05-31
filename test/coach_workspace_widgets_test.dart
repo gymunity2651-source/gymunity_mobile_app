@@ -710,6 +710,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repo.requestTaiyoFeedbackDraftCalls, 1);
+      expect(repo.requestTaiyoCoachClientBriefCalls, 0);
       expect(repo.lastCheckinFeedbackPayload, isNull);
       expect(
         find.text('TAIYO draft applied. Review and edit before sending.'),
@@ -808,7 +809,7 @@ void main() {
             includeSensitiveCheckin: true,
           ),
         }
-        ..taiyoFeedbackDraftError = Exception('backend exploded');
+        ..taiyoFeedbackDraftError = StateError('backend exploded');
 
       await _pumpClientWorkspace(tester, repo);
       await _openCheckinReview(tester);
@@ -822,6 +823,7 @@ void main() {
       );
       expect(find.textContaining('Exception'), findsNothing);
       expect(find.textContaining('backend'), findsNothing);
+      expect(find.textContaining('StateError'), findsNothing);
       expect(repo.lastCheckinFeedbackPayload, isNull);
     });
   });

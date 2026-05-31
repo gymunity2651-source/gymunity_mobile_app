@@ -2051,22 +2051,24 @@ bool _applyTaiyoFeedbackDraft({
   var preservedExisting = false;
 
   void applyIfEmpty(TextEditingController controller, String value) {
-    final draftValue = value.trim();
-    if (draftValue.isEmpty) {
+    final clean = value.trim();
+    if (clean.isEmpty) {
       return;
     }
-    if (controller.text.trim().isEmpty) {
-      controller.text = draftValue;
+
+    if (controller.text.trim().isNotEmpty) {
+      preservedExisting = true;
       return;
     }
-    preservedExisting = true;
+
+    controller.text = clean;
   }
 
+  applyIfEmpty(feedbackController, draft.suggestedMessage);
   applyIfEmpty(wentWellController, draft.summary);
   applyIfEmpty(attentionController, draft.redFlags.join('\n'));
   applyIfEmpty(adjustmentController, draft.suggestedAction);
   applyIfEmpty(coachNoteController, draft.privacyNotes.join('\n'));
-  applyIfEmpty(feedbackController, draft.suggestedMessage);
 
   return preservedExisting;
 }

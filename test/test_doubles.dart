@@ -1164,7 +1164,6 @@ class FakeCoachRepository implements CoachRepository {
     required String subscriptionId,
     String requestType = 'coach_client_brief',
   }) async {
-    requestTaiyoCoachClientBriefCalls++;
     if (requestType == 'checkin_reply_draft') {
       requestTaiyoFeedbackDraftCalls++;
       if (taiyoFeedbackDraftError != null) {
@@ -1172,6 +1171,7 @@ class FakeCoachRepository implements CoachRepository {
       }
       return taiyoFeedbackDraft;
     }
+    requestTaiyoCoachClientBriefCalls++;
     if (taiyoCoachBriefError != null) {
       throw taiyoCoachBriefError!;
     }
