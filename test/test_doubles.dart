@@ -17,7 +17,9 @@ import 'package:my_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_app/features/coach/domain/entities/coach_entity.dart';
 import 'package:my_app/features/coach/domain/entities/coach_taiyo_entity.dart';
 import 'package:my_app/features/coach/domain/entities/coach_workspace_entity.dart';
+import 'package:my_app/features/coach/domain/entities/coach_payment_entity.dart';
 import 'package:my_app/features/coach/domain/entities/subscription_entity.dart';
+import 'package:my_app/features/coach/domain/repositories/coach_payment_repository.dart';
 import 'package:my_app/features/coach/domain/entities/workout_plan_entity.dart';
 import 'package:my_app/features/coach/domain/repositories/coach_repository.dart';
 import 'package:my_app/features/coach_member_insights/domain/entities/member_insight_entity.dart';
@@ -1803,6 +1805,55 @@ class FakeCoachRepository implements CoachRepository {
       'resourceId': resourceId,
       'note': note,
     };
+  }
+}
+
+class FakeCoachPaymentRepository implements CoachPaymentRepository {
+  int createPaymobCheckoutCalls = 0;
+  Object? createPaymobCheckoutError;
+  Completer<CoachPaymobCheckoutSession>? createPaymobCheckoutCompleter;
+  Map<String, dynamic>? lastCreatePaymobCheckoutPayload;
+  CoachPaymobCheckoutSession checkoutSession = const CoachPaymobCheckoutSession(
+    paymentOrderId: 'payment-order-1',
+    subscriptionId: 'sub-1',
+    clientSecret: 'client-secret',
+    publicKey: 'public-key',
+    checkoutUrl: '',
+    amountGrossCents: 120000,
+    currency: 'EGP',
+    mode: 'test',
+  );
+  CoachPaymentOrderEntity? paymentOrder;
+
+  @override
+  Future<CoachPaymobCheckoutSession> createPaymobCheckout({
+    required String packageId,
+    String? coachId,
+    CoachSubscriptionIntakeEntity intakeSnapshot =
+        const CoachSubscriptionIntakeEntity(),
+    String? note,
+  }) async {
+    createPaymobCheckoutCalls++;
+    lastCreatePaymobCheckoutPayload = <String, dynamic>{
+      'packageId': packageId,
+      'coachId': coachId,
+      'intakeSnapshot': intakeSnapshot,
+      'note': note,
+    };
+    if (createPaymobCheckoutCompleter case final completer?) {
+      return completer.future;
+    }
+    if (createPaymobCheckoutError != null) {
+      throw createPaymobCheckoutError!;
+    }
+    return checkoutSession;
+  }
+
+  @override
+  Future<CoachPaymentOrderEntity?> getPaymentOrder(
+    String paymentOrderId,
+  ) async {
+    return paymentOrder;
   }
 }
 

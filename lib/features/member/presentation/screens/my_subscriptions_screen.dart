@@ -262,36 +262,9 @@ class _SubscriptionCard extends ConsumerWidget {
     );
   }
 
-  Widget _paymobPaymentActions(BuildContext context, WidgetRef ref) {
-    final isFailed = subscription.checkoutStatus == 'failed';
-    return _PaymentNotice(
-      title: isFailed ? 'Payment was not completed' : 'Payment pending',
-      body: isFailed
-          ? 'Start a new TEST PAYMENT checkout or refresh if you completed it in Paymob.'
-          : 'Paymob is confirming this TEST PAYMENT through GymUnity. Messages and check-ins unlock after the verified callback activates your subscription.',
-      actionLabel: isFailed ? 'Retry payment' : 'Refresh status',
-      onTap: () async {
-        if (isFailed && subscription.packageId != null) {
-          final session = await ref
-              .read(coachPaymentRepositoryProvider)
-              .createPaymobCheckout(
-                packageId: subscription.packageId!,
-                coachId: subscription.coachId,
-                intakeSnapshot: subscription.intakeSnapshot,
-                note: subscription.memberNote,
-              );
-          await ExternalLinkService.openUrl(session.checkoutUrl);
-          ref.invalidate(paymentOrderProvider(session.paymentOrderId));
-        }
-        ref.invalidate(memberSubscriptionsProvider);
-        ref.invalidate(memberCoachingThreadsProvider);
-      },
-    );
-  }
-
   Widget _lockedCoachingActions(BuildContext context, WidgetRef ref) {
     if (subscription.isPaymobPayment) {
-      return _paymobPaymentActions(context, ref);
+      return _PaymobPaymentActions(subscription: subscription);
     }
 
     if (subscription.isCheckoutPending &&
@@ -320,6 +293,11 @@ class _SubscriptionCard extends ConsumerWidget {
       onTap: () {
         ref.invalidate(memberSubscriptionsProvider);
         ref.invalidate(memberCoachingThreadsProvider);
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(content: Text('Subscription status refreshed.')),
+          );
       },
     );
   }
@@ -429,13 +407,17 @@ class _PaymentProofSheetState extends ConsumerState<_PaymentProofSheet> {
         return;
       }
       Navigator.pop(context, true);
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Payment proof could not be submitted: $error')),
+        const SnackBar(
+          content: Text(
+            'Payment proof could not be submitted. Please try again.',
+          ),
+        ),
       );
     }
   }
@@ -563,7 +545,7 @@ class _PauseResumeSubscriptionDialogState
           ),
         ),
       );
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
@@ -572,8 +554,8 @@ class _PauseResumeSubscriptionDialogState
         SnackBar(
           content: Text(
             pauseNow
-                ? 'Subscription could not be paused: $error'
-                : 'Subscription could not be resumed: $error',
+                ? 'Subscription could not be paused. Please try again.'
+                : 'Subscription could not be resumed. Please try again.',
           ),
         ),
       );
@@ -633,6 +615,102 @@ class _MiniChip extends StatelessWidget {
   }
 }
 
+class _PaymobPaymentActions extends ConsumerStatefulWidget {
+  const _PaymobPaymentActions({required this.subscription});
+
+  final SubscriptionEntity subscription;
+
+  @override
+  ConsumerState<_PaymobPaymentActions> createState() =>
+      _PaymobPaymentActionsState();
+}
+
+class _PaymobPaymentActionsState extends ConsumerState<_PaymobPaymentActions> {
+  bool _isWorking = false;
+
+  Future<void> _handleAction() async {
+    if (_isWorking) {
+      return;
+    }
+
+    setState(() => _isWorking = true);
+
+    final isFailed = widget.subscription.checkoutStatus == 'failed';
+
+    try {
+      await Future<void>.delayed(Duration.zero);
+      if (isFailed && widget.subscription.packageId != null) {
+        final session = await ref
+            .read(coachPaymentRepositoryProvider)
+            .createPaymobCheckout(
+              packageId: widget.subscription.packageId!,
+              coachId: widget.subscription.coachId,
+              intakeSnapshot: widget.subscription.intakeSnapshot,
+              note: widget.subscription.memberNote,
+            );
+
+        await ExternalLinkService.openUrl(session.checkoutUrl);
+        ref.invalidate(paymentOrderProvider(session.paymentOrderId));
+      }
+
+      ref.invalidate(memberSubscriptionsProvider);
+      ref.invalidate(memberCoachingThreadsProvider);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              isFailed
+                  ? 'Payment checkout reopened.'
+                  : 'Payment status refreshed.',
+            ),
+          ),
+        );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              isFailed
+                  ? 'Payment retry could not be started. Please try again.'
+                  : 'Payment status could not be refreshed. Please try again.',
+            ),
+          ),
+        );
+    } finally {
+      if (mounted) {
+        setState(() => _isWorking = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isFailed = widget.subscription.checkoutStatus == 'failed';
+
+    return _PaymentNotice(
+      title: isFailed ? 'Payment was not completed' : 'Payment pending',
+      body: isFailed
+          ? 'Start a new TEST PAYMENT checkout or refresh if you completed it in Paymob.'
+          : 'Paymob is confirming this TEST PAYMENT through GymUnity. Messages and check-ins unlock after the verified callback activates your subscription.',
+      actionLabel: _isWorking
+          ? (isFailed ? 'Starting...' : 'Refreshing...')
+          : (isFailed ? 'Retry payment' : 'Refresh status'),
+      onTap: _isWorking ? null : _handleAction,
+    );
+  }
+}
+
 class _PaymentNotice extends StatelessWidget {
   const _PaymentNotice({
     required this.title,
@@ -644,7 +722,7 @@ class _PaymentNotice extends StatelessWidget {
   final String title;
   final String body;
   final String actionLabel;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
