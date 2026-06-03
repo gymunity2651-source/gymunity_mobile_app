@@ -127,18 +127,28 @@ class AiDailyBriefEntity {
         _stringValue(result['motivation_message']) ??
         'Stay consistent with the next useful action.';
     final safetyNotes = _stringList(result['safety_notes']);
-    final missingFields = _stringList(dataQuality['missing_fields']);
+    final criticalMissingFields = _criticalMissingFields(dataQuality);
+    final signals = _stringList(map['signals_used']);
+    final readinessScore =
+        (map['readiness_score'] as num?)?.toInt() ??
+        (result['readiness_score'] as num?)?.toInt() ??
+        _readinessScoreForRisk(riskLevel);
 
     return AiDailyBriefEntity(
       id: 'taiyo-daily-brief-${_dateWire(normalizedDate)}',
       briefDate: normalizedDate,
-      readinessScore: _readinessScoreForRisk(riskLevel),
+      planId: _stringValue(map['plan_id']),
+      dayId: _stringValue(map['day_id']),
+      primaryTaskId: _stringValue(map['primary_task_id']),
+      readinessScore: readinessScore.clamp(0, 100).toInt(),
       intensityBand: _intensityBandForRisk(riskLevel),
       coachMode: status == 'blocked_for_safety',
       recommendedWorkout: <String, dynamic>{
         'title': trainingDecision,
         if (workoutFocus.isNotEmpty) 'focus': workoutFocus,
         'risk_level': riskLevel,
+        if ((map['duration_minutes'] as num?) != null)
+          'duration_minutes': (map['duration_minutes'] as num).toInt(),
       },
       habitFocus: <String, dynamic>{
         'title': 'TAIYO focus',
@@ -152,15 +162,22 @@ class AiDailyBriefEntity {
         if (safetyNotes.isNotEmpty) 'safety_notes': safetyNotes,
       },
       recommendedActions: <String>[
-        if (workoutFocus.isNotEmpty) 'review_workout',
-        if (nutritionFocus.isNotEmpty) 'review_nutrition',
+        ..._stringList(map['recommended_actions_json']),
+        if (_stringList(map['recommended_actions_json']).isEmpty &&
+            workoutFocus.isNotEmpty)
+          'review_workout',
+        if (_stringList(map['recommended_actions_json']).isEmpty &&
+            nutritionFocus.isNotEmpty)
+          'review_nutrition',
         if (safetyNotes.isNotEmpty) 'review_safety_notes',
       ],
       whyShort: motivationMessage,
-      signalsUsed: <String>[
-        'taiyo_daily_brief',
-        if (missingFields.isNotEmpty) 'missing_context',
-      ],
+      signalsUsed: signals.isEmpty
+          ? <String>[
+              'taiyo_daily_brief',
+              if (criticalMissingFields.isNotEmpty) 'missing_context',
+            ]
+          : signals,
       confidence: _confidenceFromDataQuality(dataQuality['confidence']),
       sourceContext: <String, dynamic>{
         'request_type': map['request_type'],
@@ -174,6 +191,7 @@ class AiDailyBriefEntity {
 
   String get workoutTitle =>
       _stringValue(recommendedWorkout['title']) ??
+      _stringValue(recommendedWorkout['training_decision']) ??
       _stringValue(recommendedWorkout['label']) ??
       'Today\'s plan';
 
@@ -182,6 +200,7 @@ class AiDailyBriefEntity {
 
   String get workoutSubtitle =>
       _stringValue(recommendedWorkout['focus']) ??
+      _stringValue(recommendedWorkout['workout_focus']) ??
       _stringValue(recommendedWorkout['subtitle']) ??
       '';
 
@@ -190,6 +209,7 @@ class AiDailyBriefEntity {
 
   String get habitBody =>
       _stringValue(habitFocus['body']) ??
+      _stringValue(habitFocus['motivation_message']) ??
       _stringValue(habitFocus['description']) ??
       '';
 
@@ -199,8 +219,21 @@ class AiDailyBriefEntity {
 
   String get nutritionBody =>
       _stringValue(nutritionPriority['body']) ??
+      _stringValue(nutritionPriority['nutrition_focus']) ??
       _stringValue(nutritionPriority['description']) ??
       '';
+
+  bool get isLegacyFallback => sourceContext['legacy_fallback'] == true;
+
+  bool get isNeedsMoreContext =>
+      sourceContext['status'] == 'needs_more_context' ||
+      signalsUsed.contains('missing_context');
+
+  bool get isSafetyBlocked => sourceContext['status'] == 'blocked_for_safety';
+
+  bool get canStartWorkout => _hasId(planId) && _hasId(dayId);
+
+  bool get hasPrimaryTask => _hasId(primaryTaskId);
 
   List<String> get recapCompleted => _stringList(recap['completed']);
 
@@ -512,6 +545,31 @@ List<String> _stringList(dynamic value) {
         .toList(growable: false);
   }
   return const <String>[];
+}
+
+List<String> _criticalMissingFields(Map<String, dynamic> dataQuality) {
+  final explicit = _stringList(dataQuality['critical_missing_fields']);
+  if (explicit.isNotEmpty) {
+    return explicit;
+  }
+  return _stringList(dataQuality['missing_fields'])
+      .where((field) {
+        switch (field) {
+          case 'readiness':
+          case 'active_plan':
+          case 'today_tasks':
+          case 'workout_activity':
+          case 'nutrition_target':
+            return true;
+          default:
+            return false;
+        }
+      })
+      .toList(growable: false);
+}
+
+bool _hasId(String? value) {
+  return value != null && value.trim().isNotEmpty;
 }
 
 String? _stringValue(dynamic value) {

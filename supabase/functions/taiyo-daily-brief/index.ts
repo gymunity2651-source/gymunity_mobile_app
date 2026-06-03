@@ -97,7 +97,11 @@ export async function handleTaiyoDailyBriefRequest(
     });
 
     let persisted = false;
-    if (brief.status === "success" || brief.status === "blocked_for_safety") {
+    if (
+      brief.status === "success" ||
+      brief.status === "blocked_for_safety" ||
+      brief.status === "needs_more_context"
+    ) {
       const saveDailyBrief = deps.saveDailyBrief ||
         ((memberId, date, context, normalizedBrief) =>
           saveMemberDailyBrief(

@@ -146,6 +146,13 @@ class AiCoachRepositoryImpl implements AiCoachRepository {
       });
       final responseMap = _rowMap(response);
       _validateTaiyoDailyBriefResponse(responseMap);
+      final metadata = _rowMap(responseMap['metadata']);
+      if (metadata['persisted'] == true) {
+        final saved = await getDailyBrief(date);
+        if (saved != null) {
+          return saved;
+        }
+      }
       return AiDailyBriefEntity.fromTaiyoDailyBriefResponse(
         responseMap,
         briefDate: date,

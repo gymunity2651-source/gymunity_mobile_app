@@ -55,6 +55,50 @@ void main() {
     expect(startButton.onPressed, isNull);
     expect(shortenButton.onPressed, isNull);
     expect(moveButton.onPressed, isNull);
+    expect(find.textContaining('No training day is linked'), findsOneWidget);
+  });
+
+  testWidgets('shows setup warning instead of raw missing context signal', (
+    tester,
+  ) async {
+    final fakeRepository = FakeAiCoachRepository()
+      ..dailyBrief = AiDailyBriefEntity(
+        id: 'brief-setup',
+        briefDate: DateTime(2026, 4, 25),
+        readinessScore: 50,
+        intensityBand: 'yellow',
+        coachMode: false,
+        recommendedWorkout: const <String, dynamic>{
+          'title': 'Open your plan builder',
+        },
+        whyShort:
+            'TAIYO needs more linked data before training actions unlock.',
+        signalsUsed: const <String>['missing_context', 'nutrition_status'],
+        sourceContext: const <String, dynamic>{
+          'status': 'needs_more_context',
+          'data_quality': {
+            'critical_missing_fields': ['readiness', 'active_plan'],
+            'optional_missing_fields': ['latest_weight'],
+          },
+        },
+        confidence: 0.45,
+      );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          aiCoachRepositoryProvider.overrideWithValue(fakeRepository),
+        ],
+        child: const MaterialApp(home: AiCoachHomeScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Needs setup'), findsWidgets);
+    expect(find.textContaining('Readiness missing'), findsOneWidget);
+    expect(find.textContaining('Plan not scheduled today'), findsOneWidget);
+    expect(find.text('missing_context'), findsNothing);
   });
 
   testWidgets('specialist agent cards open their owned workflows', (

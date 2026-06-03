@@ -43,5 +43,22 @@ void main() {
         'session-1',
       );
     });
+
+    test('readiness submit forces a daily brief refresh', () async {
+      final fakeRepository = FakeAiCoachRepository();
+      final container = ProviderContainer(
+        overrides: [
+          aiCoachRepositoryProvider.overrideWithValue(fakeRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final log = await container
+          .read(aiCoachReadinessControllerProvider.notifier)
+          .submit(logDate: DateTime(2026, 4, 21), energyLevel: 4);
+
+      expect(log, isNotNull);
+      expect(fakeRepository.refreshDailyBriefCalls, 1);
+    });
   });
 }

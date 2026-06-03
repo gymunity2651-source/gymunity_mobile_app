@@ -82,7 +82,9 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
       body: RefreshIndicator.adaptive(
         color: AtelierColors.primary,
         onRefresh: () async {
-          await ref.read(aiCoachBootProvider).refresh();
+          await refreshAiCoachDailyBrief(ref, today);
+          ref.invalidate(aiCoachNudgesProvider);
+          ref.invalidate(aiWeeklySummaryProvider(_startOfWeek(today)));
         },
         child: briefAsync.when(
           loading: () => const Center(
@@ -168,25 +170,23 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
                   brief: brief,
                   isBusy:
                       actionState.isApplying || actionState.isStartingWorkout,
-                  onStartWorkout: !_canUseRecommendedDay(brief)
+                  onStartWorkout: !_canStartWorkout(brief)
                       ? null
                       : () => _startWorkout(brief),
-                  onShortenWorkout: !_canUseRecommendedDay(brief)
+                  onShortenWorkout: !_canShortenWorkout(brief)
                       ? null
                       : () => _applyAdjustment(
                           brief: brief,
                           type: 'shorten_workout',
                         ),
-                  onSwapWorkout:
-                      !_canUseRecommendedDay(brief) ||
-                          !_hasUsableId(brief.primaryTaskId)
+                  onSwapWorkout: !_canSwapWorkout(brief)
                       ? null
                       : () => _applyAdjustment(
                           brief: brief,
                           type: 'swap_exercise',
                           taskId: brief.primaryTaskId,
                         ),
-                  onMoveToTomorrow: !_canUseRecommendedDay(brief)
+                  onMoveToTomorrow: !_canMoveToTomorrow(brief)
                       ? null
                       : () => _applyAdjustment(
                           brief: brief,
@@ -194,6 +194,8 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
                         ),
                   onLogMeal: _openMealPlanQuickAdd,
                   onLogHydration: _openHydrationQuickLog,
+                  onOpenBuilder: () =>
+                      Navigator.pushNamed(context, AppRoutes.aiPlannerBuilder),
                   onAskWhy: () => _openWhySheet(brief),
                 ),
                 const SizedBox(height: 16),
@@ -471,7 +473,7 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
     required String type,
     String? taskId,
   }) async {
-    if (!_canUseRecommendedDay(brief)) {
+    if (!_canApplyAdjustment(brief, type)) {
       showAppFeedback(
         context,
         'TAIYO needs a linked training day before changing today\'s session.',
@@ -497,7 +499,7 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
   }
 
   Future<void> _startWorkout(AiDailyBriefEntity brief) async {
-    if (!_canUseRecommendedDay(brief)) {
+    if (!_canStartWorkout(brief)) {
       showAppFeedback(
         context,
         'TAIYO needs a linked training day before starting today\'s session.',
@@ -584,12 +586,12 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
                   color: AtelierColors.onSurfaceVariant,
                 ),
               ),
-              if (brief.signalsUsed.isNotEmpty) ...[
+              if (_friendlySignalLabels(brief).isNotEmpty) ...[
                 const SizedBox(height: 14),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: brief.signalsUsed
+                  children: _friendlySignalLabels(brief)
                       .take(3)
                       .map((signal) => Chip(label: Text(signal)))
                       .toList(growable: false),
@@ -603,7 +605,7 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
                     Navigator.pop(context);
                     _openChat(
                       prompt:
-                          'Explain in more detail why you recommended "${brief.workoutTitle}" today, including the signals you used: ${brief.signalsUsed.join(', ')}.',
+                          'Explain in more detail why you recommended "${brief.workoutTitle}" today, including the signals you used: ${_friendlySignalLabels(brief).join(', ')}.',
                     );
                   },
                   child: const Text('Ask TAIYO in chat'),
@@ -616,20 +618,26 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
     );
   }
 
-  void _openMealPlanQuickAdd() {
-    Navigator.pushNamed(
+  Future<void> _openMealPlanQuickAdd() async {
+    await Navigator.pushNamed(
       context,
       AppRoutes.nutritionMealPlan,
       arguments: const MealPlanRouteArgs(openQuickAddOnLaunch: true),
     );
+    if (mounted) {
+      await refreshAiCoachDailyBrief(ref, DateTime.now());
+    }
   }
 
-  void _openHydrationQuickLog() {
-    Navigator.pushNamed(
+  Future<void> _openHydrationQuickLog() async {
+    await Navigator.pushNamed(
       context,
       AppRoutes.nutrition,
       arguments: const NutritionRouteArgs(initialHydrationAmountMl: 350),
     );
+    if (mounted) {
+      await refreshAiCoachDailyBrief(ref, DateTime.now());
+    }
   }
 
   Future<void> _performNudgeAction(AiNudgeEntity nudge) async {
@@ -663,6 +671,7 @@ class _AiCoachHomeScreenState extends ConsumerState<AiCoachHomeScreen> {
         }
         break;
       case 'swap_workout':
+      case 'swap_exercise':
         final brief = await _loadTodayBriefForAction();
         if (brief != null) {
           await _applyAdjustment(
@@ -738,6 +747,7 @@ class _CoachHeroCard extends StatelessWidget {
     required this.onMoveToTomorrow,
     required this.onLogMeal,
     required this.onLogHydration,
+    required this.onOpenBuilder,
     required this.onAskWhy,
   });
 
@@ -749,6 +759,7 @@ class _CoachHeroCard extends StatelessWidget {
   final VoidCallback? onMoveToTomorrow;
   final VoidCallback onLogMeal;
   final VoidCallback onLogHydration;
+  final VoidCallback onOpenBuilder;
   final VoidCallback onAskWhy;
 
   @override
@@ -779,6 +790,8 @@ class _CoachHeroCard extends StatelessWidget {
               const SizedBox(width: 6),
               const TaiyoAiShimmerText(text: 'TAIYO ANALYSIS'),
               const Spacer(),
+              _HeroChip(label: _briefStatusLabel(brief)),
+              const SizedBox(width: 8),
               if (brief.coachMode) const _HeroChip(label: 'COACH-AWARE'),
             ],
           ),
@@ -854,9 +867,13 @@ class _CoachHeroCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.85),
             ),
           ),
-          if (brief.signalsUsed.isNotEmpty) ...[
+          if (_friendlySignalLabels(brief).isNotEmpty) ...[
             const SizedBox(height: 12),
-            TaiyoSignalChips(signals: brief.signalsUsed),
+            TaiyoSignalChips(signals: _friendlySignalLabels(brief)),
+          ],
+          if (_shouldShowBriefNotice(brief)) ...[
+            const SizedBox(height: 12),
+            _BriefContextNotice(brief: brief, onOpenBuilder: onOpenBuilder),
           ],
           const SizedBox(height: 16),
           Row(
@@ -965,6 +982,94 @@ class _CoachSurface extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
       ),
       child: child,
+    );
+  }
+}
+
+class _BriefContextNotice extends StatelessWidget {
+  const _BriefContextNotice({required this.brief, required this.onOpenBuilder});
+
+  final AiDailyBriefEntity brief;
+  final VoidCallback onOpenBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = _missingContextLabels(brief);
+    final message = brief.isSafetyBlocked
+        ? 'Safety signals are elevated today. Workout changes are paused until TAIYO can keep the recommendation safe.'
+        : !brief.canStartWorkout
+        ? 'No training day is linked for today. Create or schedule a plan to unlock workout actions.'
+        : brief.isLegacyFallback
+        ? 'Backend fallback is active. TAIYO is using available plan and nutrition data until the full daily brief syncs.'
+        : 'Add the missing setup details below to improve today\'s recommendation.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            brief.isSafetyBlocked
+                ? 'Safety blocked'
+                : brief.isLegacyFallback
+                ? 'Backend fallback'
+                : 'Needs setup',
+            style: GoogleFonts.manrope(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            style: GoogleFonts.manrope(
+              fontSize: 12,
+              height: 1.45,
+              color: Colors.white.withValues(alpha: 0.82),
+            ),
+          ),
+          if (labels.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final label in labels)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(label),
+                    backgroundColor: Colors.white.withValues(alpha: 0.16),
+                    labelStyle: GoogleFonts.manrope(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                    side: BorderSide.none,
+                  ),
+              ],
+            ),
+          ],
+          if (!brief.canStartWorkout) ...[
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: onOpenBuilder,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white54),
+              ),
+              icon: const Icon(Icons.architecture_outlined),
+              label: const Text('Open Plan Builder'),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -1813,10 +1918,162 @@ DateTime _startOfWeek(DateTime value) {
   return normalized.subtract(Duration(days: normalized.weekday - 1));
 }
 
-bool _canUseRecommendedDay(AiDailyBriefEntity brief) {
-  return _hasUsableId(brief.planId) && _hasUsableId(brief.dayId);
-}
-
 bool _hasUsableId(String? value) {
   return value != null && value.trim().isNotEmpty;
+}
+
+bool _canStartWorkout(AiDailyBriefEntity brief) {
+  return brief.canStartWorkout &&
+      !brief.isSafetyBlocked &&
+      _allowsAction(brief, 'start_workout');
+}
+
+bool _canShortenWorkout(AiDailyBriefEntity brief) {
+  return brief.canStartWorkout &&
+      !brief.isSafetyBlocked &&
+      _allowsAction(brief, 'shorten_workout');
+}
+
+bool _canSwapWorkout(AiDailyBriefEntity brief) {
+  return brief.canStartWorkout &&
+      brief.hasPrimaryTask &&
+      !brief.isSafetyBlocked &&
+      _allowsAction(brief, 'swap_exercise');
+}
+
+bool _canMoveToTomorrow(AiDailyBriefEntity brief) {
+  return brief.canStartWorkout &&
+      !brief.isSafetyBlocked &&
+      _allowsAction(brief, 'move_to_tomorrow');
+}
+
+bool _canApplyAdjustment(AiDailyBriefEntity brief, String type) {
+  switch (type) {
+    case 'shorten_workout':
+      return _canShortenWorkout(brief);
+    case 'swap_exercise':
+    case 'swap_workout':
+      return _canSwapWorkout(brief);
+    case 'move_to_tomorrow':
+      return _canMoveToTomorrow(brief);
+    default:
+      return brief.canStartWorkout && !brief.isSafetyBlocked;
+  }
+}
+
+bool _allowsAction(AiDailyBriefEntity brief, String action) {
+  if (brief.recommendedActions.isEmpty) {
+    return true;
+  }
+  return brief.recommendedActions.contains(action);
+}
+
+bool _shouldShowBriefNotice(AiDailyBriefEntity brief) {
+  return brief.isSafetyBlocked ||
+      brief.isNeedsMoreContext ||
+      brief.isLegacyFallback ||
+      !brief.canStartWorkout;
+}
+
+String _briefStatusLabel(AiDailyBriefEntity brief) {
+  if (brief.isSafetyBlocked) {
+    return 'Safety blocked';
+  }
+  if (brief.isLegacyFallback) {
+    return 'Backend fallback';
+  }
+  if (brief.isNeedsMoreContext || !brief.canStartWorkout) {
+    return 'Needs setup';
+  }
+  return 'TAIYO ready';
+}
+
+List<String> _friendlySignalLabels(AiDailyBriefEntity brief) {
+  final labels = <String>[];
+  for (final signal in brief.signalsUsed) {
+    final label = _friendlySignalLabel(signal);
+    if (label != null && !labels.contains(label)) {
+      labels.add(label);
+    }
+  }
+  return labels;
+}
+
+String? _friendlySignalLabel(String signal) {
+  switch (signal.trim().toLowerCase()) {
+    case 'missing_context':
+      return null;
+    case 'readiness':
+    case 'daily readiness':
+    case 'taiyo_daily_brief':
+      return 'Readiness';
+    case 'nutrition_status':
+    case 'nutrition status':
+    case 'nutrition_progress':
+      return 'Nutrition';
+    case 'active_plan':
+    case 'plan_agenda':
+    case 'workout adherence':
+      return 'Training plan';
+    case 'progress signals':
+      return 'Progress';
+    case 'legacy_fallback':
+      return 'Backend fallback';
+    default:
+      return signal
+          .replaceAll('_', ' ')
+          .split(' ')
+          .where((part) => part.isNotEmpty)
+          .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+          .join(' ');
+  }
+}
+
+List<String> _missingContextLabels(AiDailyBriefEntity brief) {
+  final dataQuality = brief.sourceContext['data_quality'];
+  final map = dataQuality is Map
+      ? dataQuality.map(
+          (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+        )
+      : const <String, dynamic>{};
+  final fields = <String>{
+    ..._stringList(map['critical_missing_fields']),
+    if (!brief.canStartWorkout) 'today_tasks',
+  };
+  final labels = <String>[];
+  for (final field in fields) {
+    final label = _missingContextLabel(field);
+    if (label != null && !labels.contains(label)) {
+      labels.add(label);
+    }
+  }
+  return labels;
+}
+
+String? _missingContextLabel(String field) {
+  switch (field.trim().toLowerCase()) {
+    case 'readiness':
+      return 'Readiness missing';
+    case 'active_plan':
+    case 'today_tasks':
+    case 'workout_activity':
+      return 'Plan not scheduled today';
+    case 'nutrition_target':
+      return 'Nutrition target missing';
+    case 'latest_weight':
+    case 'latest_measurement':
+      return 'Progress data optional';
+    default:
+      return null;
+  }
+}
+
+List<String> _stringList(dynamic value) {
+  if (value is List) {
+    return value
+        .map((dynamic item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+  return const <String>[];
 }

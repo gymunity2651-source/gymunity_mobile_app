@@ -3772,6 +3772,7 @@ class FakeAiCoachRepository implements AiCoachRepository {
     'message': 'Stay steady and keep the next block clean.',
   };
 
+  int refreshDailyBriefCalls = 0;
   int accountabilityScanCalls = 0;
   int maintainMemoryCalls = 0;
   Object? error;
@@ -3813,6 +3814,7 @@ class FakeAiCoachRepository implements AiCoachRepository {
   @override
   Future<AiDailyBriefEntity> refreshDailyBrief(DateTime date) async {
     if (error != null) throw error!;
+    refreshDailyBriefCalls++;
     dailyBrief ??= AiDailyBriefEntity(
       id: 'brief-1',
       briefDate: date,

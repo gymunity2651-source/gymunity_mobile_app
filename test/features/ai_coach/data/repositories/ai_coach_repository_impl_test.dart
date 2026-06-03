@@ -46,6 +46,54 @@ void main() {
   });
 
   group('TAIYO daily brief response mapping', () {
+    test('fromMap reads UI keys and backward-compatible AI result keys', () {
+      final uiEntity = AiDailyBriefEntity.fromMap(<String, dynamic>{
+        'id': 'brief-ui',
+        'brief_date': '2026-04-29',
+        'readiness_score': 84,
+        'intensity_band': 'green',
+        'recommended_workout_json': <String, dynamic>{
+          'title': 'Train upper strength',
+          'focus': 'Controlled pressing',
+        },
+        'habit_focus_json': <String, dynamic>{
+          'title': 'TAIYO focus',
+          'body': 'Start with the first block.',
+        },
+        'nutrition_priority_json': <String, dynamic>{
+          'title': 'Nutrition focus',
+          'body': 'Hit protein early.',
+        },
+        'why_short': 'Real data.',
+      });
+
+      expect(uiEntity.workoutTitle, 'Train upper strength');
+      expect(uiEntity.workoutSubtitle, 'Controlled pressing');
+      expect(uiEntity.habitBody, 'Start with the first block.');
+      expect(uiEntity.nutritionBody, 'Hit protein early.');
+
+      final legacyEntity = AiDailyBriefEntity.fromMap(<String, dynamic>{
+        'id': 'brief-legacy',
+        'brief_date': '2026-04-29',
+        'recommended_workout_json': <String, dynamic>{
+          'training_decision': 'Deload today',
+          'workout_focus': 'Recovery mobility',
+        },
+        'habit_focus_json': <String, dynamic>{
+          'motivation_message': 'Protect consistency.',
+        },
+        'nutrition_priority_json': <String, dynamic>{
+          'nutrition_focus': 'Hydrate before training.',
+        },
+        'why_short': 'Legacy data.',
+      });
+
+      expect(legacyEntity.workoutTitle, 'Deload today');
+      expect(legacyEntity.workoutSubtitle, 'Recovery mobility');
+      expect(legacyEntity.habitBody, 'Protect consistency.');
+      expect(legacyEntity.nutritionBody, 'Hydrate before training.');
+    });
+
     test(
       'maps normalized Edge Function response to existing daily brief entity',
       () {
@@ -53,6 +101,7 @@ void main() {
           <String, dynamic>{
             'request_type': 'daily_member_brief',
             'status': 'success',
+            'readiness_score': 86,
             'result': <String, dynamic>{
               'training_decision': 'Train normally with controlled intensity.',
               'workout_focus': 'Upper body strength',
@@ -62,7 +111,8 @@ void main() {
               'safety_notes': <String>[],
             },
             'data_quality': <String, dynamic>{
-              'missing_fields': <String>['sleep_hours'],
+              'missing_fields': <String>['latest_weight'],
+              'optional_missing_fields': <String>['latest_weight'],
               'confidence': 'medium',
             },
             'metadata': <String, dynamic>{
@@ -76,7 +126,7 @@ void main() {
         expect(entity.id, 'taiyo-daily-brief-2026-04-29');
         expect(entity.briefDate, DateTime(2026, 4, 29));
         expect(entity.intensityBand, 'green');
-        expect(entity.readinessScore, 72);
+        expect(entity.readinessScore, 86);
         expect(
           entity.workoutTitle,
           'Train normally with controlled intensity.',
@@ -85,7 +135,7 @@ void main() {
         expect(entity.nutritionBody, 'Keep protein on track.');
         expect(entity.whyShort, 'Build momentum with clean execution.');
         expect(entity.confidence, 0.7);
-        expect(entity.signalsUsed, contains('missing_context'));
+        expect(entity.signalsUsed, isNot(contains('missing_context')));
         expect(entity.sourceContext['status'], 'success');
       },
     );
@@ -115,6 +165,32 @@ void main() {
       expect(entity.recommendedActions, contains('review_safety_notes'));
       expect(entity.recap['safety_notes'], <String>['Dizziness reported']);
       expect(entity.confidence, 0.9);
+    });
+
+    test('helper getters expose status and linked-action state', () {
+      final entity = AiDailyBriefEntity(
+        id: 'brief-1',
+        briefDate: DateTime(2026, 4, 29),
+        planId: 'plan-1',
+        dayId: 'day-1',
+        primaryTaskId: 'task-1',
+        readinessScore: 60,
+        intensityBand: 'yellow',
+        coachMode: false,
+        whyShort: 'Needs context.',
+        signalsUsed: const <String>['missing_context'],
+        confidence: 0.5,
+        sourceContext: const <String, dynamic>{
+          'status': 'needs_more_context',
+          'legacy_fallback': true,
+        },
+      );
+
+      expect(entity.isLegacyFallback, isTrue);
+      expect(entity.isNeedsMoreContext, isTrue);
+      expect(entity.isSafetyBlocked, isFalse);
+      expect(entity.canStartWorkout, isTrue);
+      expect(entity.hasPrimaryTask, isTrue);
     });
   });
 }

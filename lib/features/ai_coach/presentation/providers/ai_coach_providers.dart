@@ -65,7 +65,7 @@ class AiCoachReadinessController extends StateNotifier<AiCoachReadinessState> {
             equipmentOverride: equipmentOverride,
             note: note,
           );
-      _ref.invalidate(aiCoachDailyBriefProvider(_dateOnly(log.logDate)));
+      await _refreshDailyBrief(_ref, _dateOnly(log.logDate));
       _ref.invalidate(aiCoachNudgesProvider);
       state = state.copyWith(
         isSubmitting: false,
@@ -141,7 +141,7 @@ class AiCoachActionController extends StateNotifier<AiCoachActionState> {
             taskId: taskId,
           );
       final today = _dateOnly(briefDate ?? DateTime.now());
-      _ref.invalidate(aiCoachDailyBriefProvider(today));
+      await _refreshDailyBrief(_ref, today);
       _ref.invalidate(aiCoachNudgesProvider);
       _ref.invalidate(planDetailProvider(null));
       _ref.invalidate(todayAgendaProvider);
@@ -172,6 +172,7 @@ class AiCoachActionController extends StateNotifier<AiCoachActionState> {
             targetDate: _dateOnly(targetDate ?? DateTime.now()),
           );
       _ref.invalidate(activeWorkoutSessionProvider(session.id));
+      await _refreshDailyBrief(_ref, _dateOnly(targetDate ?? DateTime.now()));
       state = state.copyWith(
         isStartingWorkout: false,
         clearError: true,
@@ -297,6 +298,7 @@ class ActiveWorkoutCompanionController
             targetDate: _dateOnly(targetDate ?? DateTime.now()),
           );
       _ref.invalidate(activeWorkoutSessionProvider(session.id));
+      await _refreshDailyBrief(_ref, _dateOnly(targetDate ?? DateTime.now()));
       state = state.copyWith(
         sessionId: session.id,
         isLoading: false,
@@ -388,7 +390,7 @@ class ActiveWorkoutCompanionController
             },
           );
       _ref.invalidate(activeWorkoutSessionProvider(sessionId));
-      _ref.invalidate(aiCoachDailyBriefProvider(_dateOnly(DateTime.now())));
+      await _refreshDailyBrief(_ref, _dateOnly(DateTime.now()));
       _ref.invalidate(planDetailProvider(null));
       _ref.invalidate(todayAgendaProvider);
       _ref.invalidate(aiCoachNudgesProvider);
@@ -408,6 +410,7 @@ class ActiveWorkoutCompanionController
       await _ref
           .read(aiCoachRepositoryProvider)
           .applyAdjustment(adjustmentType: type, taskId: taskId);
+      await _refreshDailyBrief(_ref, _dateOnly(DateTime.now()));
       final sessionId = state.sessionId;
       if (sessionId != null && sessionId.isNotEmpty) {
         _ref.invalidate(activeWorkoutSessionProvider(sessionId));
@@ -440,7 +443,12 @@ class AiCoachBootController {
     final today = _dateOnly(DateTime.now());
     final repo = _ref.read(aiCoachRepositoryProvider);
     await _runOptional(() => repo.maintainMemory());
-    await _runOptional(() => repo.refreshDailyBrief(today));
+    await _runOptional(() async {
+      final cached = await repo.getDailyBrief(today);
+      if (cached == null) {
+        await repo.refreshDailyBrief(today);
+      }
+    });
     await _runOptional(() => repo.runAccountabilityScan());
     await _runOptional(() => repo.refreshWeeklySummary(_startOfWeek(today)));
     await _ref.read(plannerReminderBootstrapProvider).sync();
@@ -521,6 +529,23 @@ final aiCoachBootProvider = Provider<AiCoachBootController>((ref) {
   return AiCoachBootController(ref);
 });
 
+Future<AiDailyBriefEntity?> refreshAiCoachDailyBrief(
+  WidgetRef ref,
+  DateTime date,
+) async {
+  final normalized = _dateOnly(date);
+  try {
+    final brief = await ref
+        .read(aiCoachRepositoryProvider)
+        .refreshDailyBrief(normalized);
+    ref.invalidate(aiCoachDailyBriefProvider(normalized));
+    return brief;
+  } on AppFailure {
+    ref.invalidate(aiCoachDailyBriefProvider(normalized));
+    rethrow;
+  }
+}
+
 final authAwareAiCoachProvider = Provider<void>((ref) {
   if (AppConfig.current.validationErrorMessage != null ||
       !SupabaseInitializer.isInitialized) {
@@ -544,4 +569,18 @@ DateTime _dateOnly(DateTime value) {
 DateTime _startOfWeek(DateTime value) {
   final normalized = _dateOnly(value);
   return normalized.subtract(Duration(days: normalized.weekday - 1));
+}
+
+Future<AiDailyBriefEntity?> _refreshDailyBrief(Ref ref, DateTime date) async {
+  final normalized = _dateOnly(date);
+  try {
+    final brief = await ref
+        .read(aiCoachRepositoryProvider)
+        .refreshDailyBrief(normalized);
+    ref.invalidate(aiCoachDailyBriefProvider(normalized));
+    return brief;
+  } on AppFailure {
+    ref.invalidate(aiCoachDailyBriefProvider(normalized));
+    rethrow;
+  }
 }

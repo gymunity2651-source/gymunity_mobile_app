@@ -48,6 +48,8 @@ export type MemberDailyContext = {
   safety_flags: string[];
   data_quality: {
     missing_fields: string[];
+    critical_missing_fields: string[];
+    optional_missing_fields: string[];
     confidence: Confidence;
   };
 };
@@ -65,6 +67,8 @@ export type NormalizedDailyBrief = {
   };
   data_quality: {
     missing_fields: string[];
+    critical_missing_fields: string[];
+    optional_missing_fields: string[];
     confidence: Confidence;
   };
   metadata: {
@@ -149,16 +153,28 @@ export function buildMemberContext(
     injuries,
   });
 
-  const missingFields = compactStrings([
+  const activePlan = obj(raw.active_plan);
+  const todayDay = obj(raw.today_day);
+  const readinessScore = num(readiness.readiness_score);
+  const criticalMissingFields = compactStrings([
+    readinessScore == null ? "readiness" : null,
+    str(activePlan.id) ? null : "active_plan",
+    str(todayDay.id) || todayTasks.length ? null : "today_tasks",
+    Object.keys(nutritionTarget).length ? null : "nutrition_target",
+  ]);
+  const optionalMissingFields = compactStrings([
     goal === "unknown" ? "profile.goal" : null,
     fitnessLevel === "unknown" ? "profile.fitness_level" : null,
-    Object.keys(readiness).length ? null : "readiness",
-    todayTasks.length || recentTaskLogs.length ? null : "workout_activity",
-    Object.keys(nutritionTarget).length ? null : "nutrition_target",
     Object.keys(latestWeight).length ? null : "latest_weight",
+    Object.keys(obj(raw.latest_measurement)).length
+      ? null
+      : "latest_measurement",
+  ]);
+  const missingFields = compactStrings([
+    ...criticalMissingFields,
+    ...optionalMissingFields,
   ]);
 
-  const readinessScore = num(readiness.readiness_score);
   const hydrationMl = num(nutrition.hydration_ml_today);
   const hydrationTarget = num(nutritionTarget.hydration_ml);
   const plannedMeals = num(nutrition.planned_meals_today);
@@ -210,6 +226,8 @@ export function buildMemberContext(
     safety_flags: safetyFlags,
     data_quality: {
       missing_fields: missingFields,
+      critical_missing_fields: criticalMissingFields,
+      optional_missing_fields: optionalMissingFields,
       confidence: confidenceFor(missingFields, readinessScore),
     },
   };
@@ -265,6 +283,7 @@ export function normalizeAiDailyBrief(
     str(raw.status),
     riskLevel,
     memberContext.safety_flags,
+    memberContext.data_quality.critical_missing_fields,
   );
 
   return {
@@ -329,13 +348,17 @@ export function briefPersistencePayload(
     arr(raw.today_tasks).map(obj).find((task) => task.is_required === true) ||
     arr(raw.today_tasks).map(obj)[0] ||
     {};
+  const planId = str(activePlan.id) || str(primaryTask.workout_plan_id);
+  const dayId = str(todayDay.id) || str(primaryTask.day_id);
   const readinessScore = num(obj(raw.readiness).readiness_score) ?? 50;
+  const durationMinutes = resolvedDurationMinutes(raw, primaryTask);
+  const recommendedActions = recommendedActionsFor(raw, brief, primaryTask);
 
   return {
     member_id: memberId,
     brief_date: targetDate,
-    plan_id: str(activePlan.id),
-    day_id: str(todayDay.id),
+    plan_id: planId,
+    day_id: dayId,
     primary_task_id: str(primaryTask.id),
     readiness_score: Math.round(Math.max(0, Math.min(100, readinessScore))),
     intensity_band: brief.result.risk_level === "high"
@@ -347,20 +370,28 @@ export function briefPersistencePayload(
       str(activePlan.coach_id) || str(obj(raw.active_subscription).coach_id),
     ),
     recommended_workout_json: {
+      title: brief.result.training_decision,
+      focus: brief.result.workout_focus,
+      risk_level: brief.result.risk_level,
+      ...(durationMinutes ? { duration_minutes: durationMinutes } : {}),
       training_decision: brief.result.training_decision,
       workout_focus: brief.result.workout_focus,
     },
     habit_focus_json: {
+      title: "TAIYO focus",
+      body: brief.result.motivation_message,
       motivation_message: brief.result.motivation_message,
     },
     nutrition_priority_json: {
+      title: "Nutrition focus",
+      body: brief.result.nutrition_focus,
       nutrition_focus: brief.result.nutrition_focus,
     },
     recap_json: {
       safety_notes: brief.result.safety_notes,
       status: brief.status,
     },
-    recommended_actions_json: [],
+    recommended_actions_json: recommendedActions,
     why_short: brief.result.motivation_message ||
       brief.result.training_decision || "",
     signals_used: compactStrings([
@@ -380,8 +411,83 @@ export function briefPersistencePayload(
       result: brief.result,
       data_quality: brief.data_quality,
       generated_at: brief.metadata.generated_at,
+      input_fingerprint: inputFingerprint(raw),
     },
   };
+}
+
+function resolvedDurationMinutes(
+  raw: Record<string, unknown>,
+  primaryTask: Record<string, unknown>,
+) {
+  const primaryDuration = num(primaryTask.duration_minutes);
+  if (primaryDuration != null && primaryDuration > 0) {
+    return Math.round(primaryDuration);
+  }
+  const total = arr(raw.today_tasks).map(obj).reduce(
+    (sum, task) => sum + (num(task.duration_minutes) ?? 0),
+    0,
+  );
+  return total > 0 ? Math.round(total) : null;
+}
+
+function recommendedActionsFor(
+  raw: Record<string, unknown>,
+  brief: NormalizedDailyBrief,
+  primaryTask: Record<string, unknown>,
+) {
+  const actions = new Set<string>();
+  const activePlan = obj(raw.active_plan);
+  const todayDay = obj(raw.today_day);
+  const readiness = obj(raw.readiness);
+  const nutrition = obj(raw.nutrition);
+  const nutritionTarget = obj(nutrition.target);
+  const hasPlan = Boolean(
+    str(activePlan.id) || str(primaryTask.workout_plan_id),
+  );
+  const hasDay = Boolean(str(todayDay.id) || str(primaryTask.day_id));
+  const hasReadiness = num(readiness.readiness_score) != null;
+  const hasNutritionTarget = Object.keys(nutritionTarget).length > 0;
+  const hasPrimaryTask = Boolean(str(primaryTask.id));
+  const hasSubstitutions =
+    arr(primaryTask.substitution_options_json).length > 0 ||
+    arr(primaryTask.substitution_options).length > 0;
+  const isCoachLocked =
+    str(activePlan.coach_id) != null ||
+    str(obj(raw.active_subscription).coach_id) != null ||
+    str(activePlan.adaptation_mode) === "coach_locked";
+  const safetyBlocked = brief.status === "blocked_for_safety";
+
+  if (hasPlan && hasDay && !safetyBlocked) {
+    actions.add("start_workout");
+    actions.add("shorten_workout");
+    if (hasPrimaryTask && hasSubstitutions) actions.add("swap_exercise");
+    if (!isCoachLocked) actions.add("move_to_tomorrow");
+  } else if (!hasPlan) {
+    actions.add("open_builder");
+  }
+
+  if (!hasReadiness) actions.add("update_readiness");
+  if (!hasNutritionTarget) actions.add("open_nutrition_setup");
+  actions.add("log_meal");
+  actions.add("log_hydration");
+  if (safetyBlocked) actions.add("review_safety_notes");
+  return Array.from(actions);
+}
+
+function inputFingerprint(raw: Record<string, unknown>) {
+  const activePlan = obj(raw.active_plan);
+  const todayDay = obj(raw.today_day);
+  const readiness = obj(raw.readiness);
+  const nutrition = obj(raw.nutrition);
+  return [
+    str(activePlan.id) || "no-plan",
+    str(todayDay.id) || "no-day",
+    num(readiness.readiness_score)?.toString() || "no-readiness",
+    num(nutrition.meal_logs_today)?.toString() || "0-meals",
+    num(nutrition.hydration_ml_today)?.toString() || "0-water",
+    arr(raw.today_tasks).length.toString(),
+  ].join("|");
 }
 
 function normalizeGoal(value: string | null) {
@@ -525,15 +631,8 @@ function normalizeStatus(
   value: string | null,
   riskLevel: RiskLevel,
   safetyFlags: string[],
+  criticalMissingFields: string[] = [],
 ): DailyBriefStatus {
-  if (
-    value === "success" ||
-    value === "needs_more_context" ||
-    value === "blocked_for_safety" ||
-    value === "error"
-  ) {
-    return value;
-  }
   const highRiskFlags = [
     "chest_pain",
     "fainting",
@@ -545,6 +644,15 @@ function normalizeStatus(
     safetyFlags.some((flag) => highRiskFlags.includes(flag))
   ) {
     return "blocked_for_safety";
+  }
+  if (value === "blocked_for_safety" || value === "error") {
+    return value;
+  }
+  if (criticalMissingFields.length > 0) {
+    return "needs_more_context";
+  }
+  if (value === "success" || value === "needs_more_context") {
+    return value;
   }
   return "success";
 }
