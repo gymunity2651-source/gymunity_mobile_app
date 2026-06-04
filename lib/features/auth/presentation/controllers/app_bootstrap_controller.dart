@@ -8,6 +8,7 @@ import '../../../../core/di/providers.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/supabase/auth_deep_link_bootstrap.dart';
 import '../../../../core/supabase/supabase_initializer.dart';
+import 'launch_context_resolver.dart';
 
 enum AppBootstrapStatus {
   loading,
@@ -79,40 +80,18 @@ class AppBootstrapController extends StateNotifier<AppBootstrapState> {
       await SupabaseInitializer.initialize();
       await AuthDeepLinkBootstrap.instance.start();
 
-      final currentUser = await _ref
-          .read(userRepositoryProvider)
-          .getCurrentUser();
-      if (currentUser == null) {
-        state = const AppBootstrapState(
-          status: AppBootstrapStatus.unauthenticated,
-          routeName: AppRoutes.welcome,
-        );
-        return;
+      final launchKind = await _ref
+          .read(launchContextResolverProvider)
+          .resolve();
+      final minimumDisplayFuture = _minimumDisplayFutureFor(launchKind);
+      final nextState = await _resolveInitialState();
+
+      if (!nextState.isTerminalError) {
+        await minimumDisplayFuture;
+        await _ref.read(launchStateStoreProvider).markFirstLaunchComplete();
       }
 
-      final accountStatus = await _ref
-          .read(userRepositoryProvider)
-          .getAccountStatus(userId: currentUser.id);
-      if (accountStatus.isDeletedLike) {
-        await _ref.read(authRepositoryProvider).logout();
-        state = const AppBootstrapState(
-          status: AppBootstrapStatus.deletedAccount,
-          message:
-              'This GymUnity account has been deleted or deactivated. Contact support if you need help.',
-        );
-        return;
-      }
-
-      final route = await _ref
-          .read(authRouteResolverProvider)
-          .resolveInitialAppRoute();
-      state = AppBootstrapState(
-        status: route.routeName == AppRoutes.welcome
-            ? AppBootstrapStatus.unauthenticated
-            : AppBootstrapStatus.authenticated,
-        routeName: route.routeName,
-        routeArguments: route.arguments,
-      );
+      state = nextState;
     } on AppFailure catch (error) {
       state = AppBootstrapState(
         status: AppBootstrapStatus.backendError,
@@ -124,6 +103,51 @@ class AppBootstrapController extends StateNotifier<AppBootstrapState> {
         message: _messageFromError(error),
       );
     }
+  }
+
+  Future<AppBootstrapState> _resolveInitialState() async {
+    final currentUser = await _ref
+        .read(userRepositoryProvider)
+        .getCurrentUser();
+    if (currentUser == null) {
+      return const AppBootstrapState(
+        status: AppBootstrapStatus.unauthenticated,
+        routeName: AppRoutes.welcome,
+      );
+    }
+
+    final accountStatus = await _ref
+        .read(userRepositoryProvider)
+        .getAccountStatus(userId: currentUser.id);
+    if (accountStatus.isDeletedLike) {
+      await _ref.read(authRepositoryProvider).logout();
+      return const AppBootstrapState(
+        status: AppBootstrapStatus.deletedAccount,
+        message:
+            'This GymUnity account has been deleted or deactivated. Contact support if you need help.',
+      );
+    }
+
+    final route = await _ref
+        .read(authRouteResolverProvider)
+        .resolveInitialAppRoute();
+    return AppBootstrapState(
+      status: route.routeName == AppRoutes.welcome
+          ? AppBootstrapStatus.unauthenticated
+          : AppBootstrapStatus.authenticated,
+      routeName: route.routeName,
+      routeArguments: route.arguments,
+    );
+  }
+
+  Future<void> _minimumDisplayFutureFor(AppLaunchKind launchKind) async {
+    final minimumDuration = _ref
+        .read(splashTimingPolicyProvider)
+        .minimumDurationFor(launchKind);
+    if (minimumDuration == Duration.zero) {
+      return;
+    }
+    await Future<void>.delayed(minimumDuration);
   }
 
   String _messageFromError(Object error) {

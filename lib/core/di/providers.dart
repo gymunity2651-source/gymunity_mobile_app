@@ -13,9 +13,12 @@ import '../../features/ai_chat/domain/repositories/chat_repository.dart';
 import '../../features/admin/data/repositories/admin_repository_impl.dart';
 import '../../features/admin/domain/repositories/admin_repository.dart';
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
+import '../../features/auth/data/launch_state_store.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/entities/auth_session.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
+import '../../features/auth/presentation/controllers/launch_context_resolver.dart';
+import '../../features/auth/presentation/controllers/splash_timing_policy.dart';
 import '../../features/coach/data/repositories/coach_repository_impl.dart';
 import '../../features/coach/data/repositories/coach_payment_repository_impl.dart';
 import '../../features/coach/domain/repositories/coach_payment_repository.dart';
@@ -53,6 +56,14 @@ import '../supabase/auth_callback_ingress.dart';
 import '../supabase/supabase_initializer.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
+
+final launchStateStoreProvider = Provider<LaunchStateStore>((ref) {
+  final preferences = ref.watch(sharedPreferencesProvider);
+  if (preferences == null) {
+    return _NoopLaunchStateStore();
+  }
+  return SharedPreferencesLaunchStateStore(preferences);
+});
 
 final appStatePersistenceServiceProvider =
     FutureProvider<AppStatePersistenceService>((ref) async {
@@ -209,6 +220,18 @@ final authRouteResolverProvider = Provider<AuthRouteResolver>((ref) {
   );
 });
 
+final launchContextResolverProvider = Provider<LaunchContextResolver>((ref) {
+  return LaunchContextResolver(
+    userRepository: ref.watch(userRepositoryProvider),
+    navigationStateStore: ref.watch(appNavigationStateStoreProvider),
+    launchStateStore: ref.watch(launchStateStoreProvider),
+  );
+});
+
+final splashTimingPolicyProvider = Provider<SplashTimingPolicy>((ref) {
+  return const SplashTimingPolicy();
+});
+
 final appNavigationStateStoreProvider = Provider<AppNavigationStateStore>((
   ref,
 ) {
@@ -227,6 +250,14 @@ final appNavigationStateStoreProvider = Provider<AppNavigationStateStore>((
 final appRouteObserverProvider = Provider<AppRouteObserver>((ref) {
   return AppRouteObserver(ref.watch(appNavigationStateStoreProvider));
 });
+
+class _NoopLaunchStateStore implements LaunchStateStore {
+  @override
+  Future<bool> hasCompletedFirstLaunch() async => true;
+
+  @override
+  Future<void> markFirstLaunchComplete() async {}
+}
 
 class _NoopAppNavigationStateStore implements AppNavigationStateStore {
   @override

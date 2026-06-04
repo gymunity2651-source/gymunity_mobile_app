@@ -20,17 +20,13 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
-  static const Duration _minimumSplashDuration = Duration(milliseconds: 900);
-
   bool _hasNavigated = false;
-  late final Future<void> _minimumDisplayFuture;
   ProviderSubscription<AppBootstrapState>? _bootstrapSubscription;
   ProviderSubscription<AuthFlowState>? _authFlowSubscription;
 
   @override
   void initState() {
     super.initState();
-    _minimumDisplayFuture = Future<void>.delayed(_minimumSplashDuration);
 
     _bootstrapSubscription = ref.listenManual<AppBootstrapState>(
       appBootstrapControllerProvider,
@@ -305,14 +301,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       return;
     }
     _hasNavigated = true;
-    unawaited(_navigateAfterMinimumDisplay(routeName, arguments: arguments));
+    unawaited(_navigateAfterResolvedBootstrap(routeName, arguments: arguments));
   }
 
-  Future<void> _navigateAfterMinimumDisplay(
+  Future<void> _navigateAfterResolvedBootstrap(
     String routeName, {
     Object? arguments,
   }) async {
-    await _minimumDisplayFuture;
     if (!mounted) {
       return;
     }

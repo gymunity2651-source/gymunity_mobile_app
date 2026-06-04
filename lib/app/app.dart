@@ -30,6 +30,13 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.black,
+      ),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(ref.read(appStatePersistenceServiceProvider.future));
       ref.read(monetizationBootstrapProvider).start();
@@ -61,14 +68,6 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
       ref.watch(authAwarePlannerRemindersProvider);
       ref.watch(authAwareAiCoachProvider);
     }
-
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.black,
-      ),
-    );
 
     return MaterialApp(
       title: AppStrings.appName,

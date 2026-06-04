@@ -105,6 +105,49 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets('Splash preserves bootstrap route arguments', (
+    WidgetTester tester,
+  ) async {
+    late _ManualBootstrapController controller;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
+          userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+          authCallbackIngressProvider.overrideWithValue(
+            FakeAuthCallbackIngress(),
+          ),
+          appBootstrapControllerProvider.overrideWith(
+            (ref) => controller = _ManualBootstrapController(ref),
+          ),
+        ],
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.darkTheme,
+          routes: <String, WidgetBuilder>{
+            AppRoutes.aiConversation: (context) {
+              final arguments =
+                  ModalRoute.of(context)!.settings.arguments
+                      as Map<String, dynamic>;
+              return Scaffold(body: Text(arguments['sessionId'] as String));
+            },
+          },
+          home: const SplashScreen(),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    controller.resolveToAiConversation();
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('session-1'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
 
 class _FakeAppBootstrapController extends AppBootstrapController {
@@ -128,6 +171,14 @@ class _ManualBootstrapController extends AppBootstrapController {
     state = const AppBootstrapState(
       status: AppBootstrapStatus.unauthenticated,
       routeName: AppRoutes.welcome,
+    );
+  }
+
+  void resolveToAiConversation() {
+    state = const AppBootstrapState(
+      status: AppBootstrapStatus.authenticated,
+      routeName: AppRoutes.aiConversation,
+      routeArguments: <String, dynamic>{'sessionId': 'session-1'},
     );
   }
 }
