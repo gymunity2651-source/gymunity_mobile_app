@@ -11,6 +11,8 @@ import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/lifecycle/lifecycle_flush_registry.dart';
+import '../../../../core/lifecycle/lifecycle_providers.dart';
 import '../../../../core/theme/atelier_theme.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../ai_coach/presentation/widgets/taiyo_ai_widgets.dart';
@@ -54,11 +56,17 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
   bool _isSubmittingMessage = false;
   int _optimisticMessageCounter = 0;
   String? _lastScrollSignature;
+  late final LifecycleFlushRegistry _flushRegistry;
 
   @override
   void initState() {
     super.initState();
-    _messageController.addListener(() => unawaited(_persistPromptDraft()));
+    _flushRegistry = ref.read(lifecycleFlushRegistryProvider);
+    _flushRegistry.register(
+      'ai_conversation_prompt_${identityHashCode(this)}',
+      _persistPromptDraft,
+    );
+    _messageController.addListener(_onMessageDraftChanged);
     if (widget.sessionId != null && widget.sessionId!.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(activeChatSessionIdProvider.notifier).state = widget.sessionId;
@@ -76,6 +84,10 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
 
   @override
   void dispose() {
+    _flushRegistry.unregister(
+      'ai_conversation_prompt_${identityHashCode(this)}',
+    );
+    _messageController.removeListener(_onMessageDraftChanged);
     _messageController.dispose();
     _scrollController.dispose();
     _composerFocusNode.dispose();
@@ -474,6 +486,10 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
         });
       }
     }
+  }
+
+  void _onMessageDraftChanged() {
+    unawaited(_persistPromptDraft());
   }
 
   Future<void> _persistLastSessionId(String sessionId) async {

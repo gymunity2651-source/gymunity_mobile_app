@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/lifecycle/lifecycle_flush_registry.dart';
+import '../../../../core/lifecycle/lifecycle_providers.dart';
 import '../../../../core/persistence/persisted_workout_state_store.dart';
 import '../../../../core/theme/atelier_theme.dart';
 import '../../../../core/widgets/app_feedback.dart';
@@ -34,10 +36,16 @@ class ActiveWorkoutSessionScreen extends ConsumerStatefulWidget {
 class _ActiveWorkoutSessionScreenState
     extends ConsumerState<ActiveWorkoutSessionScreen> {
   int _difficultyScore = 7;
+  late final LifecycleFlushRegistry _flushRegistry;
 
   @override
   void initState() {
     super.initState();
+    _flushRegistry = ref.read(lifecycleFlushRegistryProvider);
+    _flushRegistry.register(
+      'active_workout_${identityHashCode(this)}',
+      _flushCurrentWorkoutState,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final sessionId = await ref
           .read(activeWorkoutCompanionControllerProvider.notifier)
@@ -54,6 +62,12 @@ class _ActiveWorkoutSessionScreenState
             .refreshPrompt(promptKind: 'session_started');
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _flushRegistry.unregister('active_workout_${identityHashCode(this)}');
+    super.dispose();
   }
 
   @override
@@ -285,6 +299,16 @@ class _ActiveWorkoutSessionScreenState
         dayId: widget.dayId ?? '',
       ),
     );
+  }
+
+  Future<void> _flushCurrentWorkoutState() async {
+    final sessionId =
+        ref.read(activeWorkoutCompanionControllerProvider).sessionId ??
+        widget.sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      return;
+    }
+    await _persistActiveWorkout(sessionId);
   }
 
   Future<void> _clearPersistedWorkout() async {
