@@ -48,6 +48,17 @@ void main() {
       expect(find.text('Choose a goal to continue.'), findsOneWidget);
     });
 
+    testWidgets('goal setup fits compact phone layout without overflow', (
+      tester,
+    ) async {
+      await _pumpMemberOnboarding(tester, physicalSize: const Size(360, 800));
+
+      expect(find.text('What result do you want first?'), findsOneWidget);
+      expect(find.text('Lose Weight'), findsOneWidget);
+      expect(find.text('General Fitness'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets(
       'pressing continue on step 0 without goal does not advance and shows feedback',
       (tester) async {
@@ -287,8 +298,9 @@ void main() {
 Future<void> _pumpMemberOnboarding(
   WidgetTester tester, {
   FakeMemberRepository? memberRepository,
+  Size physicalSize = const Size(1440, 2560),
 }) async {
-  tester.view.physicalSize = const Size(1440, 2560);
+  tester.view.physicalSize = physicalSize;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);

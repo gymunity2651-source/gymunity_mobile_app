@@ -59,7 +59,7 @@ class _CoachOnboardingScreenState extends ConsumerState<CoachOnboardingScreen> {
 
   int _selectedDeliveryMode = 0;
   int _selectedBillingCycle = 1;
-  int _selectedWeekday = 1;
+  final Set<int> _selectedWeekdays = <int>{1};
 
   final List<String> _deliveryModes = const <String>[
     'Remote',
@@ -158,7 +158,7 @@ class _CoachOnboardingScreenState extends ConsumerState<CoachOnboardingScreen> {
           packageDescription: packageDescription,
           billingCycle: _billingCycles[_selectedBillingCycle],
           packagePrice: packagePrice,
-          availabilityWeekday: _selectedWeekday,
+          availabilityWeekdays: _selectedWeekdays.toList()..sort(),
           availabilityStartTime: availabilityStart,
           availabilityEndTime: availabilityEnd,
           availabilityTimezone: 'UTC',
@@ -474,8 +474,8 @@ class _CoachOnboardingScreenState extends ConsumerState<CoachOnboardingScreen> {
             children: List.generate(_weekdayLabels.length, (index) {
               return _CoachEditorialPill(
                 label: _weekdayLabels[index],
-                selected: _selectedWeekday == index,
-                onTap: () => setState(() => _selectedWeekday = index),
+                selected: _selectedWeekdays.contains(index),
+                onTap: () => _toggleWeekday(index),
               );
             }),
           ),
@@ -534,6 +534,16 @@ class _CoachOnboardingScreenState extends ConsumerState<CoachOnboardingScreen> {
         hour <= 23 &&
         minute >= 0 &&
         minute <= 59;
+  }
+
+  void _toggleWeekday(int index) {
+    setState(() {
+      if (_selectedWeekdays.contains(index) && _selectedWeekdays.length > 1) {
+        _selectedWeekdays.remove(index);
+        return;
+      }
+      _selectedWeekdays.add(index);
+    });
   }
 
   void _showMessage(String message) {

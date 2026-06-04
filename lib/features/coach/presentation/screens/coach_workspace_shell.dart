@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,7 +24,16 @@ class CoachWorkspaceShell extends ConsumerStatefulWidget {
 }
 
 class _CoachWorkspaceShellState extends ConsumerState<CoachWorkspaceShell> {
+  static const String _tabPersistenceArea = 'coach_dashboard';
+  static const int _tabCount = 5;
+
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreLastTab());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +89,7 @@ class _CoachWorkspaceShellState extends ConsumerState<CoachWorkspaceShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (value) => setState(() => _index = value),
+        onDestinationSelected: _handleDestinationSelected,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.today_outlined),
@@ -108,6 +119,31 @@ class _CoachWorkspaceShellState extends ConsumerState<CoachWorkspaceShell> {
         ],
       ),
     );
+  }
+
+  void _handleDestinationSelected(int value) {
+    if (value < 0 || value >= _tabCount) {
+      return;
+    }
+    setState(() => _index = value);
+    unawaited(
+      ref
+          .read(appNavigationStateStoreProvider)
+          .saveLastTabIndex(_tabPersistenceArea, value),
+    );
+  }
+
+  Future<void> _restoreLastTab() async {
+    final savedIndex = await ref
+        .read(appNavigationStateStoreProvider)
+        .readLastTabIndex(_tabPersistenceArea);
+    if (!mounted || savedIndex == null) {
+      return;
+    }
+    if (savedIndex < 0 || savedIndex >= _tabCount) {
+      return;
+    }
+    setState(() => _index = savedIndex);
   }
 }
 

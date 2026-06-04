@@ -170,6 +170,7 @@ class AuthController extends StateNotifier<AuthControllerState> {
     try {
       final authRepo = _ref.read(authRepositoryProvider);
       await authRepo.logout();
+      await _ref.read(appNavigationStateStoreProvider).clearUserScopedState();
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
     } catch (e) {
@@ -205,6 +206,7 @@ class AuthController extends StateNotifier<AuthControllerState> {
     try {
       final authRepo = _ref.read(authRepositoryProvider);
       await authRepo.deleteAccount(currentPassword: currentPassword);
+      await _ref.read(appNavigationStateStoreProvider).clearUserScopedState();
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
       return true;

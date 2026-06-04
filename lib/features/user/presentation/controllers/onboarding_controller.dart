@@ -136,7 +136,7 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
     required String packageDescription,
     required String billingCycle,
     required double packagePrice,
-    required int availabilityWeekday,
+    required List<int> availabilityWeekdays,
     required String availabilityStartTime,
     required String availabilityEndTime,
     required String availabilityTimezone,
@@ -179,12 +179,14 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
         visibilityStatus: 'published',
         isActive: true,
       );
-      await _coachRepo.saveAvailabilitySlot(
-        weekday: availabilityWeekday,
-        startTime: availabilityStartTime,
-        endTime: availabilityEndTime,
-        timezone: availabilityTimezone,
-      );
+      for (final weekday in availabilityWeekdays) {
+        await _coachRepo.saveAvailabilitySlot(
+          weekday: weekday,
+          startTime: availabilityStartTime,
+          endTime: availabilityEndTime,
+          timezone: availabilityTimezone,
+        );
+      }
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
       return true;

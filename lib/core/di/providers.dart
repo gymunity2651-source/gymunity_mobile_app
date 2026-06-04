@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/ai_coach/data/repositories/ai_coach_repository_impl.dart';
@@ -40,9 +41,13 @@ import '../../features/user/domain/entities/app_role.dart';
 import '../../features/user/domain/entities/profile_entity.dart';
 import '../../features/user/domain/repositories/user_repository.dart';
 import '../config/app_config.dart';
+import '../routing/app_navigation_state_store.dart';
+import '../routing/app_route_observer.dart';
 import '../routing/auth_route_resolver.dart';
 import '../supabase/auth_callback_ingress.dart';
 import '../supabase/supabase_initializer.dart';
+
+final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   final config = AppConfig.current;
@@ -176,5 +181,59 @@ final appRoleProvider = Provider<AppRole?>((ref) {
 });
 
 final authRouteResolverProvider = Provider<AuthRouteResolver>((ref) {
-  return AuthRouteResolver(ref.watch(userRepositoryProvider));
+  return AuthRouteResolver(
+    ref.watch(userRepositoryProvider),
+    navigationStateStore: ref.watch(appNavigationStateStoreProvider),
+    plannerRepositoryReader: () => ref.read(plannerRepositoryProvider),
+    chatRepositoryReader: () => ref.read(chatRepositoryProvider),
+    aiCoachRepositoryReader: () => ref.read(aiCoachRepositoryProvider),
+  );
 });
+
+final appNavigationStateStoreProvider = Provider<AppNavigationStateStore>((
+  ref,
+) {
+  final preferences = ref.watch(sharedPreferencesProvider);
+  if (preferences == null) {
+    return _NoopAppNavigationStateStore();
+  }
+  return SharedPreferencesAppNavigationStateStore(
+    preferences,
+    currentUserIdReader: () async {
+      return (await ref.read(userRepositoryProvider).getCurrentUser())?.id;
+    },
+  );
+});
+
+final appRouteObserverProvider = Provider<AppRouteObserver>((ref) {
+  return AppRouteObserver(ref.watch(appNavigationStateStoreProvider));
+});
+
+class _NoopAppNavigationStateStore implements AppNavigationStateStore {
+  @override
+  Future<void> clearLastSafeRoute() async {}
+
+  @override
+  Future<void> clearUserScopedState() async {}
+
+  @override
+  Future<String?> readLastDashboardRoute() async => null;
+
+  @override
+  Future<SavedRouteState?> readLastSafeRoute() async => null;
+
+  @override
+  Future<int?> readLastTabIndex(String area) async => null;
+
+  @override
+  Future<void> saveLastDashboardRoute(String routeName) async {}
+
+  @override
+  Future<void> saveLastSafeRoute(
+    String routeName, {
+    Map<String, dynamic>? params,
+  }) async {}
+
+  @override
+  Future<void> saveLastTabIndex(String area, int index) async {}
+}

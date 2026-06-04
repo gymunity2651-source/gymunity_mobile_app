@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
+import '../../../../core/constants/atelier_colors.dart';
+import '../../../../core/theme/atelier_theme.dart';
 import '../../../user/presentation/controllers/onboarding_controller.dart';
 
 class MemberOnboardingScreen extends ConsumerStatefulWidget {
@@ -31,28 +33,28 @@ class _MemberOnboardingScreenState
       title: 'Lose Weight',
       description: 'Fat loss, simpler food habits, and weekly accountability.',
       icon: Icons.monitor_weight_outlined,
-      accent: AppColors.orange,
+      accent: AtelierColors.primary,
     ),
     _GoalOption(
       value: 'build_muscle',
       title: 'Build Muscle',
       description: 'Lean mass, better training structure, and recovery.',
       icon: Icons.fitness_center,
-      accent: AppColors.limeGreen,
+      accent: Color(0xFF5C8A6E),
     ),
     _GoalOption(
       value: 'body_recomposition',
       title: 'Recompose',
       description: 'Lose fat while improving shape and consistency.',
       icon: Icons.bolt,
-      accent: AppColors.electricBlue,
+      accent: Color(0xFF7C6F62),
     ),
     _GoalOption(
       value: 'general_fitness',
       title: 'General Fitness',
       description: 'Energy, movement, and sustainable habits that stick.',
       icon: Icons.favorite_outline,
-      accent: AppColors.orangeLight,
+      accent: AtelierColors.primaryContainer,
     ),
   ];
 
@@ -290,119 +292,80 @@ class _MemberOnboardingScreenState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(onboardingControllerProvider);
-    final progress = (_currentStep + 1) / _totalSteps;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: <Color>[Color(0xFF05070A), Color(0xFF111722)],
-            ),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSizes.screenPadding,
-                  AppSizes.xl,
-                  AppSizes.screenPadding,
-                  AppSizes.lg,
-                ),
-                child: Row(
-                  children: [
-                    _IconCircleButton(
-                      icon: Icons.arrow_back_rounded,
-                      onTap: _previousStep,
-                    ),
-                    const Spacer(),
-                    _ProgressPill(
-                      step: _currentStep + 1,
-                      totalSteps: _totalSteps,
-                      progress: progress,
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSizes.screenPadding,
+    return Theme(
+      data: AtelierTheme.light,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+          systemNavigationBarColor: AtelierColors.surfaceContainerLowest,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: Scaffold(
+          backgroundColor: AtelierColors.surfaceContainerLowest,
+          body: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                  child: Row(
+                    children: [
+                      _IconCircleButton(
+                        icon: Icons.arrow_back_rounded,
+                        onTap: _previousStep,
+                      ),
+                      const Spacer(),
+                      _ProgressPill(
+                        step: _currentStep + 1,
+                        totalSteps: _totalSteps,
+                      ),
+                    ],
                   ),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(AppSizes.xl),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(AppSizes.radiusXxl),
-                      border: Border.all(
-                        color: AppColors.borderSoft.withValues(alpha: 0.5),
-                      ),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.cardDark.withValues(alpha: 0.97),
-                          AppColors.surfacePanel.withValues(alpha: 0.95),
-                        ],
-                      ),
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 240),
+                ),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 260),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: Padding(
+                      key: ValueKey<int>(_currentStep),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: _buildStep(),
                     ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSizes.screenPadding,
-                  AppSizes.md,
-                  AppSizes.screenPadding,
-                  AppSizes.xl,
-                ),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: state.isLoading ? null : _nextStep,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.orange,
-                          foregroundColor: AppColors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
+                  decoration: const BoxDecoration(
+                    color: AtelierColors.surfaceContainerLowest,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _PrimaryButton(
+                        label: _currentStep == _totalSteps - 1
+                            ? 'GET STARTED'
+                            : 'CONTINUE',
+                        isLoading: state.isLoading,
+                        onTap: _nextStep,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _footerNote(),
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          height: 1.45,
+                          color: AtelierColors.onSurfaceVariant,
                         ),
-                        child: state.isLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.white,
-                                ),
-                              )
-                            : Text(
-                                _currentStep == _totalSteps - 1
-                                    ? 'GET STARTED'
-                                    : 'CONTINUE',
-                              ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      _footerNote(),
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -412,25 +375,28 @@ class _MemberOnboardingScreenState
   Widget _buildStep() {
     switch (_currentStep) {
       case 0:
-        return Column(
+        return SingleChildScrollView(
           key: const ValueKey<String>('goal-step'),
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _StepHeader(
-              eyebrow: 'Goal setup',
-              title: 'What result do you want first?',
-              subtitle:
-                  'We tune coaches, offers, and check-ins toward the outcome you choose.',
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: GridView.builder(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _StepHeader(
+                eyebrow: 'Goal setup',
+                title: 'What result do you want first?',
+                subtitle:
+                    'We tune coaches, offers, and check-ins toward the outcome you choose.',
+              ),
+              const SizedBox(height: 20),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
                 itemCount: _goals.length,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 0.9,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.78,
                 ),
                 itemBuilder: (context, index) => _GoalCard(
                   option: _goals[index],
@@ -438,8 +404,8 @@ class _MemberOnboardingScreenState
                   onTap: () => setState(() => _selectedGoal = index),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       case 1:
         return SingleChildScrollView(
@@ -772,30 +738,30 @@ class _StepHeader extends StatelessWidget {
       children: [
         Text(
           eyebrow.toUpperCase(),
-          style: GoogleFonts.inter(
-            fontSize: 12,
+          style: GoogleFonts.manrope(
+            fontSize: 10,
             fontWeight: FontWeight.w800,
-            letterSpacing: 1.0,
-            color: AppColors.orangeLight,
+            letterSpacing: 2.2,
+            color: AtelierColors.primary,
           ),
         ),
         const SizedBox(height: 10),
         Text(
           title,
-          style: GoogleFonts.spaceGrotesk(
-            fontSize: 30,
+          style: GoogleFonts.notoSerif(
+            fontSize: 34,
             fontWeight: FontWeight.w700,
-            height: 1.05,
-            color: AppColors.textPrimary,
+            height: 1.08,
+            color: AtelierColors.onSurface,
           ),
         ),
         const SizedBox(height: 10),
         Text(
           subtitle,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.manrope(
             fontSize: 14,
-            height: 1.5,
-            color: AppColors.textSecondary,
+            height: 1.55,
+            color: AtelierColors.onSurfaceVariant,
           ),
         ),
       ],
@@ -817,48 +783,88 @@ class _GoalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.transparent,
+      color: AtelierColors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSizes.radiusXl),
+        borderRadius: BorderRadius.circular(22),
         child: Ink(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F141D),
-            borderRadius: BorderRadius.circular(AppSizes.radiusXl),
+            color: selected
+                ? AtelierColors.surfaceContainerLowest
+                : AtelierColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: selected ? option.accent : AppColors.border,
-              width: selected ? 2 : 1,
+              color: selected
+                  ? option.accent.withValues(alpha: 0.7)
+                  : AtelierColors.ghostBorder,
+              width: selected ? 1.4 : 1,
             ),
+            boxShadow: const [
+              BoxShadow(
+                color: AtelierColors.navShadow,
+                blurRadius: 28,
+                offset: Offset(0, 12),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: option.accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                ),
-                child: Icon(option.icon, color: option.accent),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: option.accent.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(option.icon, color: option.accent, size: 22),
+                  ),
+                  const Spacer(),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: selected ? option.accent : Colors.transparent,
+                      border: selected
+                          ? null
+                          : Border.all(color: AtelierColors.outlineVariant),
+                    ),
+                    child: selected
+                        ? const Icon(
+                            Icons.check_rounded,
+                            color: AtelierColors.white,
+                            size: 14,
+                          )
+                        : null,
+                  ),
+                ],
               ),
               const Spacer(),
               Text(
                 option.title,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.manrope(
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  height: 1.16,
+                  color: AtelierColors.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 option.description,
-                style: GoogleFonts.inter(
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.manrope(
                   fontSize: 12,
                   height: 1.45,
-                  color: AppColors.textSecondary,
+                  color: AtelierColors.onSurfaceVariant,
                 ),
               ),
             ],
@@ -889,21 +895,37 @@ class _MetricField extends StatelessWidget {
       keyboardType: suffix == null
           ? TextInputType.text
           : const TextInputType.numberWithOptions(decimal: true),
-      style: GoogleFonts.inter(color: AppColors.textPrimary),
+      cursorColor: AtelierColors.primary,
+      style: GoogleFonts.manrope(
+        color: AtelierColors.onSurface,
+        fontWeight: FontWeight.w600,
+      ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,
         suffixText: suffix,
         filled: true,
-        fillColor: AppColors.fieldFill,
-        labelStyle: GoogleFonts.inter(color: AppColors.textMuted),
+        fillColor: AtelierColors.surfaceContainerLow,
+        labelStyle: GoogleFonts.manrope(
+          color: AtelierColors.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
+        hintStyle: GoogleFonts.manrope(color: AtelierColors.textMuted),
+        suffixStyle: GoogleFonts.manrope(
+          color: AtelierColors.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: AtelierColors.ghostBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-          borderSide: const BorderSide(color: AppColors.orange),
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: AtelierColors.primary),
         ),
       ),
     );
@@ -926,19 +948,21 @@ class _ChoiceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.transparent,
+      color: AtelierColors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        borderRadius: BorderRadius.circular(20),
         child: Ink(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.orange.withValues(alpha: 0.12)
-                : AppColors.fieldFill,
-            borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                ? AtelierColors.primary.withValues(alpha: 0.08)
+                : AtelierColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? AppColors.orange : AppColors.border,
+              color: selected
+                  ? AtelierColors.primary.withValues(alpha: 0.62)
+                  : AtelierColors.ghostBorder,
             ),
           ),
           child: Column(
@@ -946,20 +970,20 @@ class _ChoiceTile extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.manrope(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: AtelierColors.onSurface,
                 ),
               ),
               if (helper != null && helper!.trim().isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
                   helper!,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.manrope(
                     fontSize: 12,
                     height: 1.45,
-                    color: AppColors.textSecondary,
+                    color: AtelierColors.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -988,12 +1012,17 @@ class _ChoicePill extends StatelessWidget {
       label: Text(label),
       selected: selected,
       onSelected: (_) => onTap(),
-      selectedColor: AppColors.orange.withValues(alpha: 0.18),
-      backgroundColor: AppColors.fieldFill,
-      side: BorderSide(color: selected ? AppColors.orange : AppColors.border),
-      labelStyle: GoogleFonts.inter(
+      selectedColor: AtelierColors.primary.withValues(alpha: 0.1),
+      backgroundColor: AtelierColors.surfaceContainerLow,
+      side: BorderSide(
+        color: selected ? AtelierColors.primary : AtelierColors.ghostBorder,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      labelStyle: GoogleFonts.manrope(
         fontWeight: FontWeight.w700,
-        color: selected ? AppColors.orangeLight : AppColors.textSecondary,
+        color: selected
+            ? AtelierColors.primary
+            : AtelierColors.onSurfaceVariant,
       ),
     );
   }
@@ -1008,60 +1037,66 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: GoogleFonts.inter(
+      style: GoogleFonts.manrope(
         fontSize: 12,
         fontWeight: FontWeight.w800,
-        letterSpacing: 0.4,
-        color: AppColors.textMuted,
+        letterSpacing: 1.2,
+        color: AtelierColors.onSurfaceVariant,
       ),
     );
   }
 }
 
 class _ProgressPill extends StatelessWidget {
-  const _ProgressPill({
-    required this.step,
-    required this.totalSteps,
-    required this.progress,
-  });
+  const _ProgressPill({required this.step, required this.totalSteps});
 
   final int step;
   final int totalSteps;
-  final double progress;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.cardDark,
-        borderRadius: BorderRadius.circular(AppSizes.radiusFull),
-        border: Border.all(color: AppColors.borderLight),
+        color: AtelierColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AtelierColors.ghostBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
             'STEP $step OF $totalSteps',
-            style: GoogleFonts.inter(
-              fontSize: 11,
+            style: GoogleFonts.manrope(
+              fontSize: 10,
               fontWeight: FontWeight.w800,
-              color: AppColors.textMuted,
+              letterSpacing: 1.4,
+              color: AtelierColors.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
           SizedBox(
             width: 120,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppSizes.radiusFull),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 6,
-                backgroundColor: AppColors.white.withValues(alpha: 0.08),
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.orange,
-                ),
-              ),
+            child: Row(
+              children: List.generate(totalSteps, (index) {
+                final reached = index < step;
+                return Expanded(
+                  child: Container(
+                    height: 4,
+                    margin: EdgeInsets.only(
+                      right: index == totalSteps - 1 ? 0 : 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: reached
+                          ? AtelierColors.primary
+                          : AtelierColors.outlineVariant.withValues(
+                              alpha: 0.45,
+                            ),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
         ],
@@ -1082,14 +1117,79 @@ class _IconCircleButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(26),
       child: Ink(
-        width: 52,
-        height: 52,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.white.withValues(alpha: 0.06),
-          border: Border.all(color: AppColors.borderLight),
+          color: AtelierColors.surfaceContainerLow,
+          border: Border.all(color: AtelierColors.ghostBorder),
         ),
-        child: Icon(icon, color: AppColors.textPrimary),
+        child: Icon(icon, color: AtelierColors.onSurface, size: 21),
+      ),
+    );
+  }
+}
+
+class _PrimaryButton extends StatelessWidget {
+  const _PrimaryButton({
+    required this.label,
+    required this.onTap,
+    required this.isLoading,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AtelierColors.primary, AtelierColors.primaryContainer],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              color: AtelierColors.navShadow,
+              blurRadius: 28,
+              offset: Offset(0, 12),
+            ),
+          ],
+        ),
+        child: ElevatedButton(
+          onPressed: isLoading ? null : onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AtelierColors.transparent,
+            disabledBackgroundColor: AtelierColors.transparent,
+            shadowColor: AtelierColors.transparent,
+            surfaceTintColor: AtelierColors.transparent,
+            foregroundColor: AtelierColors.onPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          child: isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AtelierColors.onPrimary,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.1,
+                    color: AtelierColors.onPrimary,
+                  ),
+                ),
+        ),
       ),
     );
   }

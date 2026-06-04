@@ -341,7 +341,11 @@ Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
     return;
   }
 
-  Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
+  Navigator.pushNamedAndRemoveUntil(
+    context,
+    AppRoutes.welcome,
+    (route) => false,
+  );
 }
 
 class _SectionTitle extends StatelessWidget {

@@ -289,6 +289,53 @@ void main() {
       },
     );
 
+    testWidgets('coach onboarding saves multiple selected availability days', (
+      tester,
+    ) async {
+      final coachRepository = FakeCoachRepository();
+
+      await _pumpScreen(
+        tester,
+        const CoachOnboardingScreen(),
+        overrides: <Override>[
+          userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+          coachRepositoryProvider.overrideWithValue(coachRepository),
+        ],
+      );
+
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).at(2),
+        'Performance coach for strength-focused members.',
+      );
+      await tester.enterText(
+        find.byType(TextFormField).at(3),
+        'Weekly programming, async support, and accountability.',
+      );
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        'A complete starter package with weekly check-ins.',
+      );
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Tuesday'));
+      await tester.tap(find.text('Wednesday'));
+      await tester.tap(find.text('Start Coaching'));
+      await tester.pumpAndSettle();
+
+      expect(coachRepository.saveAvailabilitySlotCalls, 3);
+      expect(
+        coachRepository.savedAvailabilitySlotPayloads
+            .map((payload) => payload['weekday'])
+            .toList(),
+        <int>[1, 2, 3],
+      );
+    });
+
     testWidgets(
       'coach onboarding blocks leaving profile step when bio data is missing',
       (tester) async {

@@ -189,7 +189,7 @@ class SellerDashboardScreen extends ConsumerWidget {
     }
     Navigator.pushNamedAndRemoveUntil(
       context,
-      AppRoutes.login,
+      AppRoutes.welcome,
       (route) => false,
     );
   }

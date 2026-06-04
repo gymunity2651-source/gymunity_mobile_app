@@ -186,436 +186,458 @@ class AppRoutes {
   static const String privacyPolicy = '/privacy-policy';
   static const String terms = '/terms';
 
+  static RouteSettings? _activeRouteSettings;
+
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
-    if (_isOAuthCallbackRoute(settings.name)) {
-      return _buildRoute(AuthCallbackScreen(routeName: settings.name));
-    }
+    _activeRouteSettings = settings;
+    try {
+      if (_isOAuthCallbackRoute(settings.name)) {
+        return _buildRoute(AuthCallbackScreen(routeName: settings.name));
+      }
 
-    switch (settings.name) {
-      case splash:
-        return _buildRoute(const SplashScreen());
-      case welcome:
-        return _buildRoute(const WelcomeScreen());
-      case login:
-        return _buildRoute(const LoginScreen());
-      case register:
-        return _buildRoute(const RegisterScreen());
-      case forgotPassword:
-        return _buildRoute(const ForgotPasswordScreen());
-      case resetPassword:
-        return _buildRoute(const ResetPasswordScreen());
-      case otp:
-        final args = settings.arguments;
-        if (args is OtpFlowArgs) {
-          return _buildRoute(OtpScreen(email: args.email, mode: args.mode));
-        }
-        final email = args as String? ?? '';
-        return _buildRoute(OtpScreen(email: email, mode: OtpFlowMode.signup));
-      case authCallback:
-        return _buildRoute(const AuthCallbackScreen());
-      case roleSelection:
-        return _buildRoute(const RoleSelectionScreen());
-      case adminDashboard:
-        return _buildRoute(const AdminAccessGate());
+      switch (settings.name) {
+        case splash:
+          return _buildRoute(const SplashScreen());
+        case welcome:
+          return _buildRoute(const WelcomeScreen());
+        case login:
+          return _buildRoute(const LoginScreen());
+        case register:
+          return _buildRoute(const RegisterScreen());
+        case forgotPassword:
+          return _buildRoute(const ForgotPasswordScreen());
+        case resetPassword:
+          return _buildRoute(const ResetPasswordScreen());
+        case otp:
+          final args = settings.arguments;
+          if (args is OtpFlowArgs) {
+            return _buildRoute(OtpScreen(email: args.email, mode: args.mode));
+          }
+          final email = args as String? ?? '';
+          return _buildRoute(OtpScreen(email: email, mode: OtpFlowMode.signup));
+        case authCallback:
+          return _buildRoute(const AuthCallbackScreen());
+        case roleSelection:
+          return _buildRoute(const RoleSelectionScreen());
+        case adminDashboard:
+          return _buildRoute(const AdminAccessGate());
 
-      case memberOnboarding:
-        return _buildRoute(const MemberOnboardingScreen());
-      case sellerOnboarding:
-        return _buildRoute(const SellerOnboardingScreen());
-      case coachOnboarding:
-        return _buildRoute(const CoachOnboardingScreen());
+        case memberOnboarding:
+          return _buildRoute(const MemberOnboardingScreen());
+        case sellerOnboarding:
+          return _buildRoute(const SellerOnboardingScreen());
+        case coachOnboarding:
+          return _buildRoute(const CoachOnboardingScreen());
 
-      case memberHome:
-        return _buildRoute(const MemberHomeScreen());
-      case memberProfile:
-        return _buildRoute(const MemberProfileScreen());
-      case editProfile:
-        return _buildRoute(const EditProfileScreen());
-      case progress:
-        return _buildRoute(const ProgressScreen());
-      case workoutPlan:
-        final args = settings.arguments;
-        return _buildRoute(
-          WorkoutPlanScreen(
-            planId: args is WorkoutPlanArgs ? args.planId : null,
-          ),
-        );
-      case workoutDetails:
-        final args = settings.arguments;
-        if (args is WorkoutDayArgs) {
+        case memberHome:
+          return _buildRoute(const MemberHomeScreen());
+        case memberProfile:
+          return _buildRoute(const MemberProfileScreen());
+        case editProfile:
+          return _buildRoute(const EditProfileScreen());
+        case progress:
+          return _buildRoute(const ProgressScreen());
+        case workoutPlan:
+          final args = settings.arguments;
           return _buildRoute(
-            WorkoutDayDetailsScreen(planId: args.planId, dayId: args.dayId),
-          );
-        }
-        return _featureRoute(
-          title: 'Workout Details',
-          description:
-              'A plan day id is required to open task details from the active planner.',
-          icon: Icons.list_alt,
-        );
-
-      case aiChatHome:
-        return _buildRoute(const AiChatHomeScreen());
-      case aiConversation:
-        final args = settings.arguments;
-        final sessionId = args is AiConversationArgs
-            ? args.sessionId
-            : args as String?;
-        return _buildRoute(
-          AiConversationScreen(
-            sessionId: sessionId,
-            consumePendingPrompt: args is AiConversationArgs
-                ? args.consumePendingPrompt
-                : false,
-          ),
-        );
-      case aiPlannerBuilder:
-        final args = settings.arguments;
-        final existingSessionId = args is PlannerBuilderArgs
-            ? args.existingSessionId
-            : null;
-        final explicitSeedPrompt = args is PlannerBuilderArgs
-            ? args.seedPrompt
-            : null;
-        return _buildRoute(
-          AiConversationScreen(
-            sessionId: existingSessionId,
-            initialSessionType: ChatSessionType.planner,
-            seedPrompt:
-                explicitSeedPrompt ??
-                (existingSessionId == null
-                    ? AiConversationScreen.plannerSeedPrompt
-                    : null),
-          ),
-        );
-      case aiGeneratedPlan:
-        final args = settings.arguments;
-        if (args is AiGeneratedPlanArgs) {
-          return _buildRoute(
-            AiGeneratedPlanScreen(
-              sessionId: args.sessionId,
-              draftId: args.draftId,
+            WorkoutPlanScreen(
+              planId: args is WorkoutPlanArgs ? args.planId : null,
             ),
           );
-        }
-        return _featureRoute(
-          title: 'TAIYO Generated Plan',
-          description:
-              'A draft id is required to review and activate a TAIYO-generated plan.',
-          icon: Icons.auto_awesome,
-        );
-      case activeWorkoutSession:
-        final args = settings.arguments;
-        if (args is ActiveWorkoutSessionArgs) {
+        case workoutDetails:
+          final args = settings.arguments;
+          if (args is WorkoutDayArgs) {
+            return _buildRoute(
+              WorkoutDayDetailsScreen(planId: args.planId, dayId: args.dayId),
+            );
+          }
+          return _featureRoute(
+            title: 'Workout Details',
+            description:
+                'A plan day id is required to open task details from the active planner.',
+            icon: Icons.list_alt,
+          );
+
+        case aiChatHome:
+          return _buildRoute(const AiChatHomeScreen());
+        case aiConversation:
+          final args = settings.arguments;
+          final sessionId = args is AiConversationArgs
+              ? args.sessionId
+              : args as String?;
           return _buildRoute(
-            ActiveWorkoutSessionScreen(
-              sessionId: args.sessionId,
-              planId: args.planId,
-              dayId: args.dayId,
+            AiConversationScreen(
+              sessionId: sessionId,
+              consumePendingPrompt: args is AiConversationArgs
+                  ? args.consumePendingPrompt
+                  : false,
             ),
           );
-        }
-        return _buildRoute(const ActiveWorkoutSessionScreen());
-      case aiPremiumPaywall:
-        return _buildRoute(const AiPremiumPaywallScreen());
-      case subscriptionManagement:
-        return _buildRoute(const SubscriptionManagementScreen());
-      case nutrition:
-        final args = settings.arguments;
-        return _buildRoute(
-          NutritionHomeScreen(
-            initialHydrationAmountMl: args is NutritionRouteArgs
-                ? args.initialHydrationAmountMl
-                : null,
-          ),
-        );
-      case nutritionSetup:
-        return _buildRoute(const NutritionSetupScreen());
-      case nutritionMealPlan:
-        final args = settings.arguments;
-        return _buildRoute(
-          MealPlanScreen(
-            openQuickAddOnLaunch: args is MealPlanRouteArgs
-                ? args.openQuickAddOnLaunch
-                : false,
-          ),
-        );
-      case nutritionPreferences:
-        return _buildRoute(const NutritionPreferencesScreen());
-      case nutritionInsights:
-        return _buildRoute(const NutritionInsightsScreen());
-      case newsFeed:
-        return _buildRoute(const NewsFeedScreen());
-      case newsArticleDetails:
-        final args = settings.arguments;
-        if (args is NewsArticleEntity) {
-          return _buildRoute(NewsArticleDetailsScreen(initialArticle: args));
-        }
-        return _buildRoute(
-          NewsArticleDetailsScreen(articleId: args as String?),
-        );
+        case aiPlannerBuilder:
+          final args = settings.arguments;
+          final existingSessionId = args is PlannerBuilderArgs
+              ? args.existingSessionId
+              : null;
+          final explicitSeedPrompt = args is PlannerBuilderArgs
+              ? args.seedPrompt
+              : null;
+          return _buildRoute(
+            AiConversationScreen(
+              sessionId: existingSessionId,
+              initialSessionType: ChatSessionType.planner,
+              seedPrompt:
+                  explicitSeedPrompt ??
+                  (existingSessionId == null
+                      ? AiConversationScreen.plannerSeedPrompt
+                      : null),
+            ),
+          );
+        case aiGeneratedPlan:
+          final args = settings.arguments;
+          if (args is AiGeneratedPlanArgs) {
+            return _buildRoute(
+              AiGeneratedPlanScreen(
+                sessionId: args.sessionId,
+                draftId: args.draftId,
+              ),
+            );
+          }
+          return _featureRoute(
+            title: 'TAIYO Generated Plan',
+            description:
+                'A draft id is required to review and activate a TAIYO-generated plan.',
+            icon: Icons.auto_awesome,
+          );
+        case activeWorkoutSession:
+          final args = settings.arguments;
+          if (args is ActiveWorkoutSessionArgs) {
+            return _buildRoute(
+              ActiveWorkoutSessionScreen(
+                sessionId: args.sessionId,
+                planId: args.planId,
+                dayId: args.dayId,
+              ),
+            );
+          }
+          return _buildRoute(const ActiveWorkoutSessionScreen());
+        case aiPremiumPaywall:
+          return _buildRoute(const AiPremiumPaywallScreen());
+        case subscriptionManagement:
+          return _buildRoute(const SubscriptionManagementScreen());
+        case nutrition:
+          final args = settings.arguments;
+          return _buildRoute(
+            NutritionHomeScreen(
+              initialHydrationAmountMl: args is NutritionRouteArgs
+                  ? args.initialHydrationAmountMl
+                  : null,
+            ),
+          );
+        case nutritionSetup:
+          return _buildRoute(const NutritionSetupScreen());
+        case nutritionMealPlan:
+          final args = settings.arguments;
+          return _buildRoute(
+            MealPlanScreen(
+              openQuickAddOnLaunch: args is MealPlanRouteArgs
+                  ? args.openQuickAddOnLaunch
+                  : false,
+            ),
+          );
+        case nutritionPreferences:
+          return _buildRoute(const NutritionPreferencesScreen());
+        case nutritionInsights:
+          return _buildRoute(const NutritionInsightsScreen());
+        case newsFeed:
+          return _buildRoute(const NewsFeedScreen());
+        case newsArticleDetails:
+          final args = settings.arguments;
+          if (args is NewsArticleEntity) {
+            return _buildRoute(NewsArticleDetailsScreen(initialArticle: args));
+          }
+          return _buildRoute(
+            NewsArticleDetailsScreen(articleId: args as String?),
+          );
 
-      case storeHome:
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableStorePurchases,
-          child: const StoreHomeScreen(),
-          disabledRoute: _storePurchasesDisabledRoute,
-        );
-      case productList:
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableStorePurchases,
-          child: const StoreCatalogScreen(),
-          disabledRoute: _storePurchasesDisabledRoute,
-        );
-      case productDetails:
-        final product = settings.arguments;
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableStorePurchases,
-          child: ProductDetailsScreen(
-            product: product is ProductEntity ? product : null,
-          ),
-          disabledRoute: _storePurchasesDisabledRoute,
-        );
-      case favorites:
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableStorePurchases,
-          child: const FavoritesScreen(),
-          disabledRoute: _storePurchasesDisabledRoute,
-        );
-      case cart:
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableStorePurchases,
-          child: const CartScreen(),
-          disabledRoute: _storePurchasesDisabledRoute,
-        );
-      case checkout:
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableStorePurchases,
-          child: const CheckoutScreen(),
-          disabledRoute: _storePurchasesDisabledRoute,
-        );
-      case orders:
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableStorePurchases,
-          child: const MyOrdersScreen(),
-          disabledRoute: _storePurchasesDisabledRoute,
-        );
+        case storeHome:
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableStorePurchases,
+            child: const StoreHomeScreen(),
+            disabledRoute: _storePurchasesDisabledRoute,
+          );
+        case productList:
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableStorePurchases,
+            child: const StoreCatalogScreen(),
+            disabledRoute: _storePurchasesDisabledRoute,
+          );
+        case productDetails:
+          final product = settings.arguments;
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableStorePurchases,
+            child: ProductDetailsScreen(
+              product: product is ProductEntity ? product : null,
+            ),
+            disabledRoute: _storePurchasesDisabledRoute,
+          );
+        case favorites:
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableStorePurchases,
+            child: const FavoritesScreen(),
+            disabledRoute: _storePurchasesDisabledRoute,
+          );
+        case cart:
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableStorePurchases,
+            child: const CartScreen(),
+            disabledRoute: _storePurchasesDisabledRoute,
+          );
+        case checkout:
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableStorePurchases,
+            child: const CheckoutScreen(),
+            disabledRoute: _storePurchasesDisabledRoute,
+          );
+        case orders:
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableStorePurchases,
+            child: const MyOrdersScreen(),
+            disabledRoute: _storePurchasesDisabledRoute,
+          );
 
-      case coaches:
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableCoachSubscriptions,
-          child: const CoachesScreen(),
-          disabledRoute: _coachSubscriptionsDisabledRoute,
-        );
-      case coachDetails:
-        final coach = settings.arguments;
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableCoachSubscriptions,
-          child: CoachDetailsScreen(coach: coach is CoachEntity ? coach : null),
-          disabledRoute: _coachSubscriptionsDisabledRoute,
-        );
-      case subscriptionPackages:
-        final coach = settings.arguments;
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableCoachSubscriptions,
-          child: SubscriptionPackagesScreen(
-            coach: coach is CoachEntity ? coach : null,
-          ),
-          disabledRoute: _coachSubscriptionsDisabledRoute,
-        );
-      case mySubscriptions:
-        return _guardedFeatureRoute(
-          enabled: AppConfig.current.enableCoachSubscriptions,
-          child: const MySubscriptionsScreen(),
-          disabledRoute: _coachSubscriptionsDisabledRoute,
-        );
-      case myCoach:
-        // ENABLE_COACH_SUBSCRIPTIONS gates marketplace and commercial checkout
-        // routes only; active coaching workspace routes remain available.
-        final args = settings.arguments;
-        return _buildRoute(
-          MemberCoachHubScreen(subscriptionId: args is String ? args : null),
-        );
-      case memberCoachKickoff:
-        final args = settings.arguments;
-        if (args is String && args.isNotEmpty) {
-          return _buildRoute(MemberCoachKickoffScreen(subscriptionId: args));
-        }
-        return _featureRoute(
-          title: 'Coach Kickoff',
-          description: 'An active coaching subscription is required.',
-          icon: Icons.flag_outlined,
-        );
-      case memberCoachHabits:
-        final args = settings.arguments;
-        return _buildRoute(
-          MemberCoachHabitsScreen(subscriptionId: args is String ? args : null),
-        );
-      case memberCoachResources:
-        final args = settings.arguments;
-        return _buildRoute(
-          MemberCoachResourcesScreen(
-            subscriptionId: args is String ? args : null,
-          ),
-        );
-      case memberCoachSessions:
-        final args = settings.arguments;
-        if (args is String && args.isNotEmpty) {
-          return _buildRoute(MemberCoachSessionsScreen(subscriptionId: args));
-        }
-        return _featureRoute(
-          title: 'Coach Sessions',
-          description: 'An active coaching subscription is required.',
-          icon: Icons.event_outlined,
-        );
-      case memberCheckins:
-        return _buildRoute(const MemberCheckinsScreen());
-      case memberMessages:
-        return _buildRoute(const MemberMessagesScreen());
-      case memberThread:
-        final thread = settings.arguments;
-        if (thread is CoachingThreadEntity) {
-          return _buildRoute(MemberThreadScreen(thread: thread));
-        }
-        return _featureRoute(
-          title: 'Messages',
-          description: 'A coaching thread is required to open this screen.',
-          icon: Icons.chat_bubble_outline,
-        );
+        case coaches:
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableCoachSubscriptions,
+            child: const CoachesScreen(),
+            disabledRoute: _coachSubscriptionsDisabledRoute,
+          );
+        case coachDetails:
+          final coach = settings.arguments;
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableCoachSubscriptions,
+            child: CoachDetailsScreen(
+              coach: coach is CoachEntity ? coach : null,
+            ),
+            disabledRoute: _coachSubscriptionsDisabledRoute,
+          );
+        case subscriptionPackages:
+          final coach = settings.arguments;
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableCoachSubscriptions,
+            child: SubscriptionPackagesScreen(
+              coach: coach is CoachEntity ? coach : null,
+            ),
+            disabledRoute: _coachSubscriptionsDisabledRoute,
+          );
+        case mySubscriptions:
+          return _guardedFeatureRoute(
+            enabled: AppConfig.current.enableCoachSubscriptions,
+            child: const MySubscriptionsScreen(),
+            disabledRoute: _coachSubscriptionsDisabledRoute,
+          );
+        case myCoach:
+          // ENABLE_COACH_SUBSCRIPTIONS gates marketplace and commercial checkout
+          // routes only; active coaching workspace routes remain available.
+          final args = settings.arguments;
+          return _buildRoute(
+            MemberCoachHubScreen(subscriptionId: args is String ? args : null),
+          );
+        case memberCoachKickoff:
+          final args = settings.arguments;
+          if (args is String && args.isNotEmpty) {
+            return _buildRoute(MemberCoachKickoffScreen(subscriptionId: args));
+          }
+          return _featureRoute(
+            title: 'Coach Kickoff',
+            description: 'An active coaching subscription is required.',
+            icon: Icons.flag_outlined,
+          );
+        case memberCoachHabits:
+          final args = settings.arguments;
+          return _buildRoute(
+            MemberCoachHabitsScreen(
+              subscriptionId: args is String ? args : null,
+            ),
+          );
+        case memberCoachResources:
+          final args = settings.arguments;
+          return _buildRoute(
+            MemberCoachResourcesScreen(
+              subscriptionId: args is String ? args : null,
+            ),
+          );
+        case memberCoachSessions:
+          final args = settings.arguments;
+          if (args is String && args.isNotEmpty) {
+            return _buildRoute(MemberCoachSessionsScreen(subscriptionId: args));
+          }
+          return _featureRoute(
+            title: 'Coach Sessions',
+            description: 'An active coaching subscription is required.',
+            icon: Icons.event_outlined,
+          );
+        case memberCheckins:
+          return _buildRoute(const MemberCheckinsScreen());
+        case memberMessages:
+          return _buildRoute(const MemberMessagesScreen());
+        case memberThread:
+          final thread = settings.arguments;
+          if (thread is CoachingThreadEntity) {
+            return _buildRoute(MemberThreadScreen(thread: thread));
+          }
+          return _featureRoute(
+            title: 'Messages',
+            description: 'A coaching thread is required to open this screen.',
+            icon: Icons.chat_bubble_outline,
+          );
 
-      case sellerDashboard:
-        return _buildRoute(const SellerDashboardScreen());
-      case productManagement:
-        return _buildRoute(const SellerProductManagementScreen());
-      case addProduct:
-        return _buildRoute(const SellerProductEditorScreen());
-      case editProduct:
-        final product = settings.arguments;
-        return _buildRoute(
-          SellerProductEditorScreen(
-            product: product is ProductEntity ? product : null,
-          ),
-        );
-      case sellerOrders:
-        return _buildRoute(const SellerOrdersScreen());
-      case sellerProfile:
-        return _buildRoute(const SellerProfileScreen());
+        case sellerDashboard:
+          return _buildRoute(const SellerDashboardScreen());
+        case productManagement:
+          return _buildRoute(const SellerProductManagementScreen());
+        case addProduct:
+          return _buildRoute(const SellerProductEditorScreen());
+        case editProduct:
+          final product = settings.arguments;
+          return _buildRoute(
+            SellerProductEditorScreen(
+              product: product is ProductEntity ? product : null,
+            ),
+          );
+        case sellerOrders:
+          return _buildRoute(const SellerOrdersScreen());
+        case sellerProfile:
+          return _buildRoute(const SellerProfileScreen());
 
-      case coachDashboard:
-        return _buildRoute(
-          const CoachAccessGate(child: CoachDashboardScreen()),
-        );
-      case clients:
-        return _buildRoute(
-          const CoachAccessGate(child: CoachClientPipelineScreen()),
-        );
-      case coachClientWorkspace:
-        final args = settings.arguments;
-        if (args is CoachClientWorkspaceArgs) {
+        case coachDashboard:
+          return _buildRoute(
+            const CoachAccessGate(child: CoachDashboardScreen()),
+          );
+        case clients:
+          return _buildRoute(
+            const CoachAccessGate(child: CoachClientPipelineScreen()),
+          );
+        case coachClientWorkspace:
+          final args = settings.arguments;
+          if (args is CoachClientWorkspaceArgs) {
+            return _buildRoute(
+              CoachAccessGate(
+                child: CoachClientWorkspaceScreen(
+                  subscriptionId: args.subscriptionId,
+                ),
+              ),
+            );
+          }
+          if (args is String && args.isNotEmpty) {
+            return _buildRoute(
+              CoachAccessGate(
+                child: CoachClientWorkspaceScreen(subscriptionId: args),
+              ),
+            );
+          }
+          return _featureRoute(
+            title: 'Client workspace',
+            description: 'A subscription id is required to open this client.',
+            icon: Icons.person_search_outlined,
+          );
+        case coachCheckins:
+          return _buildRoute(
+            const CoachAccessGate(child: CoachCheckinInboxScreen()),
+          );
+        case coachCalendar:
+          return _buildRoute(
+            const CoachAccessGate(child: CoachCalendarScreen()),
+          );
+        case coachBilling:
+          return _buildRoute(
+            const CoachAccessGate(child: CoachBillingScreen()),
+          );
+        case coachProgramLibrary:
+          return _buildRoute(
+            const CoachAccessGate(child: CoachProgramLibraryScreen()),
+          );
+        case coachOnboardingFlows:
+          return _buildRoute(
+            const CoachAccessGate(child: CoachOnboardingFlowsScreen()),
+          );
+        case coachResources:
+          return _buildRoute(
+            const CoachAccessGate(child: CoachResourcesScreen()),
+          );
+        case packages:
+          return _buildRoute(
+            const CoachAccessGate(child: CoachPackagesScreen()),
+          );
+        case addPackage:
+          final package = settings.arguments;
           return _buildRoute(
             CoachAccessGate(
-              child: CoachClientWorkspaceScreen(
-                subscriptionId: args.subscriptionId,
+              child: CoachPackageEditorScreen(
+                initialPackage: package is CoachPackageEntity ? package : null,
               ),
             ),
           );
-        }
-        if (args is String && args.isNotEmpty) {
+        case coachProfile:
           return _buildRoute(
-            CoachAccessGate(
-              child: CoachClientWorkspaceScreen(subscriptionId: args),
-            ),
+            const CoachAccessGate(child: CoachProfileScreen()),
           );
-        }
-        return _featureRoute(
-          title: 'Client workspace',
-          description: 'A subscription id is required to open this client.',
-          icon: Icons.person_search_outlined,
-        );
-      case coachCheckins:
-        return _buildRoute(
-          const CoachAccessGate(child: CoachCheckinInboxScreen()),
-        );
-      case coachCalendar:
-        return _buildRoute(const CoachAccessGate(child: CoachCalendarScreen()));
-      case coachBilling:
-        return _buildRoute(const CoachAccessGate(child: CoachBillingScreen()));
-      case coachProgramLibrary:
-        return _buildRoute(
-          const CoachAccessGate(child: CoachProgramLibraryScreen()),
-        );
-      case coachOnboardingFlows:
-        return _buildRoute(
-          const CoachAccessGate(child: CoachOnboardingFlowsScreen()),
-        );
-      case coachResources:
-        return _buildRoute(
-          const CoachAccessGate(child: CoachResourcesScreen()),
-        );
-      case packages:
-        return _buildRoute(const CoachAccessGate(child: CoachPackagesScreen()));
-      case addPackage:
-        final package = settings.arguments;
-        return _buildRoute(
-          CoachAccessGate(
-            child: CoachPackageEditorScreen(
-              initialPackage: package is CoachPackageEntity ? package : null,
-            ),
-          ),
-        );
-      case coachProfile:
-        return _buildRoute(const CoachAccessGate(child: CoachProfileScreen()));
 
-      case coachMemberInsights:
-        final args = settings.arguments;
-        if (args is InsightDetailArgs) {
-          return _buildRoute(
-            CoachAccessGate(child: CoachMemberInsightsScreen(args: args)),
+        case coachMemberInsights:
+          final args = settings.arguments;
+          if (args is InsightDetailArgs) {
+            return _buildRoute(
+              CoachAccessGate(child: CoachMemberInsightsScreen(args: args)),
+            );
+          }
+          return _featureRoute(
+            title: 'Member Insights',
+            description:
+                'Member ID and subscription are required to view insights.',
+            icon: Icons.insights_rounded,
           );
-        }
-        return _featureRoute(
-          title: 'Member Insights',
-          description:
-              'Member ID and subscription are required to view insights.',
-          icon: Icons.insights_rounded,
-        );
-      case memberCoachVisibility:
-        final args = settings.arguments;
-        if (args is VisibilitySettingsArgs) {
-          return _buildRoute(MemberCoachVisibilitySettingsScreen(args: args));
-        }
-        return _featureRoute(
-          title: 'Privacy Settings',
-          description:
-              'Subscription and coach information are required to manage visibility.',
-          icon: Icons.shield_outlined,
-        );
+        case memberCoachVisibility:
+          final args = settings.arguments;
+          if (args is VisibilitySettingsArgs) {
+            return _buildRoute(MemberCoachVisibilitySettingsScreen(args: args));
+          }
+          return _featureRoute(
+            title: 'Privacy Settings',
+            description:
+                'Subscription and coach information are required to manage visibility.',
+            icon: Icons.shield_outlined,
+          );
 
-      case notifications:
-        return _buildRoute(const NotificationsScreen());
-      case AppRoutes.settings:
-        return _buildRoute(const SettingsScreen());
-      case deleteAccount:
-        return _buildRoute(const DeleteAccountScreen());
-      case helpSupport:
-        return _buildRoute(const HelpSupportScreen());
-      case privacyPolicy:
-        return _buildRoute(const PrivacyPolicyScreen());
-      case terms:
-        return _buildRoute(const TermsScreen());
+        case notifications:
+          return _buildRoute(const NotificationsScreen());
+        case AppRoutes.settings:
+          return _buildRoute(const SettingsScreen());
+        case deleteAccount:
+          return _buildRoute(const DeleteAccountScreen());
+        case helpSupport:
+          return _buildRoute(const HelpSupportScreen());
+        case privacyPolicy:
+          return _buildRoute(const PrivacyPolicyScreen());
+        case terms:
+          return _buildRoute(const TermsScreen());
 
-      default:
-        return _featureRoute(
-          title: 'Unknown Route',
-          description:
-              'The app tried to open "${settings.name}", but there is no configured screen for it yet.',
-          icon: Icons.route_outlined,
-        );
+        default:
+          return _featureRoute(
+            title: 'Unknown Route',
+            description:
+                'The app tried to open "${settings.name}", but there is no configured screen for it yet.',
+            icon: Icons.route_outlined,
+          );
+      }
+    } finally {
+      _activeRouteSettings = null;
     }
   }
 
   static MaterialPageRoute _buildRoute(Widget page) {
-    return MaterialPageRoute(builder: (_) => page);
+    return MaterialPageRoute(
+      settings: _activeRouteSettings,
+      builder: (_) => page,
+    );
   }
 
   static Route<dynamic> _guardedFeatureRoute({

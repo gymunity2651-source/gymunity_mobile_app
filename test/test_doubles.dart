@@ -599,6 +599,8 @@ class FakeCoachRepository implements CoachRepository {
   Completer<CoachBookingEntity>? updateBookingStatusCompleter;
   Map<String, dynamic>? lastUpsertCoachProfilePayload;
   Map<String, dynamic>? lastAvailabilitySlotPayload;
+  List<Map<String, dynamic>> savedAvailabilitySlotPayloads =
+      <Map<String, dynamic>>[];
   List<CoachPackageEntity> packages = const <CoachPackageEntity>[];
   List<CoachAvailabilitySlotEntity> availability =
       const <CoachAvailabilitySlotEntity>[];
@@ -953,7 +955,7 @@ class FakeCoachRepository implements CoachRepository {
     bool isActive = true,
   }) async {
     saveAvailabilitySlotCalls++;
-    lastAvailabilitySlotPayload = <String, dynamic>{
+    final payload = <String, dynamic>{
       'slotId': slotId,
       'weekday': weekday,
       'startTime': startTime,
@@ -961,6 +963,8 @@ class FakeCoachRepository implements CoachRepository {
       'timezone': timezone,
       'isActive': isActive,
     };
+    lastAvailabilitySlotPayload = payload;
+    savedAvailabilitySlotPayloads.add(payload);
   }
 
   @override
@@ -1907,6 +1911,7 @@ class FakeMemberRepository implements MemberRepository {
   bool? lastPauseNow;
   Object? pauseSubscriptionError;
   Completer<void>? pauseSubscriptionCompleter;
+  int listSubscriptionsCalls = 0;
   Map<String, dynamic>? lastSentCoachingMessagePayload;
   int submitWeeklyCheckinCalls = 0;
   Map<String, dynamic>? lastWeeklyCheckinPayload;
@@ -2126,7 +2131,10 @@ class FakeMemberRepository implements MemberRepository {
   Future<void> deleteWorkoutSession(String sessionId) async {}
 
   @override
-  Future<List<SubscriptionEntity>> listSubscriptions() async => subscriptions;
+  Future<List<SubscriptionEntity>> listSubscriptions() async {
+    listSubscriptionsCalls++;
+    return subscriptions;
+  }
 
   @override
   Future<SubscriptionEntity> confirmCoachPayment({

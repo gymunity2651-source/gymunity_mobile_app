@@ -185,6 +185,7 @@ class _SubscriptionPackagesScreenState
         );
         final opened = await ExternalLinkService.openUrl(session.checkoutUrl);
         ref.invalidate(memberSubscriptionsProvider);
+        ref.invalidate(memberHomeSummaryProvider);
         if (!context.mounted) {
           return;
         }
@@ -208,6 +209,8 @@ class _SubscriptionPackagesScreenState
             note: data.note,
             paymentRail: data.paymentRail,
           );
+      ref.invalidate(memberSubscriptionsProvider);
+      ref.invalidate(memberHomeSummaryProvider);
       if (!context.mounted) {
         return;
       }

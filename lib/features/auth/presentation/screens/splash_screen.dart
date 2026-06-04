@@ -94,7 +94,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 ),
               ),
               const Spacer(flex: 2),
-              
+
               // Refining the Art of Self
               RichText(
                 textAlign: TextAlign.center,
@@ -109,16 +109,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                     const TextSpan(text: 'Refining the '),
                     TextSpan(
                       text: 'Art',
-                      style: GoogleFonts.notoSerif(
-                        fontStyle: FontStyle.italic,
-                      ),
+                      style: GoogleFonts.notoSerif(fontStyle: FontStyle.italic),
                     ),
                     const TextSpan(text: ' of\nSelf'),
                   ],
                 ),
               ),
               const SizedBox(height: 38),
-              
+
               // Categories
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -199,13 +197,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 2.4,
-                        color: AtelierColors.onSurfaceVariant.withValues(alpha: 0.5),
+                        color: AtelierColors.onSurfaceVariant.withValues(
+                          alpha: 0.5,
+                        ),
                       ),
                     ),
                   ],
                 )
               else ...[
-                if (bootstrapState.status == AppBootstrapStatus.deletedAccount && _canContactSupport)
+                if (bootstrapState.status ==
+                        AppBootstrapStatus.deletedAccount &&
+                    _canContactSupport)
                   Padding(
                     padding: const EdgeInsets.only(top: 24),
                     child: CustomButton(
@@ -222,7 +224,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                     child: CustomButton(
                       label: 'RETRY',
                       onPressed: () {
-                        ref.read(appBootstrapControllerProvider.notifier).load();
+                        ref
+                            .read(appBootstrapControllerProvider.notifier)
+                            .load();
                       },
                     ),
                   ),
@@ -232,15 +236,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                     child: CustomButton(
                       label: 'BACK TO LOGIN',
                       onPressed: () {
-                        ref.read(authFlowControllerProvider.notifier).clearOutcome();
+                        ref
+                            .read(authFlowControllerProvider.notifier)
+                            .clearOutcome();
                         _navigateTo(AppRoutes.login);
                       },
                     ),
                   ),
               ],
-              
+
               const Spacer(flex: 3),
-              
+
               // Quote
               Text(
                 '"Harmony is the highest form of discipline."',
@@ -277,14 +283,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     if (next.status == AppBootstrapStatus.authenticated ||
         next.status == AppBootstrapStatus.unauthenticated) {
-      _navigateTo(routeName);
+      _navigateTo(routeName, arguments: next.routeArguments);
     }
   }
 
-  void _handleAuthFlowState(
-    AuthFlowState? previous,
-    AuthFlowState next,
-  ) {
+  void _handleAuthFlowState(AuthFlowState? previous, AuthFlowState next) {
     if (!mounted || _hasNavigated) {
       return;
     }
@@ -297,15 +300,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     }
   }
 
-  void _navigateTo(String routeName) {
+  void _navigateTo(String routeName, {Object? arguments}) {
     if (!mounted || _hasNavigated) {
       return;
     }
     _hasNavigated = true;
-    unawaited(_navigateAfterMinimumDisplay(routeName));
+    unawaited(_navigateAfterMinimumDisplay(routeName, arguments: arguments));
   }
 
-  Future<void> _navigateAfterMinimumDisplay(String routeName) async {
+  Future<void> _navigateAfterMinimumDisplay(
+    String routeName, {
+    Object? arguments,
+  }) async {
     await _minimumDisplayFuture;
     if (!mounted) {
       return;
@@ -315,7 +321,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (!mounted) {
         return;
       }
-      Navigator.pushReplacementNamed(context, routeName);
+      Navigator.pushReplacementNamed(context, routeName, arguments: arguments);
     });
   }
 }

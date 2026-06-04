@@ -22,11 +22,13 @@ class AppBootstrapState {
   const AppBootstrapState({
     this.status = AppBootstrapStatus.loading,
     this.routeName,
+    this.routeArguments,
     this.message,
   });
 
   final AppBootstrapStatus status;
   final String? routeName;
+  final Object? routeArguments;
   final String? message;
 
   bool get isTerminalError =>
@@ -37,13 +39,18 @@ class AppBootstrapState {
   AppBootstrapState copyWith({
     AppBootstrapStatus? status,
     String? routeName,
+    Object? routeArguments,
     String? message,
     bool clearRoute = false,
+    bool clearRouteArguments = false,
     bool clearMessage = false,
   }) {
     return AppBootstrapState(
       status: status ?? this.status,
       routeName: clearRoute ? null : routeName ?? this.routeName,
+      routeArguments: clearRouteArguments
+          ? null
+          : routeArguments ?? this.routeArguments,
       message: clearMessage ? null : message ?? this.message,
     );
   }
@@ -98,12 +105,13 @@ class AppBootstrapController extends StateNotifier<AppBootstrapState> {
 
       final route = await _ref
           .read(authRouteResolverProvider)
-          .resolveInitialRoute();
+          .resolveInitialAppRoute();
       state = AppBootstrapState(
-        status: route == AppRoutes.welcome
+        status: route.routeName == AppRoutes.welcome
             ? AppBootstrapStatus.unauthenticated
             : AppBootstrapStatus.authenticated,
-        routeName: route,
+        routeName: route.routeName,
+        routeArguments: route.arguments,
       );
     } on AppFailure catch (error) {
       state = AppBootstrapState(

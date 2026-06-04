@@ -11,7 +11,7 @@ import 'package:my_app/features/ai_chat/presentation/screens/ai_conversation_scr
 import 'package:my_app/features/ai_chat/presentation/screens/ai_chat_home_screen.dart';
 import 'package:my_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:my_app/features/auth/presentation/screens/auth_callback_screen.dart';
-import 'package:my_app/features/auth/presentation/screens/login_screen.dart';
+import 'package:my_app/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:my_app/features/coach/domain/entities/coach_entity.dart';
 import 'package:my_app/features/coach/domain/entities/subscription_entity.dart';
 import 'package:my_app/features/coach/presentation/screens/coach_dashboard_screen.dart';
@@ -622,7 +622,7 @@ void main() {
       expect(find.byType(SellerProfileScreen), findsOneWidget);
     });
 
-    testWidgets('seller settings logout returns to login', (tester) async {
+    testWidgets('seller settings logout returns to welcome', (tester) async {
       final authRepository = FakeAuthRepository();
       final userRepository = FakeUserRepository()
         ..profile = const ProfileEntity(
@@ -648,7 +648,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(authRepository.logoutCalls, 1);
-      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byType(WelcomeScreen), findsOneWidget);
       expect(find.byType(SettingsScreen), findsNothing);
     });
 
@@ -965,7 +965,7 @@ void main() {
       expect(find.text('Cancelled'), findsNothing);
     });
 
-    testWidgets('seller dashboard logout returns to login', (tester) async {
+    testWidgets('seller dashboard logout returns to welcome', (tester) async {
       final authRepository = FakeAuthRepository();
 
       await _pumpScreen(
@@ -980,7 +980,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(authRepository.logoutCalls, 1);
-      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byType(WelcomeScreen), findsOneWidget);
       expect(find.byType(SellerDashboardScreen), findsNothing);
     });
 

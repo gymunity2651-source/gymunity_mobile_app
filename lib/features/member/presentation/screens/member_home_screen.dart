@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/atelier_colors.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/atelier_theme.dart';
 import '../../../ai_coach/presentation/screens/ai_coach_home_screen.dart';
@@ -24,6 +26,8 @@ class MemberHomeScreen extends ConsumerStatefulWidget {
 
 class _MemberHomeScreenState extends ConsumerState<MemberHomeScreen>
     with WidgetsBindingObserver {
+  static const String _tabPersistenceArea = 'member_home';
+
   int _currentIndex = 0;
   int? _previousIndex;
 
@@ -31,6 +35,7 @@ class _MemberHomeScreenState extends ConsumerState<MemberHomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_restoreLastTab());
   }
 
   @override
@@ -43,6 +48,13 @@ class _MemberHomeScreenState extends ConsumerState<MemberHomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshHomeSummary();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      unawaited(
+        ref
+            .read(appNavigationStateStoreProvider)
+            .saveLastTabIndex(_tabPersistenceArea, _currentIndex),
+      );
     }
   }
 
@@ -136,6 +148,11 @@ class _MemberHomeScreenState extends ConsumerState<MemberHomeScreen>
 
   void _handleDestinationSelected(int index) {
     if (index == _currentIndex) {
+      unawaited(
+        ref
+            .read(appNavigationStateStoreProvider)
+            .saveLastTabIndex(_tabPersistenceArea, index),
+      );
       if (index == 0) {
         _refreshHomeSummary();
       }
@@ -147,6 +164,11 @@ class _MemberHomeScreenState extends ConsumerState<MemberHomeScreen>
       _previousIndex = previous;
       _currentIndex = index;
     });
+    unawaited(
+      ref
+          .read(appNavigationStateStoreProvider)
+          .saveLastTabIndex(_tabPersistenceArea, index),
+    );
     if (index == 0) {
       _refreshHomeSummary();
     }
@@ -161,6 +183,20 @@ class _MemberHomeScreenState extends ConsumerState<MemberHomeScreen>
 
   void _refreshHomeSummary() {
     ref.invalidate(memberHomeSummaryProvider);
+  }
+
+  Future<void> _restoreLastTab() async {
+    final index = await ref
+        .read(appNavigationStateStoreProvider)
+        .readLastTabIndex(_tabPersistenceArea);
+    if (!mounted || index == null) {
+      return;
+    }
+    final tabs = _memberHomeTabs;
+    if (index < 0 || index >= tabs.length || index == _currentIndex) {
+      return;
+    }
+    setState(() => _currentIndex = index);
   }
 
   List<_MemberHomeTab> get _memberHomeTabs => const <_MemberHomeTab>[

@@ -266,7 +266,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
       return;
     }
 
-    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (_) => false);
+    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.welcome, (_) => false);
   }
 
   Future<void> _contactSupport() async {
