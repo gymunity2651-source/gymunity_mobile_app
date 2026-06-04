@@ -5,6 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 typedef CurrentUserIdReader = Future<String?> Function();
 typedef NavigationClock = DateTime Function();
 
+// Dashboard restoration intentionally has no separate persistence API. Each role
+// currently has a single canonical dashboard, so AuthRouteResolver falls back to
+// routeForRoleDashboard(role) instead of keeping duplicate dashboard state.
+const bool storeHasNoLastDashboardFallbackApi = true;
+
 class SavedRouteState {
   const SavedRouteState({
     required this.userId,
@@ -57,10 +62,6 @@ abstract class AppNavigationStateStore {
 
   Future<void> clearLastSafeRoute();
 
-  Future<void> saveLastDashboardRoute(String routeName);
-
-  Future<String?> readLastDashboardRoute();
-
   Future<void> saveLastTabIndex(String area, int index);
 
   Future<int?> readLastTabIndex(String area);
@@ -79,8 +80,6 @@ class SharedPreferencesAppNavigationStateStore
 
   static const String _lastSafeRouteKey =
       'app_navigation_state.last_safe_route';
-  static const String _dashboardPrefix =
-      'app_navigation_state.last_dashboard_route';
   static const String _tabPrefix = 'app_navigation_state.last_tab';
 
   final SharedPreferences _preferences;
@@ -129,24 +128,6 @@ class SharedPreferencesAppNavigationStateStore
   }
 
   @override
-  Future<void> saveLastDashboardRoute(String routeName) async {
-    final userId = await _currentUserId();
-    if (userId == null) {
-      return;
-    }
-    await _preferences.setString(_dashboardKey(userId), routeName);
-  }
-
-  @override
-  Future<String?> readLastDashboardRoute() async {
-    final userId = await _currentUserId();
-    if (userId == null) {
-      return null;
-    }
-    return _preferences.getString(_dashboardKey(userId));
-  }
-
-  @override
   Future<void> saveLastTabIndex(String area, int index) async {
     final userId = await _currentUserId();
     if (userId == null || area.trim().isEmpty || index < 0) {
@@ -171,9 +152,8 @@ class SharedPreferencesAppNavigationStateStore
     final keys = _preferences.getKeys();
     for (final key in keys) {
       final shouldRemove = userId == null
-          ? key.startsWith(_dashboardPrefix) || key.startsWith(_tabPrefix)
-          : key == _dashboardKey(userId) ||
-                key.startsWith('$_tabPrefix.$userId.');
+          ? key.startsWith(_tabPrefix)
+          : key.startsWith('$_tabPrefix.$userId.');
       if (shouldRemove) {
         await _preferences.remove(key);
       }
@@ -184,8 +164,6 @@ class SharedPreferencesAppNavigationStateStore
     final userId = (await _currentUserIdReader())?.trim();
     return userId == null || userId.isEmpty ? null : userId;
   }
-
-  static String _dashboardKey(String userId) => '$_dashboardPrefix.$userId';
 
   static String _tabKey(String userId, String area) =>
       '$_tabPrefix.$userId.${area.trim()}';

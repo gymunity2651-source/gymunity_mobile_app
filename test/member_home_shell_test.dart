@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/app/routes.dart';
 import 'package:my_app/core/di/providers.dart';
+import 'package:my_app/core/routing/app_navigation_state_store.dart';
 import 'package:my_app/features/member/domain/entities/member_home_summary_entity.dart';
 import 'package:my_app/features/member/presentation/screens/member_home_screen.dart';
 import 'package:my_app/features/monetization/presentation/providers/monetization_providers.dart';
@@ -80,6 +81,32 @@ void main() {
         find.text('Recovery basics for consistent training'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('restores a valid saved member tab index', (tester) async {
+      await _pumpMemberShell(
+        tester,
+        navigationStateStore: _SavedTabNavigationStateStore(
+          area: 'member_home',
+          index: 2,
+        ),
+      );
+
+      expect(find.text('TAIYO Coach'), findsOneWidget);
+      expect(find.byKey(const Key('member-daily-streak-card')), findsNothing);
+    });
+
+    testWidgets('ignores an invalid saved member tab index', (tester) async {
+      await _pumpMemberShell(
+        tester,
+        navigationStateStore: _SavedTabNavigationStateStore(
+          area: 'member_home',
+          index: 99,
+        ),
+      );
+
+      expect(find.byKey(const Key('member-daily-streak-card')), findsOneWidget);
+      expect(find.text('TAIYO Coach'), findsNothing);
     });
 
     testWidgets('android back from coaches tab returns to home tab', (
@@ -294,6 +321,7 @@ Future<void> _pumpMemberShell(
   FakeUserRepository? userRepository,
   FakeNewsRepository? newsRepository,
   FakeMemberRepository? memberRepository,
+  AppNavigationStateStore? navigationStateStore,
 }) async {
   tester.view.physicalSize = const Size(1200, 2400);
   tester.view.devicePixelRatio = 1.0;
@@ -307,6 +335,7 @@ Future<void> _pumpMemberShell(
       userRepository: userRepository,
       newsRepository: newsRepository,
       memberRepository: memberRepository,
+      navigationStateStore: navigationStateStore,
     ),
   );
   await _settleShell(tester);
@@ -321,6 +350,7 @@ Widget _buildShellApp({
   FakeUserRepository? userRepository,
   FakeNewsRepository? newsRepository,
   FakeMemberRepository? memberRepository,
+  AppNavigationStateStore? navigationStateStore,
 }) {
   final resolvedUserRepository =
       userRepository ??
@@ -364,6 +394,8 @@ Widget _buildShellApp({
       sellerRepositoryProvider.overrideWithValue(FakeSellerRepository()),
       chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
       plannerRepositoryProvider.overrideWithValue(FakePlannerRepository()),
+      if (navigationStateStore != null)
+        appNavigationStateStoreProvider.overrideWithValue(navigationStateStore),
       notificationsProvider.overrideWith(
         (ref) => Stream<List<AppNotificationItem>>.value(
           const <AppNotificationItem>[],
@@ -380,6 +412,39 @@ Widget _buildShellApp({
       home: const MemberHomeScreen(),
     ),
   );
+}
+
+class _SavedTabNavigationStateStore implements AppNavigationStateStore {
+  const _SavedTabNavigationStateStore({
+    required this.area,
+    required this.index,
+  });
+
+  final String area;
+  final int index;
+
+  @override
+  Future<void> clearLastSafeRoute() async {}
+
+  @override
+  Future<void> clearUserScopedState() async {}
+
+  @override
+  Future<SavedRouteState?> readLastSafeRoute() async => null;
+
+  @override
+  Future<int?> readLastTabIndex(String area) async {
+    return area == this.area ? index : null;
+  }
+
+  @override
+  Future<void> saveLastSafeRoute(
+    String routeName, {
+    Map<String, dynamic>? params,
+  }) async {}
+
+  @override
+  Future<void> saveLastTabIndex(String area, int index) async {}
 }
 
 class _DelayedHomeSummaryMemberRepository extends FakeMemberRepository {

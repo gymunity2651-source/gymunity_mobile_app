@@ -1,3 +1,4 @@
+import '../config/app_config.dart';
 import '../../app/routes.dart';
 import '../../features/ai_chat/domain/repositories/chat_repository.dart';
 import '../../features/ai_coach/domain/repositories/ai_coach_repository.dart';
@@ -135,10 +136,20 @@ class AuthRouteResolver {
       return null;
     }
     if (!RoutePersistencePolicy.isPersistable(savedRoute.routeName) ||
-        !RoutePersistencePolicy.isAllowedForRole(savedRoute.routeName, role)) {
+        !RoutePersistencePolicy.isAllowedForRole(savedRoute.routeName, role) ||
+        !RoutePersistencePolicy.isEnabledByFeatureFlags(
+          savedRoute.routeName,
+          AppConfig.current,
+        )) {
+      await _navigationStateStore?.clearLastSafeRoute();
       return null;
     }
-    return _validateSavedRouteEntities(savedRoute);
+    try {
+      return await _validateSavedRouteEntities(savedRoute);
+    } catch (_) {
+      await _navigationStateStore?.clearLastSafeRoute();
+      return null;
+    }
   }
 
   Future<ResolvedAppRoute?> _validateSavedRouteEntities(
@@ -148,6 +159,7 @@ class AuthRouteResolver {
       case AppRoutes.aiConversation:
         final sessionId = _stringParam(savedRoute, 'sessionId');
         if (sessionId == null) {
+          await _navigationStateStore?.clearLastSafeRoute();
           return const ResolvedAppRoute(routeName: AppRoutes.aiChatHome);
         }
         final chatRepository = _chatRepository ?? _chatRepositoryReader?.call();
@@ -155,6 +167,7 @@ class AuthRouteResolver {
           final sessions = await chatRepository.listSessions();
           final exists = sessions.any((session) => session.id == sessionId);
           if (!exists) {
+            await _navigationStateStore?.clearLastSafeRoute();
             return const ResolvedAppRoute(routeName: AppRoutes.aiChatHome);
           }
         }
@@ -169,6 +182,7 @@ class AuthRouteResolver {
         if (planId != null && plannerRepository != null) {
           final plan = await plannerRepository.getPlanDetail(planId: planId);
           if (plan == null) {
+            await _navigationStateStore?.clearLastSafeRoute();
             return const ResolvedAppRoute(routeName: AppRoutes.memberHome);
           }
         }
@@ -180,6 +194,7 @@ class AuthRouteResolver {
         final planId = _stringParam(savedRoute, 'planId');
         final dayId = _stringParam(savedRoute, 'dayId');
         if (planId == null || dayId == null) {
+          await _navigationStateStore?.clearLastSafeRoute();
           return const ResolvedAppRoute(routeName: AppRoutes.memberHome);
         }
         final plannerRepository =
@@ -187,10 +202,12 @@ class AuthRouteResolver {
         if (plannerRepository != null) {
           final plan = await plannerRepository.getPlanDetail(planId: planId);
           if (plan == null) {
+            await _navigationStateStore?.clearLastSafeRoute();
             return const ResolvedAppRoute(routeName: AppRoutes.memberHome);
           }
           final dayExists = plan.days.any((day) => day.id == dayId);
           if (!dayExists) {
+            await _navigationStateStore?.clearLastSafeRoute();
             return ResolvedAppRoute(
               routeName: AppRoutes.workoutPlan,
               arguments: WorkoutPlanArgs(planId: planId),
@@ -214,6 +231,7 @@ class AuthRouteResolver {
           if (session == null ||
               session.status.toLowerCase() == 'completed' ||
               session.endedAt != null) {
+            await _navigationStateStore?.clearLastSafeRoute();
             return const ResolvedAppRoute(routeName: AppRoutes.memberHome);
           }
         }

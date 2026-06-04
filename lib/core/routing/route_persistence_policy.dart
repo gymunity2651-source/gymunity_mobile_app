@@ -1,3 +1,4 @@
+import '../config/app_config.dart';
 import '../../app/routes.dart';
 import '../../features/planner/presentation/route_args.dart';
 import '../../features/user/domain/entities/app_role.dart';
@@ -40,17 +41,13 @@ class RoutePersistencePolicy {
     AppRoutes.storeHome,
     AppRoutes.productList,
     AppRoutes.favorites,
-    AppRoutes.cart,
-    AppRoutes.orders,
     AppRoutes.coaches,
-    AppRoutes.mySubscriptions,
     AppRoutes.memberCheckins,
     AppRoutes.memberMessages,
     AppRoutes.coachDashboard,
     AppRoutes.clients,
     AppRoutes.coachCheckins,
     AppRoutes.coachCalendar,
-    AppRoutes.coachBilling,
     AppRoutes.coachProgramLibrary,
     AppRoutes.coachResources,
     AppRoutes.packages,
@@ -75,10 +72,7 @@ class RoutePersistencePolicy {
     AppRoutes.storeHome,
     AppRoutes.productList,
     AppRoutes.favorites,
-    AppRoutes.cart,
-    AppRoutes.orders,
     AppRoutes.coaches,
-    AppRoutes.mySubscriptions,
     AppRoutes.memberCheckins,
     AppRoutes.memberMessages,
   };
@@ -88,7 +82,6 @@ class RoutePersistencePolicy {
     AppRoutes.clients,
     AppRoutes.coachCheckins,
     AppRoutes.coachCalendar,
-    AppRoutes.coachBilling,
     AppRoutes.coachProgramLibrary,
     AppRoutes.coachResources,
     AppRoutes.packages,
@@ -132,6 +125,22 @@ class RoutePersistencePolicy {
       AppRole.coach => _coachRoutes.contains(routeName),
       AppRole.seller => _sellerRoutes.contains(routeName),
     };
+  }
+
+  static bool isEnabledByFeatureFlags(String routeName, AppConfig config) {
+    if (_storeRoutes.contains(routeName)) {
+      return config.enableStorePurchases;
+    }
+    if (_coachSubscriptionRoutes.contains(routeName)) {
+      return config.enableCoachSubscriptions;
+    }
+    if (_coachWorkspaceRoutes.contains(routeName)) {
+      return config.enableCoachRole;
+    }
+    if (_sellerRoutes.contains(routeName)) {
+      return config.enableSellerRole;
+    }
+    return true;
   }
 
   static bool isExpired(DateTime savedAt, DateTime now) {
@@ -223,4 +232,37 @@ class RoutePersistencePolicy {
 
   static bool _hasText(String? value) =>
       value != null && value.trim().isNotEmpty;
+
+  static const Set<String> _storeRoutes = <String>{
+    AppRoutes.storeHome,
+    AppRoutes.productList,
+    AppRoutes.productDetails,
+    AppRoutes.favorites,
+    AppRoutes.cart,
+    AppRoutes.checkout,
+    AppRoutes.orders,
+  };
+
+  static const Set<String> _coachSubscriptionRoutes = <String>{
+    AppRoutes.coaches,
+    AppRoutes.coachDetails,
+    AppRoutes.subscriptionPackages,
+    AppRoutes.mySubscriptions,
+  };
+
+  static const Set<String> _coachWorkspaceRoutes = <String>{
+    AppRoutes.coachDashboard,
+    AppRoutes.clients,
+    AppRoutes.coachCheckins,
+    AppRoutes.coachCalendar,
+    AppRoutes.coachBilling,
+    AppRoutes.coachProgramLibrary,
+    AppRoutes.coachOnboardingFlows,
+    AppRoutes.coachResources,
+    AppRoutes.packages,
+    AppRoutes.addPackage,
+    AppRoutes.coachProfile,
+    AppRoutes.coachClientWorkspace,
+    AppRoutes.coachMemberInsights,
+  };
 }

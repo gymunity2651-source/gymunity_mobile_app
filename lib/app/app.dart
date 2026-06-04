@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
@@ -47,6 +49,9 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
       ref.read(monetizationBootstrapProvider).refreshEntitlements();
       ref.read(plannerReminderBootstrapProvider).sync();
       ref.read(aiCoachBootProvider).refresh();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      unawaited(ref.read(appRouteObserverProvider).persistCurrentRoute());
     }
   }
 

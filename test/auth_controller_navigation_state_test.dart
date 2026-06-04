@@ -38,16 +38,10 @@ class _FakeNavigationStateStore implements AppNavigationStateStore {
   }
 
   @override
-  Future<String?> readLastDashboardRoute() async => null;
-
-  @override
   Future<SavedRouteState?> readLastSafeRoute() async => null;
 
   @override
   Future<int?> readLastTabIndex(String area) async => null;
-
-  @override
-  Future<void> saveLastDashboardRoute(String routeName) async {}
 
   @override
   Future<void> saveLastSafeRoute(

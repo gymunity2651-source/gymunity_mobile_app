@@ -9,6 +9,7 @@ class AppRouteObserver extends NavigatorObserver {
   AppRouteObserver(this._store);
 
   final AppNavigationStateStore _store;
+  RouteSettings? _lastPersistableSettings;
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
@@ -30,18 +31,28 @@ class AppRouteObserver extends NavigatorObserver {
   }
 
   void _persist(Route<dynamic> route) {
-    final name = route.settings.name;
+    _persistSettings(route.settings);
+  }
+
+  Future<void> persistCurrentRoute() async {
+    final settings = _lastPersistableSettings;
+    if (settings == null) {
+      return;
+    }
+    await _persistSettings(settings);
+  }
+
+  Future<void> _persistSettings(RouteSettings settings) async {
+    final name = settings.name;
     if (name == null ||
-        !RoutePersistencePolicy.canPersist(name, route.settings.arguments)) {
+        !RoutePersistencePolicy.canPersist(name, settings.arguments)) {
       return;
     }
     final params = RoutePersistencePolicy.extractPersistableParams(
       name,
-      route.settings.arguments,
+      settings.arguments,
     );
-    unawaited(_store.saveLastSafeRoute(name, params: params));
-    if (RoutePersistencePolicy.isDashboardRoute(name)) {
-      unawaited(_store.saveLastDashboardRoute(name));
-    }
+    _lastPersistableSettings = settings;
+    await _store.saveLastSafeRoute(name, params: params);
   }
 }

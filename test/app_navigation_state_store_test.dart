@@ -41,15 +41,17 @@ void main() {
       final store = buildStore();
 
       await store.saveLastSafeRoute(AppRoutes.memberHome);
-      await store.saveLastDashboardRoute(AppRoutes.memberHome);
       await store.saveLastTabIndex('member_home', 2);
       expect(await store.readLastTabIndex('member_home'), 2);
 
       await store.clearUserScopedState();
 
       expect(await store.readLastSafeRoute(), isNull);
-      expect(await store.readLastDashboardRoute(), isNull);
       expect(await store.readLastTabIndex('member_home'), isNull);
+    });
+
+    test('does not expose unused last dashboard state APIs', () {
+      expect(storeHasNoLastDashboardFallbackApi, isTrue);
     });
 
     test('keeps tab indexes scoped by user', () async {

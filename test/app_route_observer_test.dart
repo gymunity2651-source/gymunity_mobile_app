@@ -41,12 +41,32 @@ void main() {
 
       expect(store.savedRouteName, isNull);
     });
+
+    test('persists the current safe route again on lifecycle flush', () async {
+      final store = _FakeNavigationStateStore();
+      final observer = AppRouteObserver(store);
+
+      observer.didPush(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: AppRoutes.aiChatHome),
+          builder: (_) => const SizedBox.shrink(),
+        ),
+        null,
+      );
+      await pumpEventQueue();
+
+      await observer.persistCurrentRoute();
+
+      expect(store.savedRouteName, AppRoutes.aiChatHome);
+      expect(store.saveLastSafeRouteCalls, 2);
+    });
   });
 }
 
 class _FakeNavigationStateStore implements AppNavigationStateStore {
   String? savedRouteName;
   Map<String, dynamic>? savedParams;
+  int saveLastSafeRouteCalls = 0;
 
   @override
   Future<void> clearLastSafeRoute() async {}
@@ -55,22 +75,17 @@ class _FakeNavigationStateStore implements AppNavigationStateStore {
   Future<void> clearUserScopedState() async {}
 
   @override
-  Future<String?> readLastDashboardRoute() async => null;
-
-  @override
   Future<SavedRouteState?> readLastSafeRoute() async => null;
 
   @override
   Future<int?> readLastTabIndex(String area) async => null;
 
   @override
-  Future<void> saveLastDashboardRoute(String routeName) async {}
-
-  @override
   Future<void> saveLastSafeRoute(
     String routeName, {
     Map<String, dynamic>? params,
   }) async {
+    saveLastSafeRouteCalls++;
     savedRouteName = routeName;
     savedParams = params;
   }
