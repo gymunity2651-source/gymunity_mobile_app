@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/app_failure.dart';
+import '../../../../core/auth/logout_providers.dart';
+import '../../../../core/auth/logout_result.dart';
 import '../../../../core/di/providers.dart';
 import '../../domain/entities/auth_provider_type.dart';
 import '../../domain/entities/auth_session.dart';
@@ -167,23 +169,15 @@ class AuthController extends StateNotifier<AuthControllerState> {
 
   Future<void> logout() async {
     state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      final authRepo = _ref.read(authRepositoryProvider);
-      final currentUserId =
-          (await _ref.read(userRepositoryProvider).getCurrentUser())?.id;
-      await authRepo.logout();
-      await _ref.read(appNavigationStateStoreProvider).clearUserScopedState();
-      if (currentUserId != null) {
-        await _ref
-            .read(appStatePersistenceServiceProvider.future)
-            .then((service) => service.clearUserScopedState(currentUserId));
-      }
-      _ref.invalidate(currentUserProfileProvider);
+    final result = await _ref
+        .read(logoutCoordinatorProvider)
+        .logout(reason: LogoutReason.userRequested);
+    if (result.isSuccess) {
       state = state.copyWith(isLoading: false, clearError: true);
-    } catch (e) {
+    } else {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: _messageFromError(e),
+        errorMessage: result.message,
       );
     }
   }
@@ -212,16 +206,13 @@ class AuthController extends StateNotifier<AuthControllerState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final authRepo = _ref.read(authRepositoryProvider);
-      final currentUserId =
-          (await _ref.read(userRepositoryProvider).getCurrentUser())?.id;
       await authRepo.deleteAccount(currentPassword: currentPassword);
-      await _ref.read(appNavigationStateStoreProvider).clearUserScopedState();
-      if (currentUserId != null) {
-        await _ref
-            .read(appStatePersistenceServiceProvider.future)
-            .then((service) => service.clearUserScopedState(currentUserId));
-      }
-      _ref.invalidate(currentUserProfileProvider);
+      await _ref
+          .read(logoutCoordinatorProvider)
+          .logout(
+            reason: LogoutReason.accountDeleted,
+            performRemoteSignOut: false,
+          );
       state = state.copyWith(isLoading: false, clearError: true);
       return true;
     } catch (e) {

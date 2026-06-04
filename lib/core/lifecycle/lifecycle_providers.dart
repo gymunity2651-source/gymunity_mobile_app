@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/routes.dart';
+import '../auth/logout_providers.dart';
+import '../auth/logout_result.dart';
 import '../../features/ai_coach/presentation/providers/ai_coach_providers.dart';
 import '../../features/monetization/presentation/providers/monetization_providers.dart';
 import '../../features/planner/presentation/providers/planner_providers.dart';
@@ -26,12 +26,6 @@ final activeWorkoutResumeCoordinatorProvider =
     Provider<ActiveWorkoutResumeCoordinator>((ref) {
       return ActiveWorkoutResumeCoordinator(ref);
     });
-
-final appLifecycleNavigatorKeyProvider = Provider<GlobalKey<NavigatorState>>((
-  ref,
-) {
-  return GlobalKey<NavigatorState>();
-});
 
 final appLifecycleActionsProvider = Provider<AppLifecycleActions>((ref) {
   return RiverpodAppLifecycleActions(ref);
@@ -106,9 +100,9 @@ class RiverpodAppLifecycleActions implements AppLifecycleActions {
           .read(userRepositoryProvider)
           .getAccountStatus(userId: currentUser.id);
       if (accountStatus.isDeletedLike) {
-        await _clearStateForUser(currentUser.id);
-        await _ref.read(authRepositoryProvider).logout();
-        _navigateToWelcome();
+        await _ref
+            .read(logoutCoordinatorProvider)
+            .logout(reason: LogoutReason.accountDeleted);
         return const LifecycleAuthResult.unauthenticated();
       }
       _ref.invalidate(currentUserProfileProvider);
@@ -190,17 +184,12 @@ class RiverpodAppLifecycleActions implements AppLifecycleActions {
 
   @override
   Future<void> clearUnauthenticatedState() async {
-    final currentUser = await _ref
-        .read(userRepositoryProvider)
-        .getCurrentUser();
-    final userId = currentUser?.id;
-    if (userId != null) {
-      await _clearStateForUser(userId);
-    } else {
-      await _ref.read(appNavigationStateStoreProvider).clearUserScopedState();
-    }
-    _ref.invalidate(currentUserProfileProvider);
-    _navigateToWelcome();
+    await _ref
+        .read(logoutCoordinatorProvider)
+        .logout(
+          reason: LogoutReason.sessionExpired,
+          performRemoteSignOut: false,
+        );
   }
 
   @override
@@ -209,18 +198,4 @@ class RiverpodAppLifecycleActions implements AppLifecycleActions {
     await _ref.read(monetizationBootstrapProvider).dispose();
   }
 
-  Future<void> _clearStateForUser(String userId) async {
-    await _ref.read(appNavigationStateStoreProvider).clearUserScopedState();
-    final service = _ref.read(appStatePersistenceServiceProvider).valueOrNull;
-    if (service != null) {
-      await service.clearUserScopedState(userId);
-    }
-  }
-
-  void _navigateToWelcome() {
-    _ref
-        .read(appLifecycleNavigatorKeyProvider)
-        .currentState
-        ?.pushNamedAndRemoveUntil(AppRoutes.welcome, (route) => false);
-  }
 }

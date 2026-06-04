@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/core/di/providers.dart';
+import 'package:my_app/core/auth/logout_coordinator.dart';
+import 'package:my_app/core/auth/logout_providers.dart';
 import 'package:my_app/core/persistence/app_state_persistence_service.dart';
 import 'package:my_app/core/persistence/local_json_store.dart';
 import 'package:my_app/core/persistence/persisted_cart_store.dart';
@@ -21,6 +23,9 @@ void main() {
         authRepositoryProvider.overrideWithValue(authRepository),
         userRepositoryProvider.overrideWithValue(FakeUserRepository()),
         appNavigationStateStoreProvider.overrideWithValue(navigationStore),
+        logoutServiceStopperProvider.overrideWithValue(
+          const _NoopLogoutServiceStopper(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -60,6 +65,9 @@ void main() {
         appStatePersistenceServiceProvider.overrideWith((ref) async {
           return persistence;
         }),
+        logoutServiceStopperProvider.overrideWithValue(
+          const _NoopLogoutServiceStopper(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -68,6 +76,13 @@ void main() {
 
     expect(await persistence.cart.readCartItems('user-a'), isEmpty);
   });
+}
+
+class _NoopLogoutServiceStopper implements LogoutServiceStopper {
+  const _NoopLogoutServiceStopper();
+
+  @override
+  Future<void> stopUserScopedServices() async {}
 }
 
 class _FakeNavigationStateStore implements AppNavigationStateStore {

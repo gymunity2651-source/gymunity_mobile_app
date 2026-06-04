@@ -10,6 +10,7 @@ import '../core/constants/app_strings.dart';
 import '../core/config/app_config.dart';
 import '../core/di/providers.dart';
 import '../core/lifecycle/lifecycle_providers.dart';
+import '../core/navigation/app_navigator.dart';
 import '../features/ai_coach/presentation/providers/ai_coach_providers.dart';
 import '../features/monetization/presentation/providers/monetization_providers.dart';
 import '../features/planner/presentation/providers/planner_providers.dart';
@@ -75,7 +76,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
       restorationScopeId: 'gymunity_app',
       theme: AppTheme.darkTheme,
       locale: Locale(preferences.language == AppLanguage.arabic ? 'ar' : 'en'),
-      navigatorKey: ref.watch(appLifecycleNavigatorKeyProvider),
+      navigatorKey: ref.watch(appNavigatorKeyProvider),
       supportedLocales: const <Locale>[Locale('en'), Locale('ar')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       initialRoute: AppRoutes.splash,
