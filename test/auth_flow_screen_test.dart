@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/app/routes.dart';
 import 'package:my_app/core/config/app_config.dart';
+import 'package:my_app/core/constants/app_strings.dart';
 import 'package:my_app/core/di/providers.dart';
 import 'package:my_app/core/supabase/auth_callback_utils.dart';
 import 'package:my_app/features/auth/domain/entities/auth_session.dart';
@@ -12,6 +13,8 @@ import 'package:my_app/features/auth/presentation/screens/forgot_password_screen
 import 'package:my_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:my_app/features/auth/presentation/screens/register_screen.dart';
 import 'package:my_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:my_app/features/user/domain/entities/profile_entity.dart';
+import 'package:my_app/features/user/domain/entities/user_entity.dart';
 
 import 'test_doubles.dart';
 
@@ -223,6 +226,48 @@ void main() {
       expect(userRepository.ensureUserCalls, 1);
     });
 
+    testWidgets(
+      'login routes bootstrapped user with no role to role selection',
+      (tester) async {
+        final controller = StreamController<AuthSession?>();
+        addTearDown(controller.close);
+
+        final authRepository = FakeAuthRepository()
+          ..sessionStream = controller.stream
+          ..signInWithGoogleResult = true;
+        final authCallbackIngress = FakeAuthCallbackIngress();
+        final userRepository = _BootstrapCurrentUserRepository();
+
+        await _pumpScreen(
+          tester,
+          const LoginScreen(),
+          overrides: _overrides(
+            authRepository: authRepository,
+            authCallbackIngress: authCallbackIngress,
+            userRepository: userRepository,
+          ),
+        );
+
+        await tester.tap(find.text('Continue with Google'));
+        await tester.pump();
+
+        controller.add(
+          const AuthSession(
+            userId: 'new-user',
+            email: 'new-user@test.com',
+            fullName: 'New User',
+            isAuthenticated: true,
+          ),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(userRepository.ensureUserCalls, 1);
+        expect(find.byType(LoginScreen), findsNothing);
+        expect(find.text(AppStrings.roleHeadline), findsOneWidget);
+      },
+    );
+
     testWidgets('login shows timeout failure only after Google OAuth timeout', (
       tester,
     ) async {
@@ -359,4 +404,26 @@ List<Override> _overrides({
         googleOAuthPollInterval,
       ),
   ];
+}
+
+class _BootstrapCurrentUserRepository extends FakeUserRepository {
+  @override
+  Future<void> ensureUserAndProfile({
+    required String userId,
+    required String email,
+    String? fullName,
+  }) async {
+    await super.ensureUserAndProfile(
+      userId: userId,
+      email: email,
+      fullName: fullName,
+    );
+    currentUser = UserEntity(id: userId, email: email);
+    profile = ProfileEntity(
+      userId: userId,
+      email: email,
+      fullName: fullName,
+      onboardingCompleted: false,
+    );
+  }
 }

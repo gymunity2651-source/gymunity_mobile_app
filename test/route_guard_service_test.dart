@@ -18,23 +18,49 @@ void main() {
 
   tearDown(AppConfig.clearDebugOverride);
 
-  test('unauthenticated user opening member dashboard redirects to login', () async {
-    final logout = _RecordingLogoutCoordinator();
-    final guard = RouteGuardService(
-      userRepository: FakeUserRepository(),
-      logout: logout.logout,
-    );
+  test(
+    'unauthenticated user opening member dashboard redirects to login',
+    () async {
+      final logout = _RecordingLogoutCoordinator();
+      final guard = RouteGuardService(
+        userRepository: FakeUserRepository(),
+        logout: logout.logout,
+      );
 
-    final result = await guard.guardRoute(routeName: AppRoutes.memberHome);
+      final result = await guard.guardRoute(routeName: AppRoutes.memberHome);
 
-    expect(result, isA<RouteRedirect>());
-    final redirect = result as RouteRedirect;
-    expect(redirect.routeName, AppRoutes.login);
-    expect(redirect.clearStack, isTrue);
-    expect(logout.reasons, contains(LogoutReason.sessionExpired));
-  });
+      expect(result, isA<RouteRedirect>());
+      final redirect = result as RouteRedirect;
+      expect(redirect.routeName, AppRoutes.login);
+      expect(redirect.clearStack, isTrue);
+      expect(logout.reasons, contains(LogoutReason.sessionExpired));
+    },
+  );
 
-  test('authenticated user with no profile redirects to role selection', () async {
+  test(
+    'authenticated user with no profile redirects to role selection',
+    () async {
+      final userRepository = FakeUserRepository()
+        ..currentUser = const UserEntity(id: 'user-1', email: 'u@test.com');
+      final guard = RouteGuardService(
+        userRepository: userRepository,
+        logout: _noopLogout,
+      );
+
+      final result = await guard.guardRoute(routeName: AppRoutes.memberHome);
+
+      expect(
+        result,
+        isA<RouteRedirect>().having(
+          (value) => value.routeName,
+          'routeName',
+          AppRoutes.roleSelection,
+        ),
+      );
+    },
+  );
+
+  test('authenticated user with no profile can open role selection', () async {
     final userRepository = FakeUserRepository()
       ..currentUser = const UserEntity(id: 'user-1', email: 'u@test.com');
     final guard = RouteGuardService(
@@ -42,38 +68,53 @@ void main() {
       logout: _noopLogout,
     );
 
-    final result = await guard.guardRoute(routeName: AppRoutes.memberHome);
+    final result = await guard.guardRoute(routeName: AppRoutes.roleSelection);
 
-    expect(
-      result,
-      isA<RouteRedirect>().having(
-        (value) => value.routeName,
-        'routeName',
-        AppRoutes.roleSelection,
-      ),
-    );
+    expect(result, isA<RouteAllowed>());
   });
 
-  test('incomplete onboarding redirects to matching onboarding route', () async {
-    final guard = RouteGuardService(
-      userRepository: _userWithProfile(
-        role: AppRole.coach,
-        onboardingCompleted: false,
-      ),
-      logout: _noopLogout,
-    );
+  test(
+    'authenticated user with profile but no role can open role selection',
+    () async {
+      final userRepository = FakeUserRepository()
+        ..currentUser = const UserEntity(id: 'user-1', email: 'u@test.com')
+        ..profile = const ProfileEntity(userId: 'user-1');
+      final guard = RouteGuardService(
+        userRepository: userRepository,
+        logout: _noopLogout,
+      );
 
-    final result = await guard.guardRoute(routeName: AppRoutes.coachDashboard);
+      final result = await guard.guardRoute(routeName: AppRoutes.roleSelection);
 
-    expect(
-      result,
-      isA<RouteRedirect>().having(
-        (value) => value.routeName,
-        'routeName',
-        AppRoutes.coachOnboarding,
-      ),
-    );
-  });
+      expect(result, isA<RouteAllowed>());
+    },
+  );
+
+  test(
+    'incomplete onboarding redirects to matching onboarding route',
+    () async {
+      final guard = RouteGuardService(
+        userRepository: _userWithProfile(
+          role: AppRole.coach,
+          onboardingCompleted: false,
+        ),
+        logout: _noopLogout,
+      );
+
+      final result = await guard.guardRoute(
+        routeName: AppRoutes.coachDashboard,
+      );
+
+      expect(
+        result,
+        isA<RouteRedirect>().having(
+          (value) => value.routeName,
+          'routeName',
+          AppRoutes.coachOnboarding,
+        ),
+      );
+    },
+  );
 
   test('completed onboarding user is not sent back to onboarding', () async {
     final guard = RouteGuardService(

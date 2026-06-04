@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,7 +11,9 @@ import 'package:my_app/core/routing/route_guard_result.dart';
 import 'package:my_app/core/routing/route_guard_service.dart';
 
 void main() {
-  testWidgets('protected child is not built before guard allows', (tester) async {
+  testWidgets('protected child is not built before guard allows', (
+    tester,
+  ) async {
     var childBuilds = 0;
     final guard = _FakeRouteGuardService(
       result: Future<RouteGuardResult>.delayed(
@@ -70,6 +74,69 @@ void main() {
 
     expect(find.byType(AccessDeniedScreen), findsOneWidget);
     expect(find.text('Coach access required'), findsOneWidget);
+    expect(find.text('protected'), findsNothing);
+  });
+
+  testWidgets('guard errors show retry and logout actions instead of spinner', (
+    tester,
+  ) async {
+    final completer = Completer<RouteGuardResult>();
+    final guard = _FakeRouteGuardService(result: completer.future);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [routeGuardServiceProvider.overrideWithValue(guard)],
+        child: MaterialApp(
+          home: GuardedRouteScreen(
+            routeName: AppRoutes.memberHome,
+            arguments: null,
+            childBuilder: (_) => const Text('protected'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    completer.completeError(StateError('profile failed'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.text('Unable to load your account. Please try again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry'), findsOneWidget);
+    expect(find.text('Logout'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('protected'), findsNothing);
+  });
+
+  testWidgets('slow guard times out instead of showing spinner forever', (
+    tester,
+  ) async {
+    final completer = Completer<RouteGuardResult>();
+    final guard = _FakeRouteGuardService(result: completer.future);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [routeGuardServiceProvider.overrideWithValue(guard)],
+        child: MaterialApp(
+          home: GuardedRouteScreen(
+            routeName: AppRoutes.memberHome,
+            arguments: null,
+            childBuilder: (_) => const Text('protected'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(seconds: 16));
+    await tester.pump();
+
+    expect(
+      find.text('Unable to load your account. Please try again.'),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('protected'), findsNothing);
   });
 }

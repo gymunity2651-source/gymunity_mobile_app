@@ -47,6 +47,7 @@ class RouteAccessPolicy {
           ),
         AppRoutes.roleSelection: const RouteAccessRule(
           routeName: AppRoutes.roleSelection,
+          requiresProfile: false,
           requiresCompletedOnboarding: false,
           allowedRoles: null,
         ),

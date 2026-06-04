@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../config/app_config.dart';
 import '../../app/routes.dart';
 import '../../features/ai_chat/domain/repositories/chat_repository.dart';
@@ -57,18 +59,28 @@ class AuthRouteResolver {
 
   Future<ResolvedAppRoute> resolveInitialAppRoute() async {
     final currentUser = await _userRepository.getCurrentUser();
+    debugPrint('AuthRouteResolver: session user id = ${currentUser?.id}');
     if (currentUser == null) {
       await _navigationStateStore?.clearLastSafeRoute();
+      _logRouting(AppRoutes.welcome);
       return const ResolvedAppRoute(routeName: AppRoutes.welcome);
     }
+    debugPrint('AuthRouteResolver: fetching profile...');
     final profile = await _userRepository.getProfile();
+    _logProfile(profile);
     return _resolveByProfile(profile, currentUserId: currentUser.id);
   }
 
   Future<String> resolveAfterAuth() async {
     final currentUser = await _userRepository.getCurrentUser();
-    if (currentUser == null) return AppRoutes.login;
+    debugPrint('AuthRouteResolver: session user id = ${currentUser?.id}');
+    if (currentUser == null) {
+      _logRouting(AppRoutes.login);
+      return AppRoutes.login;
+    }
+    debugPrint('AuthRouteResolver: fetching profile...');
     final profile = await _userRepository.getProfile();
+    _logProfile(profile);
     return (await _resolveByProfile(
       profile,
       currentUserId: currentUser.id,
@@ -102,14 +114,20 @@ class AuthRouteResolver {
     required String currentUserId,
   }) async {
     if (profile == null) {
+      _logRouting(AppRoutes.roleSelection);
       return const ResolvedAppRoute(routeName: AppRoutes.roleSelection);
     }
     final role = profile.role;
     if (role == null) {
+      debugPrint('AuthRouteResolver: selected role = null');
+      _logRouting(AppRoutes.roleSelection);
       return const ResolvedAppRoute(routeName: AppRoutes.roleSelection);
     }
+    debugPrint('AuthRouteResolver: selected role = ${role.name}');
     if (!profile.onboardingCompleted) {
-      return ResolvedAppRoute(routeName: routeForRoleOnboarding(role));
+      final route = routeForRoleOnboarding(role);
+      _logRouting(route);
+      return ResolvedAppRoute(routeName: route);
     }
     final savedRoute = await _navigationStateStore?.readLastSafeRoute();
     if (savedRoute != null) {
@@ -119,10 +137,13 @@ class AuthRouteResolver {
         role: role,
       );
       if (restoredRoute != null) {
+        _logRouting(restoredRoute.routeName);
         return restoredRoute;
       }
     }
-    return ResolvedAppRoute(routeName: routeForRoleDashboard(role));
+    final route = routeForRoleDashboard(role);
+    _logRouting(route);
+    return ResolvedAppRoute(routeName: route);
   }
 
   Future<ResolvedAppRoute?> _restoreSavedRoute(
@@ -254,5 +275,15 @@ class AuthRouteResolver {
       return null;
     }
     return value;
+  }
+
+  void _logProfile(ProfileEntity? profile) {
+    debugPrint(
+      'AuthRouteResolver: profile result = ${profile == null ? 'missing' : 'present'}',
+    );
+  }
+
+  void _logRouting(String routeName) {
+    debugPrint('AuthRouteResolver: routing to = $routeName');
   }
 }
