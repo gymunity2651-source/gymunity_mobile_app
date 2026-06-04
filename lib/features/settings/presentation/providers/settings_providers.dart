@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
+import '../../../../core/persistence/offline_action_queue.dart';
 import '../../../member/domain/entities/member_profile_entity.dart';
 import '../../../member/presentation/providers/member_providers.dart';
 
@@ -73,6 +74,31 @@ class SettingsPreferences {
           : AppLanguage.english,
     );
   }
+
+  Map<String, dynamic> toLocalJson() {
+    return <String, dynamic>{
+      'pushNotificationsEnabled': pushNotificationsEnabled,
+      'aiTipsEnabled': aiTipsEnabled,
+      'orderUpdatesEnabled': orderUpdatesEnabled,
+      'measurementUnit': measurementUnit.name,
+      'language': language.name,
+    };
+  }
+
+  static SettingsPreferences fromLocalJson(Map<String, dynamic> value) {
+    return SettingsPreferences(
+      pushNotificationsEnabled:
+          value['pushNotificationsEnabled'] as bool? ?? true,
+      aiTipsEnabled: value['aiTipsEnabled'] as bool? ?? true,
+      orderUpdatesEnabled: value['orderUpdatesEnabled'] as bool? ?? true,
+      measurementUnit: value['measurementUnit'] == MeasurementUnit.imperial.name
+          ? MeasurementUnit.imperial
+          : MeasurementUnit.metric,
+      language: value['language'] == AppLanguage.arabic.name
+          ? AppLanguage.arabic
+          : AppLanguage.english,
+    );
+  }
 }
 
 class SettingsPreferencesController
@@ -85,12 +111,22 @@ class SettingsPreferencesController
   final Ref _ref;
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(() async {
+    final local = await _readLocalPreferences();
+    if (local != null) {
+      state = AsyncValue<SettingsPreferences>.data(local);
+    }
+    try {
       final memberPreferences = await _ref
           .read(memberRepositoryProvider)
           .getPreferences();
-      return SettingsPreferences.fromMemberPreferences(memberPreferences);
-    });
+      final next = SettingsPreferences.fromMemberPreferences(memberPreferences);
+      await _saveLocalPreferences(next);
+      state = AsyncValue<SettingsPreferences>.data(next);
+    } catch (error, stackTrace) {
+      if (local == null) {
+        state = AsyncValue<SettingsPreferences>.error(error, stackTrace);
+      }
+    }
   }
 
   Future<void> setPushNotifications(bool value) async {
@@ -121,16 +157,93 @@ class SettingsPreferencesController
     final current = state.valueOrNull ?? const SettingsPreferences();
     final next = transform(current);
     state = AsyncValue<SettingsPreferences>.data(next);
+    await _saveLocalPreferences(next);
     try {
       await _ref
           .read(memberRepositoryProvider)
           .upsertPreferences(next.toMemberPreferences());
       _ref.invalidate(memberPreferencesProvider);
-    } catch (error, stackTrace) {
-      state = AsyncValue<SettingsPreferences>.error(error, stackTrace);
-      state = AsyncValue<SettingsPreferences>.data(current);
-      rethrow;
+    } catch (_) {
+      await _queuePreferenceSync(next);
+      state = AsyncValue<SettingsPreferences>.data(next);
     }
+  }
+
+  Future<SettingsPreferences?> _readLocalPreferences() async {
+    try {
+      final service = _ref.read(appStatePersistenceServiceProvider).valueOrNull;
+      if (service == null) {
+        return null;
+      }
+      final local = <String, dynamic>{};
+      final language = await service.preferences.readDevicePreference(
+        'language',
+      );
+      if (language is String) {
+        local['language'] = language;
+      }
+      final userId =
+          (await _ref.read(userRepositoryProvider).getCurrentUser())?.id;
+      if (userId != null) {
+        final userPreferences = await service.preferences.readUserPreference(
+          userId: userId,
+          key: 'settings',
+        );
+        if (userPreferences is Map) {
+          local.addAll(
+            userPreferences.map(
+              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+            ),
+          );
+        }
+      }
+      return local.isEmpty ? null : SettingsPreferences.fromLocalJson(local);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveLocalPreferences(SettingsPreferences preferences) async {
+    try {
+      final service = _ref.read(appStatePersistenceServiceProvider).valueOrNull;
+      if (service == null) {
+        return;
+      }
+      await service.preferences.saveDevicePreference(
+        'language',
+        preferences.language.name,
+      );
+      final userId =
+          (await _ref.read(userRepositoryProvider).getCurrentUser())?.id;
+      if (userId != null) {
+        await service.preferences.saveUserPreference(
+          userId: userId,
+          key: 'settings',
+          value: preferences.toLocalJson(),
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _queuePreferenceSync(SettingsPreferences preferences) async {
+    try {
+      final userId =
+          (await _ref.read(userRepositoryProvider).getCurrentUser())?.id;
+      if (userId == null) {
+        return;
+      }
+      final service = _ref.read(appStatePersistenceServiceProvider).valueOrNull;
+      if (service == null) {
+        return;
+      }
+      await service.offlineQueue.enqueue(
+        OfflineAction.create(
+          userId: userId,
+          type: OfflineActionType.preferenceUpdate,
+          payload: preferences.toLocalJson(),
+        ),
+      );
+    } catch (_) {}
   }
 }
 

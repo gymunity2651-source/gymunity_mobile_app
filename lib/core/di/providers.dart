@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -41,6 +44,8 @@ import '../../features/user/domain/entities/app_role.dart';
 import '../../features/user/domain/entities/profile_entity.dart';
 import '../../features/user/domain/repositories/user_repository.dart';
 import '../config/app_config.dart';
+import '../persistence/app_state_persistence_service.dart';
+import '../persistence/local_json_store.dart';
 import '../routing/app_navigation_state_store.dart';
 import '../routing/app_route_observer.dart';
 import '../routing/auth_route_resolver.dart';
@@ -48,6 +53,20 @@ import '../supabase/auth_callback_ingress.dart';
 import '../supabase/supabase_initializer.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
+
+final appStatePersistenceServiceProvider =
+    FutureProvider<AppStatePersistenceService>((ref) async {
+      Directory baseDirectory;
+      try {
+        baseDirectory = await getApplicationSupportDirectory();
+      } catch (_) {
+        baseDirectory = Directory.systemTemp;
+      }
+      final stateDirectory = Directory(
+        '${baseDirectory.path}${Platform.pathSeparator}gymunity_local_state',
+      );
+      return AppStatePersistenceService(FileLocalJsonStore(stateDirectory));
+    });
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   final config = AppConfig.current;

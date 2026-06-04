@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/providers.dart';
+import '../../../../core/persistence/persisted_cart_store.dart';
 import '../../domain/entities/cart_entity.dart';
 import '../../domain/entities/order_entity.dart';
 import '../../domain/entities/product_entity.dart';
@@ -82,42 +83,129 @@ final favoriteProductsProvider = FutureProvider<List<ProductEntity>>((
 
 class StoreCartController extends AsyncNotifier<CartEntity> {
   @override
-  Future<CartEntity> build() {
-    return ref.read(storeRepositoryProvider).getCart();
+  Future<CartEntity> build() async {
+    final repo = ref.read(storeRepositoryProvider);
+    try {
+      final cart = await repo.getCart();
+      await _persistLocalCart(cart);
+      return cart;
+    } catch (_) {
+      return _restoreLocalCart();
+    }
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(
-      () => ref.read(storeRepositoryProvider).getCart(),
-    );
+    state = await AsyncValue.guard(() async {
+      final cart = await ref.read(storeRepositoryProvider).getCart();
+      await _persistLocalCart(cart);
+      return cart;
+    });
   }
 
   Future<void> add(ProductEntity product, {int quantity = 1}) async {
-    state = await AsyncValue.guard(
-      () => ref
+    state = await AsyncValue.guard(() async {
+      final cart = await ref
           .read(storeRepositoryProvider)
-          .addToCart(product: product, quantity: quantity),
-    );
+          .addToCart(product: product, quantity: quantity);
+      await _persistLocalCart(cart);
+      return cart;
+    });
   }
 
   Future<void> updateQuantity(String productId, int quantity) async {
-    state = await AsyncValue.guard(
-      () => ref
+    state = await AsyncValue.guard(() async {
+      final cart = await ref
           .read(storeRepositoryProvider)
-          .updateCartQuantity(productId: productId, quantity: quantity),
-    );
+          .updateCartQuantity(productId: productId, quantity: quantity);
+      await _persistLocalCart(cart);
+      return cart;
+    });
   }
 
   Future<void> remove(String productId) async {
-    state = await AsyncValue.guard(
-      () => ref.read(storeRepositoryProvider).removeCartItem(productId),
-    );
+    state = await AsyncValue.guard(() async {
+      final cart = await ref
+          .read(storeRepositoryProvider)
+          .removeCartItem(productId);
+      await _persistLocalCart(cart);
+      return cart;
+    });
   }
 
   Future<void> clearInvalidItems() async {
-    state = await AsyncValue.guard(
-      () => ref.read(storeRepositoryProvider).clearInvalidCartItems(),
+    state = await AsyncValue.guard(() async {
+      final cart = await ref
+          .read(storeRepositoryProvider)
+          .clearInvalidCartItems();
+      await _persistLocalCart(cart);
+      return cart;
+    });
+  }
+
+  Future<void> _persistLocalCart(CartEntity cart) async {
+    final userId =
+        (await ref.read(userRepositoryProvider).getCurrentUser())?.id;
+    if (userId == null) {
+      return;
+    }
+    final service = ref.read(appStatePersistenceServiceProvider).valueOrNull;
+    if (service == null) {
+      return;
+    }
+    await service.cart.saveCartItems(
+      userId,
+      cart.items
+          .map(
+            (item) => PersistedCartItem(
+              productId: item.productId,
+              quantity: item.quantity,
+              addedAt: item.createdAt,
+            ),
+          )
+          .toList(growable: false),
     );
+  }
+
+  Future<CartEntity> _restoreLocalCart() async {
+    final userId =
+        (await ref.read(userRepositoryProvider).getCurrentUser())?.id;
+    if (userId == null) {
+      return const CartEntity(id: 'local-cart', memberId: 'local');
+    }
+    final service = ref.read(appStatePersistenceServiceProvider).valueOrNull;
+    if (service == null) {
+      return CartEntity(id: 'local-cart', memberId: userId);
+    }
+    final repo = ref.read(storeRepositoryProvider);
+    final localItems = await service.cart.readCartItems(userId);
+    final restoredItems = <CartItemEntity>[];
+    final validLocalItems = <PersistedCartItem>[];
+    for (final localItem in localItems) {
+      final ProductEntity? product;
+      try {
+        product = await repo.getProductById(localItem.productId);
+      } catch (_) {
+        continue;
+      }
+      if (product == null || !product.isAvailable) {
+        continue;
+      }
+      validLocalItems.add(localItem);
+      restoredItems.add(
+        CartItemEntity(
+          id: 'local-${localItem.productId}',
+          cartId: 'local-cart',
+          productId: localItem.productId,
+          product: product,
+          quantity: localItem.quantity > product.stockQty
+              ? product.stockQty
+              : localItem.quantity,
+          createdAt: localItem.addedAt,
+        ),
+      );
+    }
+    await service.cart.saveCartItems(userId, validLocalItems);
+    return CartEntity(id: 'local-cart', memberId: userId, items: restoredItems);
   }
 }
 

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/persistence/persisted_workout_state_store.dart';
 import '../../../../core/theme/atelier_theme.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../planner/domain/entities/planner_entities.dart';
@@ -47,6 +48,7 @@ class _ActiveWorkoutSessionScreenState
             targetDate: DateTime.now(),
           );
       if (sessionId != null) {
+        await _persistActiveWorkout(sessionId);
         await ref
             .read(activeWorkoutCompanionControllerProvider.notifier)
             .refreshPrompt(promptKind: 'session_started');
@@ -242,6 +244,7 @@ class _ActiveWorkoutSessionScreenState
       }
       return;
     }
+    await _clearPersistedWorkout();
     final prompt = await ref
         .read(aiCoachRepositoryProvider)
         .getWorkoutPrompt(sessionId: sessionId, promptKind: 'post_workout');
@@ -262,6 +265,39 @@ class _ActiveWorkoutSessionScreenState
       return;
     }
     Navigator.pop(context);
+  }
+
+  Future<void> _persistActiveWorkout(String sessionId) async {
+    final service = ref.read(appStatePersistenceServiceProvider).valueOrNull;
+    if (service == null) {
+      return;
+    }
+    final userId =
+        (await ref.read(userRepositoryProvider).getCurrentUser())?.id;
+    if (userId == null) {
+      return;
+    }
+    await service.workouts.saveActiveWorkoutState(
+      userId,
+      ActiveWorkoutLocalState(
+        sessionId: sessionId,
+        planId: widget.planId ?? '',
+        dayId: widget.dayId ?? '',
+      ),
+    );
+  }
+
+  Future<void> _clearPersistedWorkout() async {
+    final service = ref.read(appStatePersistenceServiceProvider).valueOrNull;
+    if (service == null) {
+      return;
+    }
+    final userId =
+        (await ref.read(userRepositoryProvider).getCurrentUser())?.id;
+    if (userId == null) {
+      return;
+    }
+    await service.workouts.clearActiveWorkoutState(userId);
   }
 }
 

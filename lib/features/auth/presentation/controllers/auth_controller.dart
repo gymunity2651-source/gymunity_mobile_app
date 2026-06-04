@@ -169,8 +169,15 @@ class AuthController extends StateNotifier<AuthControllerState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final authRepo = _ref.read(authRepositoryProvider);
+      final currentUserId =
+          (await _ref.read(userRepositoryProvider).getCurrentUser())?.id;
       await authRepo.logout();
       await _ref.read(appNavigationStateStoreProvider).clearUserScopedState();
+      if (currentUserId != null) {
+        await _ref
+            .read(appStatePersistenceServiceProvider.future)
+            .then((service) => service.clearUserScopedState(currentUserId));
+      }
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
     } catch (e) {
@@ -205,8 +212,15 @@ class AuthController extends StateNotifier<AuthControllerState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final authRepo = _ref.read(authRepositoryProvider);
+      final currentUserId =
+          (await _ref.read(userRepositoryProvider).getCurrentUser())?.id;
       await authRepo.deleteAccount(currentPassword: currentPassword);
       await _ref.read(appNavigationStateStoreProvider).clearUserScopedState();
+      if (currentUserId != null) {
+        await _ref
+            .read(appStatePersistenceServiceProvider.future)
+            .then((service) => service.clearUserScopedState(currentUserId));
+      }
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
       return true;

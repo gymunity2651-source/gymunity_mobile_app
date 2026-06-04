@@ -10,6 +10,7 @@ import '../../../../app/routes.dart';
 import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/constants/atelier_colors.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../core/theme/atelier_theme.dart';
 import '../../../../core/widgets/app_feedback.dart';
 import '../../../ai_coach/presentation/widgets/taiyo_ai_widgets.dart';
@@ -57,9 +58,11 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
   @override
   void initState() {
     super.initState();
+    _messageController.addListener(() => unawaited(_persistPromptDraft()));
     if (widget.sessionId != null && widget.sessionId!.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(activeChatSessionIdProvider.notifier).state = widget.sessionId;
+        _persistLastSessionId(widget.sessionId!);
       });
     } else if (widget.initialSessionType == ChatSessionType.planner) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -420,6 +423,7 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
         type: session?.type ?? widget.initialSessionType,
       );
       ref.read(activeChatSessionIdProvider.notifier).state = sessionId;
+      await _persistLastSessionId(sessionId);
       optimisticMessage = _addOptimisticUserMessage(
         sessionId: sessionId,
         content: rawMessage,
@@ -431,6 +435,7 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
       ref.invalidate(chatSessionsProvider);
       ref.invalidate(chatMessagesProvider(sessionId));
       ref.invalidate(latestPlannerDraftProvider(sessionId));
+      await _persistPromptDraft(clearWhenEmpty: true);
       if (result?.draftId != null) {
         ref.invalidate(plannerDraftProvider(result!.draftId!));
       }
@@ -469,6 +474,36 @@ class _AiConversationScreenState extends ConsumerState<AiConversationScreen> {
         });
       }
     }
+  }
+
+  Future<void> _persistLastSessionId(String sessionId) async {
+    final service = ref.read(appStatePersistenceServiceProvider).valueOrNull;
+    if (service == null || sessionId.trim().isEmpty) {
+      return;
+    }
+    final userId =
+        (await ref.read(userRepositoryProvider).getCurrentUser())?.id;
+    if (userId == null) {
+      return;
+    }
+    await service.ai.saveLastSessionId(userId, sessionId);
+  }
+
+  Future<void> _persistPromptDraft({bool clearWhenEmpty = false}) async {
+    final service = ref.read(appStatePersistenceServiceProvider).valueOrNull;
+    if (service == null) {
+      return;
+    }
+    final userId =
+        (await ref.read(userRepositoryProvider).getCurrentUser())?.id;
+    if (userId == null) {
+      return;
+    }
+    final draft = _messageController.text;
+    if (draft.trim().isEmpty && !clearWhenEmpty) {
+      return;
+    }
+    await service.ai.savePromptDraft(userId, draft);
   }
 
   Future<void> _regeneratePlan(

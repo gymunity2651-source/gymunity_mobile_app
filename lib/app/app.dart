@@ -29,6 +29,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(ref.read(appStatePersistenceServiceProvider.future));
       ref.read(monetizationBootstrapProvider).start();
       ref.read(plannerReminderBootstrapProvider).start();
       ref.read(aiCoachBootProvider).start();
@@ -76,6 +77,7 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
     return MaterialApp(
       title: AppStrings.appName,
       debugShowCheckedModeBanner: false,
+      restorationScopeId: 'gymunity_app',
       theme: AppTheme.darkTheme,
       locale: Locale(preferences.language == AppLanguage.arabic ? 'ar' : 'en'),
       supportedLocales: const <Locale>[Locale('en'), Locale('ar')],
