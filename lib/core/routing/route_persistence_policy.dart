@@ -2,6 +2,7 @@ import '../config/app_config.dart';
 import '../../app/routes.dart';
 import '../../features/planner/presentation/route_args.dart';
 import '../../features/user/domain/entities/app_role.dart';
+import 'route_guard_policy.dart';
 
 class RoutePersistencePolicy {
   RoutePersistencePolicy._();
@@ -58,43 +59,6 @@ class RoutePersistencePolicy {
     AppRoutes.sellerProfile,
   };
 
-  static const Set<String> _memberRoutes = <String>{
-    AppRoutes.memberHome,
-    AppRoutes.workoutPlan,
-    AppRoutes.workoutDetails,
-    AppRoutes.activeWorkoutSession,
-    AppRoutes.aiChatHome,
-    AppRoutes.aiConversation,
-    AppRoutes.nutrition,
-    AppRoutes.nutritionMealPlan,
-    AppRoutes.nutritionPreferences,
-    AppRoutes.nutritionInsights,
-    AppRoutes.storeHome,
-    AppRoutes.productList,
-    AppRoutes.favorites,
-    AppRoutes.coaches,
-    AppRoutes.memberCheckins,
-    AppRoutes.memberMessages,
-  };
-
-  static const Set<String> _coachRoutes = <String>{
-    AppRoutes.coachDashboard,
-    AppRoutes.clients,
-    AppRoutes.coachCheckins,
-    AppRoutes.coachCalendar,
-    AppRoutes.coachProgramLibrary,
-    AppRoutes.coachResources,
-    AppRoutes.packages,
-    AppRoutes.coachProfile,
-  };
-
-  static const Set<String> _sellerRoutes = <String>{
-    AppRoutes.sellerDashboard,
-    AppRoutes.productManagement,
-    AppRoutes.sellerOrders,
-    AppRoutes.sellerProfile,
-  };
-
   static const Set<String> _dashboardRoutes = <String>{
     AppRoutes.memberHome,
     AppRoutes.coachDashboard,
@@ -120,27 +84,11 @@ class RoutePersistencePolicy {
   }
 
   static bool isAllowedForRole(String routeName, AppRole role) {
-    return switch (role) {
-      AppRole.member => _memberRoutes.contains(routeName),
-      AppRole.coach => _coachRoutes.contains(routeName),
-      AppRole.seller => _sellerRoutes.contains(routeName),
-    };
+    return RouteAccessPolicy.isAllowedForRole(routeName, role);
   }
 
   static bool isEnabledByFeatureFlags(String routeName, AppConfig config) {
-    if (_storeRoutes.contains(routeName)) {
-      return config.enableStorePurchases;
-    }
-    if (_coachSubscriptionRoutes.contains(routeName)) {
-      return config.enableCoachSubscriptions;
-    }
-    if (_coachWorkspaceRoutes.contains(routeName)) {
-      return config.enableCoachRole;
-    }
-    if (_sellerRoutes.contains(routeName)) {
-      return config.enableSellerRole;
-    }
-    return true;
+    return RouteAccessPolicy.isEnabledByFeatureFlags(routeName, config);
   }
 
   static bool isExpired(DateTime savedAt, DateTime now) {
@@ -233,36 +181,4 @@ class RoutePersistencePolicy {
   static bool _hasText(String? value) =>
       value != null && value.trim().isNotEmpty;
 
-  static const Set<String> _storeRoutes = <String>{
-    AppRoutes.storeHome,
-    AppRoutes.productList,
-    AppRoutes.productDetails,
-    AppRoutes.favorites,
-    AppRoutes.cart,
-    AppRoutes.checkout,
-    AppRoutes.orders,
-  };
-
-  static const Set<String> _coachSubscriptionRoutes = <String>{
-    AppRoutes.coaches,
-    AppRoutes.coachDetails,
-    AppRoutes.subscriptionPackages,
-    AppRoutes.mySubscriptions,
-  };
-
-  static const Set<String> _coachWorkspaceRoutes = <String>{
-    AppRoutes.coachDashboard,
-    AppRoutes.clients,
-    AppRoutes.coachCheckins,
-    AppRoutes.coachCalendar,
-    AppRoutes.coachBilling,
-    AppRoutes.coachProgramLibrary,
-    AppRoutes.coachOnboardingFlows,
-    AppRoutes.coachResources,
-    AppRoutes.packages,
-    AppRoutes.addPackage,
-    AppRoutes.coachProfile,
-    AppRoutes.coachClientWorkspace,
-    AppRoutes.coachMemberInsights,
-  };
 }

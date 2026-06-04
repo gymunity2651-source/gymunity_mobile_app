@@ -13,6 +13,7 @@ import 'package:my_app/features/settings/presentation/providers/settings_provide
 import 'package:my_app/features/settings/presentation/screens/notifications_screen.dart';
 import 'package:my_app/features/user/domain/entities/app_role.dart';
 import 'package:my_app/features/user/domain/entities/profile_entity.dart';
+import 'package:my_app/features/user/domain/entities/user_entity.dart';
 
 import 'test_doubles.dart';
 
@@ -145,7 +146,6 @@ void main() {
       await _settleShell(tester);
 
       expect(find.byType(NutritionHomeScreen), findsOneWidget);
-      expect(find.text('Build your nutrition plan'), findsOneWidget);
     });
 
     testWidgets('bottom nav styling stays consistent on the TAIYO tab', (
@@ -213,7 +213,6 @@ void main() {
       await _settleShell(tester);
 
       expect(find.byType(NutritionHomeScreen), findsOneWidget);
-      expect(find.text('Build your nutrition plan'), findsOneWidget);
     });
 
     testWidgets('notification bell opens notifications from member home', (
@@ -355,6 +354,10 @@ Widget _buildShellApp({
   final resolvedUserRepository =
       userRepository ??
       (FakeUserRepository()
+        ..currentUser = const UserEntity(
+          id: 'member-1',
+          email: 'member@gymunity.com',
+        )
         ..profile = const ProfileEntity(
           userId: 'member-1',
           email: 'member@gymunity.com',

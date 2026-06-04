@@ -494,7 +494,16 @@ class FakeUserRepository implements UserRepository {
   int completeOnboardingCalls = 0;
 
   @override
-  Future<UserEntity?> getCurrentUser() async => currentUser;
+  Future<UserEntity?> getCurrentUser() async {
+    final existingProfile = profile;
+    if (currentUser != null || existingProfile == null) {
+      return currentUser;
+    }
+    return UserEntity(
+      id: existingProfile.userId,
+      email: existingProfile.email ?? 'user@gymunity.test',
+    );
+  }
 
   @override
   Future<AccountStatus> getAccountStatus({String? userId}) async =>
@@ -519,12 +528,26 @@ class FakeUserRepository implements UserRepository {
   Future<void> saveRole(AppRole role) async {
     if (saveRoleError != null) throw saveRoleError!;
     savedRole = role;
+    final userId = currentUser?.id ?? profile?.userId ?? 'user-1';
+    final email = currentUser?.email ?? profile?.email ?? 'user@gymunity.test';
+    currentUser ??= UserEntity(id: userId, email: email);
+    profile = (profile ??
+            ProfileEntity(
+              userId: userId,
+              email: email,
+              fullName: 'GymUnity User',
+            ))
+        .copyWith(role: role, onboardingCompleted: false);
   }
 
   @override
   Future<void> completeOnboarding() async {
     if (completeOnboardingError != null) throw completeOnboardingError!;
     completeOnboardingCalls++;
+    final existingProfile = profile;
+    if (existingProfile != null) {
+      profile = existingProfile.copyWith(onboardingCompleted: true);
+    }
   }
 
   @override

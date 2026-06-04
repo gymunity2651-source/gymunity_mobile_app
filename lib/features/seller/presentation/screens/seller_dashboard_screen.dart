@@ -183,15 +183,16 @@ class SellerDashboardScreen extends ConsumerWidget {
       return;
     }
 
+    final navigator = Navigator.of(context);
     await ref.read(authControllerProvider.notifier).logout();
-    if (!context.mounted) {
-      return;
-    }
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      AppRoutes.welcome,
-      (route) => false,
-    );
+    final binding = WidgetsBinding.instance;
+    binding.addPostFrameCallback((_) {
+      navigator.pushNamedAndRemoveUntil(
+        AppRoutes.welcome,
+        (route) => false,
+      );
+    });
+    binding.scheduleFrame();
   }
 }
 

@@ -328,24 +328,26 @@ Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
     return;
   }
 
+  final navigator = Navigator.of(context);
   await ref.read(authControllerProvider.notifier).logout();
-  if (!context.mounted) {
-    return;
-  }
 
   final authState = ref.read(authControllerProvider);
   if (authState.errorMessage != null) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(authState.errorMessage!)));
-    return;
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(authState.errorMessage!)));
+    }
   }
 
-  Navigator.pushNamedAndRemoveUntil(
-    context,
-    AppRoutes.welcome,
-    (route) => false,
-  );
+  final binding = WidgetsBinding.instance;
+  binding.addPostFrameCallback((_) {
+    navigator.pushNamedAndRemoveUntil(
+      AppRoutes.welcome,
+      (route) => false,
+    );
+  });
+  binding.scheduleFrame();
 }
 
 class _SectionTitle extends StatelessWidget {

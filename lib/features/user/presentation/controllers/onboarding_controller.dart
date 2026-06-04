@@ -85,6 +85,7 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
         preferredLanguage: preferredLanguage,
         preferredCoachGender: preferredCoachGender,
       );
+      await _userRepo.completeOnboarding();
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
       return true;
@@ -113,6 +114,7 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
         shippingScope: shippingScope,
         supportEmail: supportEmail,
       );
+      await _userRepo.completeOnboarding();
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
       return true;
@@ -187,6 +189,7 @@ class OnboardingController extends StateNotifier<OnboardingControllerState> {
           timezone: availabilityTimezone,
         );
       }
+      await _userRepo.completeOnboarding();
       _ref.invalidate(currentUserProfileProvider);
       state = state.copyWith(isLoading: false, clearError: true);
       return true;

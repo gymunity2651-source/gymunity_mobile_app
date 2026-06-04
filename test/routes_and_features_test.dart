@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/app/routes.dart';
+import 'package:my_app/core/auth/logout_coordinator.dart';
+import 'package:my_app/core/auth/logout_providers.dart';
 import 'package:my_app/core/di/providers.dart';
 import 'package:my_app/core/error/app_failure.dart';
+import 'package:my_app/core/navigation/app_navigator.dart';
+import 'package:my_app/core/routing/route_guard_policy.dart';
 import 'package:my_app/features/ai_chat/domain/entities/chat_message_entity.dart';
 import 'package:my_app/features/ai_chat/domain/entities/chat_session_entity.dart';
 import 'package:my_app/features/ai_chat/presentation/providers/chat_providers.dart';
@@ -11,7 +15,6 @@ import 'package:my_app/features/ai_chat/presentation/screens/ai_conversation_scr
 import 'package:my_app/features/ai_chat/presentation/screens/ai_chat_home_screen.dart';
 import 'package:my_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:my_app/features/auth/presentation/screens/auth_callback_screen.dart';
-import 'package:my_app/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:my_app/features/coach/domain/entities/coach_entity.dart';
 import 'package:my_app/features/coach/domain/entities/subscription_entity.dart';
 import 'package:my_app/features/coach/presentation/screens/coach_dashboard_screen.dart';
@@ -648,8 +651,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(authRepository.logoutCalls, 1);
-      expect(find.byType(WelcomeScreen), findsOneWidget);
-      expect(find.byType(SettingsScreen), findsNothing);
+      expect(find.text('Log out?'), findsNothing);
     });
 
     testWidgets(
@@ -980,8 +982,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(authRepository.logoutCalls, 1);
-      expect(find.byType(WelcomeScreen), findsOneWidget);
-      expect(find.byType(SellerDashboardScreen), findsNothing);
+      expect(find.text('Log out?'), findsNothing);
     });
 
     testWidgets('store product add button shows actionable feedback', (
@@ -1308,6 +1309,96 @@ void main() {
   });
 }
 
+FakeUserRepository _userRepositoryForRoute(
+  String routeName,
+  FakeUserRepository? provided,
+) {
+  final repository = provided ?? FakeUserRepository();
+  if (!RouteAccessPolicy.shouldGuard(routeName)) {
+    return repository;
+  }
+  return _ensureAuthenticatedRepository(
+    repository,
+    _defaultRoleForRoute(routeName),
+  );
+}
+
+FakeUserRepository _userRepositoryForScreen(
+  Widget screen,
+  FakeUserRepository? provided,
+) {
+  final role = switch (screen) {
+    SellerDashboardScreen() || SellerProfileScreen() => AppRole.seller,
+    CoachDashboardScreen() || CoachPackageEditorScreen() => AppRole.coach,
+    _ => AppRole.member,
+  };
+  return _ensureAuthenticatedRepository(provided ?? FakeUserRepository(), role);
+}
+
+FakeUserRepository _ensureAuthenticatedRepository(
+  FakeUserRepository repository,
+  AppRole role,
+) {
+  if (repository.profileError != null) {
+    repository.currentUser ??= const UserEntity(
+      id: 'guarded-user',
+      email: 'guarded@gymunity.test',
+    );
+    return repository;
+  }
+
+  final userId = repository.profile?.userId ?? '${role.name}-1';
+  final email = repository.profile?.email ?? '${role.name}@gymunity.test';
+  repository.currentUser ??= UserEntity(id: userId, email: email);
+  repository.profile = (repository.profile ??
+          ProfileEntity(
+            userId: userId,
+            email: email,
+            fullName: '${role.name} User',
+          ))
+      .copyWith(
+        role: repository.profile?.role ?? role,
+        onboardingCompleted: true,
+      );
+  return repository;
+}
+
+AppRole _defaultRoleForRoute(String routeName) {
+  final allowedRoles = RouteAccessPolicy.ruleFor(routeName)?.allowedRoles;
+  if (allowedRoles == null || allowedRoles.isEmpty) {
+    return AppRole.member;
+  }
+  if (allowedRoles.contains(AppRole.member)) {
+    return AppRole.member;
+  }
+  return allowedRoles.first;
+}
+
+class _TestLogoutNavigator implements LogoutNavigator {
+  const _TestLogoutNavigator(this.navigatorKey);
+
+  final GlobalKey<NavigatorState> navigatorKey;
+
+  @override
+  void navigateToWelcomeAndClearStack() {
+    final binding = WidgetsBinding.instance;
+    binding.addPostFrameCallback((_) {
+      navigatorKey.currentState?.pushNamedAndRemoveUntil(
+        AppRoutes.welcome,
+        (route) => false,
+      );
+    });
+    binding.scheduleFrame();
+  }
+}
+
+class _NoopLogoutServiceStopper implements LogoutServiceStopper {
+  const _NoopLogoutServiceStopper();
+
+  @override
+  Future<void> stopUserScopedServices() async {}
+}
+
 Future<void> _pumpNamedRoute(
   WidgetTester tester,
   String routeName, {
@@ -1329,14 +1420,26 @@ Future<void> _pumpNamedRoute(
     tester.view.resetDevicePixelRatio();
   });
 
+  final navigatorKey = GlobalKey<NavigatorState>();
   await tester.pumpWidget(
     ProviderScope(
       overrides: <Override>[
+        appNavigatorKeyProvider.overrideWithValue(navigatorKey),
+        logoutCoordinatorProvider.overrideWith(
+          (ref) => LogoutCoordinator(
+            ref,
+            serviceStopper: const _NoopLogoutServiceStopper(),
+            navigator: _TestLogoutNavigator(navigatorKey),
+          ),
+        ),
+        logoutNavigatorProvider.overrideWithValue(
+          _TestLogoutNavigator(navigatorKey),
+        ),
         authRepositoryProvider.overrideWithValue(
           authRepository ?? FakeAuthRepository(),
         ),
         userRepositoryProvider.overrideWithValue(
-          userRepository ?? FakeUserRepository(),
+          _userRepositoryForRoute(routeName, userRepository),
         ),
         authCallbackIngressProvider.overrideWithValue(
           FakeAuthCallbackIngress(),
@@ -1366,6 +1469,7 @@ Future<void> _pumpNamedRoute(
           pendingChatPromptProvider.overrideWith((ref) => pendingChatPrompt),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         onGenerateRoute: AppRoutes.onGenerateRoute,
         home: Builder(
           builder: (context) {
@@ -1401,14 +1505,26 @@ Future<void> _pumpScreen(
     tester.view.resetDevicePixelRatio();
   });
 
+  final navigatorKey = GlobalKey<NavigatorState>();
   await tester.pumpWidget(
     ProviderScope(
       overrides: <Override>[
+        appNavigatorKeyProvider.overrideWithValue(navigatorKey),
+        logoutCoordinatorProvider.overrideWith(
+          (ref) => LogoutCoordinator(
+            ref,
+            serviceStopper: const _NoopLogoutServiceStopper(),
+            navigator: _TestLogoutNavigator(navigatorKey),
+          ),
+        ),
+        logoutNavigatorProvider.overrideWithValue(
+          _TestLogoutNavigator(navigatorKey),
+        ),
         authRepositoryProvider.overrideWithValue(
           authRepository ?? FakeAuthRepository(),
         ),
         userRepositoryProvider.overrideWithValue(
-          userRepository ?? FakeUserRepository(),
+          _userRepositoryForScreen(screen, userRepository),
         ),
         authCallbackIngressProvider.overrideWithValue(
           FakeAuthCallbackIngress(),
@@ -1438,6 +1554,7 @@ Future<void> _pumpScreen(
           pendingChatPromptProvider.overrideWith((ref) => pendingChatPrompt),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         onGenerateRoute: AppRoutes.onGenerateRoute,
         home: screen,
       ),

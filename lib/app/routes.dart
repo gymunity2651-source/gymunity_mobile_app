@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../core/config/app_config.dart';
+import '../core/routing/guarded_route_factory.dart';
+import '../core/routing/route_guard_policy.dart';
 import '../core/widgets/feature_placeholder_screen.dart';
 import '../features/ai_coach/presentation/screens/active_workout_session_screen.dart';
 import '../features/ai_chat/domain/entities/chat_session_entity.dart';
@@ -634,9 +636,19 @@ class AppRoutes {
   }
 
   static MaterialPageRoute _buildRoute(Widget page) {
+    final settings = _activeRouteSettings;
+    final routeName = settings?.name;
+    final guardedPage = routeName != null &&
+            RouteAccessPolicy.shouldGuard(routeName)
+        ? GuardedRouteScreen(
+            routeName: routeName,
+            arguments: settings?.arguments,
+            childBuilder: (_) => page,
+          )
+        : page;
     return MaterialPageRoute(
-      settings: _activeRouteSettings,
-      builder: (_) => page,
+      settings: settings,
+      builder: (_) => guardedPage,
     );
   }
 

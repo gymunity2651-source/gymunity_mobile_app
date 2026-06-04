@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/routes.dart';
@@ -224,10 +225,25 @@ class AppLogoutNavigator implements LogoutNavigator {
 
   @override
   void navigateToWelcomeAndClearStack() {
-    _ref
-        .read(appNavigatorKeyProvider)
-        .currentState
-        ?.pushNamedAndRemoveUntil(AppRoutes.welcome, (route) => false);
+    final navigatorKey = _ref.read(appNavigatorKeyProvider);
+    final navigator = navigatorKey.currentState;
+    if (navigator != null) {
+      try {
+        navigator.pushNamedAndRemoveUntil(AppRoutes.welcome, (route) => false);
+        return;
+      } catch (_) {
+        // If logout is triggered while a dialog route is still unwinding, the
+        // navigator can be temporarily locked. Retry on the next frame.
+      }
+    }
+    final binding = WidgetsBinding.instance;
+    binding.addPostFrameCallback((_) {
+      navigatorKey.currentState?.pushNamedAndRemoveUntil(
+        AppRoutes.welcome,
+        (route) => false,
+      );
+    });
+    binding.scheduleFrame();
   }
 }
 

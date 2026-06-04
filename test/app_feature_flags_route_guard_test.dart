@@ -10,6 +10,8 @@ import 'package:my_app/features/coach/presentation/screens/coach_client_pipeline
 import 'package:my_app/features/coach_member_insights/presentation/providers/insight_providers.dart';
 import 'package:my_app/features/coaches/presentation/screens/coach_details_screen.dart';
 import 'package:my_app/features/coaches/presentation/screens/subscription_packages_screen.dart';
+import 'package:my_app/features/auth/presentation/screens/login_screen.dart';
+import 'package:my_app/features/onboarding/presentation/screens/coach_onboarding_screen.dart';
 import 'package:my_app/features/store/domain/entities/product_entity.dart';
 import 'package:my_app/features/store/domain/entities/shipping_address_entity.dart';
 import 'package:my_app/features/user/domain/entities/app_role.dart';
@@ -80,11 +82,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign in required'), findsOneWidget);
-      expect(
-        find.text('Please sign in to access the Coach workspace.'),
-        findsOneWidget,
-      );
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byType(CoachClientPipelineScreen), findsNothing);
       expect(find.text('Coach workspace unavailable'), findsNothing);
     });
 
@@ -102,11 +101,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Coach access unavailable'), findsOneWidget);
       expect(
-        find.text(
-          'We could not verify your account permissions. Please try again.',
-        ),
+        find.text('We could not verify your account permissions.'),
         findsOneWidget,
       );
       expect(find.text('Sign in required'), findsNothing);
@@ -126,7 +122,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Sign in required'), findsOneWidget);
+        expect(find.byType(LoginScreen), findsOneWidget);
         expect(find.text('Unknown Route'), findsNothing);
 
         await tester.pumpWidget(const SizedBox.shrink());
@@ -144,11 +140,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Coach access required'), findsOneWidget);
-      expect(
-        find.text('This workspace is only available for coach accounts.'),
-        findsOneWidget,
-      );
+      expect(find.text('You do not have access to this area.'), findsWidgets);
+      expect(find.text('Coach dashboard'), findsNothing);
     });
 
     testWidgets('coach clients route blocks member users', (tester) async {
@@ -163,7 +156,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Coach access required'), findsOneWidget);
+      expect(find.text('You do not have access to this area.'), findsWidgets);
       expect(find.text('Client pipeline'), findsNothing);
     });
 
@@ -183,7 +176,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Coach access required'), findsOneWidget);
+      expect(find.text('You do not have access to this area.'), findsWidgets);
       expect(find.text('Client workspace'), findsNothing);
       expect(coachRepository.getClientWorkspaceCalls, 0);
     });
@@ -204,11 +197,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Complete coach setup'), findsOneWidget);
-      expect(
-        find.text('Finish your coach profile before accessing your workspace.'),
-        findsOneWidget,
-      );
+      expect(find.byType(CoachOnboardingScreen), findsOneWidget);
+      expect(find.text('Strength'), findsWidgets);
     });
 
     testWidgets('coach role without coach profile completes setup first', (
@@ -464,9 +454,23 @@ Future<void> _pumpRoute(
   FakeCoachRepository? coachRepository,
   FakeUserRepository? userRepository,
 }) async {
+  tester.view.physicalSize = const Size(1200, 2400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+  if (userRepository?.profileError != null) {
+    userRepository!.currentUser ??= const UserEntity(
+      id: 'guarded-user',
+      email: 'guarded@gymunity.test',
+    );
+  }
   await tester.pumpWidget(
     ProviderScope(
       overrides: <Override>[
+        authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
+        authCallbackIngressProvider.overrideWithValue(FakeAuthCallbackIngress()),
         if (storeRepository != null)
           storeRepositoryProvider.overrideWithValue(storeRepository),
         if (memberRepository != null)

@@ -2,16 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_app/app/routes.dart';
+import 'package:my_app/core/config/app_config.dart';
 import 'package:my_app/core/di/providers.dart';
 import 'package:my_app/features/auth/presentation/screens/role_selection_screen.dart';
 import 'package:my_app/features/onboarding/presentation/screens/coach_onboarding_screen.dart';
 import 'package:my_app/features/onboarding/presentation/screens/member_onboarding_screen.dart';
 import 'package:my_app/features/onboarding/presentation/screens/seller_onboarding_screen.dart';
 import 'package:my_app/features/seller/presentation/screens/seller_dashboard_screen.dart';
+import 'package:my_app/features/user/domain/entities/app_role.dart';
+import 'package:my_app/features/user/domain/entities/profile_entity.dart';
+import 'package:my_app/features/user/domain/entities/user_entity.dart';
 
 import 'test_doubles.dart';
 
 void main() {
+  setUp(() {
+    AppConfig.debugOverrideForTests(
+      AppConfig.fromMap(const <String, String>{
+        'SUPABASE_URL': 'https://example.supabase.co',
+        'SUPABASE_ANON_KEY': 'anon-key',
+        'ENABLE_COACH_ROLE': 'true',
+        'ENABLE_SELLER_ROLE': 'true',
+        'ENABLE_STORE_PURCHASES': 'true',
+        'ENABLE_COACH_SUBSCRIPTIONS': 'true',
+      }),
+    );
+  });
+
+  tearDown(AppConfig.clearDebugOverride);
+
   group('Onboarding flows', () {
     testWidgets('role selection does not navigate when saving role fails', (
       tester,
@@ -148,7 +167,9 @@ void main() {
           tester,
           const SellerOnboardingScreen(),
           overrides: <Override>[
-            userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+            userRepositoryProvider.overrideWithValue(
+              _userRepositoryForRole(AppRole.seller),
+            ),
             sellerRepositoryProvider.overrideWithValue(sellerRepository),
             coachRepositoryProvider.overrideWithValue(FakeCoachRepository()),
           ],
@@ -194,12 +215,14 @@ void main() {
         ..upsertError = Exception('Coach onboarding failed');
 
       await _pumpScreen(
-        tester,
-        const CoachOnboardingScreen(),
-        overrides: <Override>[
-          userRepositoryProvider.overrideWithValue(FakeUserRepository()),
-          coachRepositoryProvider.overrideWithValue(coachRepository),
-        ],
+          tester,
+          const CoachOnboardingScreen(),
+          overrides: <Override>[
+            userRepositoryProvider.overrideWithValue(
+              _userRepositoryForRole(AppRole.coach),
+            ),
+            coachRepositoryProvider.overrideWithValue(coachRepository),
+          ],
       );
 
       await tester.tap(find.text('Continue'));
@@ -236,7 +259,9 @@ void main() {
           tester,
           const CoachOnboardingScreen(),
           overrides: <Override>[
-            userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+            userRepositoryProvider.overrideWithValue(
+              _userRepositoryForRole(AppRole.coach),
+            ),
             coachRepositoryProvider.overrideWithValue(coachRepository),
           ],
         );
@@ -295,10 +320,12 @@ void main() {
       final coachRepository = FakeCoachRepository();
 
       await _pumpScreen(
-        tester,
-        const CoachOnboardingScreen(),
-        overrides: <Override>[
-          userRepositoryProvider.overrideWithValue(FakeUserRepository()),
+          tester,
+          const CoachOnboardingScreen(),
+          overrides: <Override>[
+          userRepositoryProvider.overrideWithValue(
+            _userRepositoryForRole(AppRole.coach),
+          ),
           coachRepositoryProvider.overrideWithValue(coachRepository),
         ],
       );
@@ -370,6 +397,19 @@ void main() {
       },
     );
   });
+}
+
+FakeUserRepository _userRepositoryForRole(AppRole role) {
+  final userId = '${role.name}-1';
+  return FakeUserRepository()
+    ..currentUser = UserEntity(id: userId, email: '${role.name}@gymunity.test')
+    ..profile = ProfileEntity(
+      userId: userId,
+      email: '${role.name}@gymunity.test',
+      fullName: '${role.name} User',
+      role: role,
+      onboardingCompleted: false,
+    );
 }
 
 Future<void> _pumpScreen(

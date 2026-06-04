@@ -7,6 +7,9 @@ import 'package:my_app/features/ai_chat/domain/entities/chat_session_entity.dart
 import 'package:my_app/features/ai_chat/presentation/screens/ai_chat_home_screen.dart';
 import 'package:my_app/features/ai_chat/presentation/screens/ai_conversation_screen.dart';
 import 'package:my_app/features/monetization/presentation/providers/monetization_providers.dart';
+import 'package:my_app/features/user/domain/entities/app_role.dart';
+import 'package:my_app/features/user/domain/entities/profile_entity.dart';
+import 'package:my_app/features/user/domain/entities/user_entity.dart';
 
 import 'test_doubles.dart';
 
@@ -160,6 +163,24 @@ void main() {
   });
 }
 
+FakeUserRepository _authenticatedMemberRepository(
+  FakeUserRepository? provided,
+) {
+  final repository = provided ?? FakeUserRepository();
+  repository.currentUser ??= const UserEntity(
+    id: 'user-1',
+    email: 'member@gymunity.test',
+  );
+  repository.profile ??= const ProfileEntity(
+    userId: 'user-1',
+    email: 'member@gymunity.test',
+    fullName: 'Member One',
+    role: AppRole.member,
+    onboardingCompleted: true,
+  );
+  return repository;
+}
+
 Future<void> _scrollUntilVisible(WidgetTester tester, Finder finder) async {
   await tester.scrollUntilVisible(
     finder,
@@ -187,7 +208,7 @@ Future<void> _pumpNamedTaiyoRoute(
       overrides: <Override>[
         authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
         userRepositoryProvider.overrideWithValue(
-          userRepository ?? FakeUserRepository(),
+          _authenticatedMemberRepository(userRepository),
         ),
         authCallbackIngressProvider.overrideWithValue(
           FakeAuthCallbackIngress(),
@@ -243,7 +264,7 @@ Future<void> _pumpTaiyoHome(
       overrides: <Override>[
         authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
         userRepositoryProvider.overrideWithValue(
-          userRepository ?? FakeUserRepository(),
+          _authenticatedMemberRepository(userRepository),
         ),
         authCallbackIngressProvider.overrideWithValue(
           FakeAuthCallbackIngress(),
