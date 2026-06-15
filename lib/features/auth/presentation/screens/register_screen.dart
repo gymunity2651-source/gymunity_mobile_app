@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../widgets/google_only_auth_screen.dart';
 
 class RegisterScreen extends StatelessWidget {
@@ -8,13 +9,12 @@ class RegisterScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const GoogleOnlyAuthScreen(
-      title: 'Create your account with Google',
-      subtitle:
-          'Manual sign-up with name, email, and password has been removed from GymUnity.',
-      helperText:
-          'Your account is now created automatically after Google sign-in, then GymUnity will continue with role selection and onboarding.',
-      secondaryActionLabel: 'Back to sign in',
+    final l10n = context.l10n;
+    return GoogleOnlyAuthScreen(
+      title: l10n.registerTitle,
+      subtitle: l10n.registerSubtitle,
+      helperText: l10n.registerHelper,
+      secondaryActionLabel: l10n.backToSignIn,
       secondaryActionRoute: AppRoutes.login,
     );
   }

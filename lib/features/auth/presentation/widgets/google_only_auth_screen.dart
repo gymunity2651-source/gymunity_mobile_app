@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../../domain/entities/auth_provider_type.dart';
 import '../controllers/google_oauth_controller.dart';
 import '../providers/auth_providers.dart';
@@ -15,7 +16,7 @@ class GoogleOnlyAuthScreen extends ConsumerStatefulWidget {
     required this.title,
     required this.subtitle,
     required this.helperText,
-    this.badge = 'GOOGLE-ONLY ACCESS',
+    this.badge,
     this.secondaryActionLabel,
     this.secondaryActionRoute,
     this.sceneSpec,
@@ -25,7 +26,7 @@ class GoogleOnlyAuthScreen extends ConsumerStatefulWidget {
   final String title;
   final String subtitle;
   final String helperText;
-  final String badge;
+  final String? badge;
   final String? secondaryActionLabel;
   final String? secondaryActionRoute;
   final PreAuthSlideSpec? sceneSpec;
@@ -60,6 +61,7 @@ class _GoogleOnlyAuthScreenState extends ConsumerState<GoogleOnlyAuthScreen>
   @override
   Widget build(BuildContext context) {
     final authFlowState = ref.watch(authFlowControllerProvider);
+    final l10n = context.l10n;
     ref.listen<AuthFlowState>(authFlowControllerProvider, (
       AuthFlowState? previous,
       AuthFlowState next,
@@ -69,7 +71,7 @@ class _GoogleOnlyAuthScreenState extends ConsumerState<GoogleOnlyAuthScreen>
 
     final PreAuthSlideSpec spec =
         widget.sceneSpec ??
-        preAuthEmpireSpec.copyWith(
+        localizedPreAuthEmpireSpec(context).copyWith(
           headlineLines: <PreAuthHeadlineLine>[
             PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
               PreAuthHeadlineSpan(widget.title),
@@ -77,12 +79,12 @@ class _GoogleOnlyAuthScreenState extends ConsumerState<GoogleOnlyAuthScreen>
           ],
           bodyCopy: widget.subtitle,
           supportingCopy: widget.helperText,
-          eyebrow: widget.badge,
+          eyebrow: widget.badge ?? l10n.googleOnlyAccess,
           showAccentLine: true,
           ctaType: PreAuthCtaType.google,
-          ctaLabel: AppStrings.continueWithGoogle,
-          footer: const PreAuthFooter(
-            label: AppStrings.poweredBy,
+          ctaLabel: l10n.continueWithGoogle,
+          footer: PreAuthFooter(
+            label: l10n.poweredByTaiyo,
             style: PreAuthFooterStyle.text,
           ),
           showSkip: false,
@@ -94,9 +96,7 @@ class _GoogleOnlyAuthScreenState extends ConsumerState<GoogleOnlyAuthScreen>
       spec: spec,
       onPrimaryAction: authFlowState.isBusy ? null : _signInWithGoogle,
       isBusy: authFlowState.isBusy,
-      statusText: authFlowState.isBusy
-          ? AppStrings.completingGoogleSignIn
-          : null,
+      statusText: authFlowState.isBusy ? l10n.completingGoogleSignIn : null,
       headerLeading: widget.showHeader
           ? _BackPill(onPressed: () => _goBack(context))
           : null,
@@ -184,9 +184,15 @@ class _BackPill extends StatelessWidget {
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(999),
-        child: const Padding(
-          padding: EdgeInsets.all(10),
-          child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(
+            Directionality.of(context) == TextDirection.rtl
+                ? Icons.arrow_forward_rounded
+                : Icons.arrow_back_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
         ),
       ),
     );

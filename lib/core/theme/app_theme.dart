@@ -7,7 +7,10 @@ import 'app_page_transitions.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get darkTheme {
+  static ThemeData get darkTheme => darkThemeForLocale(const Locale('en'));
+
+  static ThemeData darkThemeForLocale(Locale locale) {
+    final isArabic = locale.languageCode == 'ar';
     final baseScheme = ColorScheme.fromSeed(
       seedColor: AppColors.limeGreen,
       brightness: Brightness.light, // Switched to light for Atelier
@@ -30,77 +33,161 @@ class AppTheme {
     );
 
     final baseTextTheme =
-        GoogleFonts.manropeTextTheme(
-          ThemeData(brightness: Brightness.light, useMaterial3: true).textTheme,
-        ).apply(
-          bodyColor: AppColors.textPrimary,
-          displayColor: AppColors.textPrimary,
-        );
+        (isArabic
+                ? GoogleFonts.cairoTextTheme(
+                    ThemeData(
+                      brightness: Brightness.light,
+                      useMaterial3: true,
+                    ).textTheme,
+                  )
+                : GoogleFonts.manropeTextTheme(
+                    ThemeData(
+                      brightness: Brightness.light,
+                      useMaterial3: true,
+                    ).textTheme,
+                  ))
+            .apply(
+              bodyColor: AppColors.textPrimary,
+              displayColor: AppColors.textPrimary,
+            );
 
     final textTheme = baseTextTheme.copyWith(
-      displayLarge: GoogleFonts.notoSerif(
-        fontSize: 56,
-        fontWeight: FontWeight.w400,
-        height: 1.02,
-        letterSpacing: -1.0,
-        color: AppColors.textPrimary,
-      ),
-      displayMedium: GoogleFonts.notoSerif(
-        fontSize: 44,
-        fontWeight: FontWeight.w400,
-        height: 1.06,
-        letterSpacing: -0.8,
-        color: AppColors.textPrimary,
-      ),
-      headlineLarge: GoogleFonts.notoSerif(
-        fontSize: 32,
-        fontWeight: FontWeight.w400,
-        height: 1.1,
-        letterSpacing: -0.5,
-        color: AppColors.textPrimary,
-      ),
-      headlineMedium: GoogleFonts.notoSerif(
-        fontSize: 26,
-        fontWeight: FontWeight.w500,
-        height: 1.12,
-        letterSpacing: -0.3,
-        color: AppColors.textPrimary,
-      ),
-      titleLarge: GoogleFonts.notoSerif(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.2,
-        color: AppColors.textPrimary,
-      ),
-      titleMedium: GoogleFonts.manrope(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textPrimary,
-      ),
-      bodyLarge: GoogleFonts.manrope(
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-        height: 1.45,
-        color: AppColors.textPrimary,
-      ),
-      bodyMedium: GoogleFonts.manrope(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        height: 1.45,
-        color: AppColors.textPrimary,
-      ),
-      bodySmall: GoogleFonts.manrope(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        height: 1.4,
-        color: AppColors.textSecondary,
-      ),
-      labelLarge: GoogleFonts.manrope(
-        fontSize: 14,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.8,
-        color: AppColors.textPrimary,
-      ),
+      displayLarge: isArabic
+          ? GoogleFonts.cairo(
+              fontSize: 52,
+              fontWeight: FontWeight.w700,
+              height: 1.08,
+              letterSpacing: 0,
+              color: AppColors.textPrimary,
+            )
+          : GoogleFonts.notoSerif(
+              fontSize: 56,
+              fontWeight: FontWeight.w400,
+              height: 1.02,
+              letterSpacing: -1.0,
+              color: AppColors.textPrimary,
+            ),
+      displayMedium: isArabic
+          ? GoogleFonts.cairo(
+              fontSize: 42,
+              fontWeight: FontWeight.w700,
+              height: 1.12,
+              letterSpacing: 0,
+              color: AppColors.textPrimary,
+            )
+          : GoogleFonts.notoSerif(
+              fontSize: 44,
+              fontWeight: FontWeight.w400,
+              height: 1.06,
+              letterSpacing: -0.8,
+              color: AppColors.textPrimary,
+            ),
+      headlineLarge: isArabic
+          ? GoogleFonts.cairo(
+              fontSize: 31,
+              fontWeight: FontWeight.w700,
+              height: 1.16,
+              letterSpacing: 0,
+              color: AppColors.textPrimary,
+            )
+          : GoogleFonts.notoSerif(
+              fontSize: 32,
+              fontWeight: FontWeight.w400,
+              height: 1.1,
+              letterSpacing: -0.5,
+              color: AppColors.textPrimary,
+            ),
+      headlineMedium: isArabic
+          ? GoogleFonts.cairo(
+              fontSize: 25,
+              fontWeight: FontWeight.w700,
+              height: 1.18,
+              letterSpacing: 0,
+              color: AppColors.textPrimary,
+            )
+          : GoogleFonts.notoSerif(
+              fontSize: 26,
+              fontWeight: FontWeight.w500,
+              height: 1.12,
+              letterSpacing: -0.3,
+              color: AppColors.textPrimary,
+            ),
+      titleLarge: isArabic
+          ? GoogleFonts.cairo(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+              color: AppColors.textPrimary,
+            )
+          : GoogleFonts.notoSerif(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+              color: AppColors.textPrimary,
+            ),
+      titleMedium: isArabic
+          ? GoogleFonts.cairo(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            )
+          : GoogleFonts.manrope(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+      bodyLarge: isArabic
+          ? GoogleFonts.cairo(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+              color: AppColors.textPrimary,
+            )
+          : GoogleFonts.manrope(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              color: AppColors.textPrimary,
+            ),
+      bodyMedium: isArabic
+          ? GoogleFonts.cairo(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+              color: AppColors.textPrimary,
+            )
+          : GoogleFonts.manrope(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              color: AppColors.textPrimary,
+            ),
+      bodySmall: isArabic
+          ? GoogleFonts.cairo(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              color: AppColors.textSecondary,
+            )
+          : GoogleFonts.manrope(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+              color: AppColors.textSecondary,
+            ),
+      labelLarge: isArabic
+          ? GoogleFonts.cairo(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+              color: AppColors.textPrimary,
+            )
+          : GoogleFonts.manrope(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: AppColors.textPrimary,
+            ),
     );
 
     final shape = RoundedRectangleBorder(

@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../app/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../controllers/google_oauth_controller.dart';
 import '../providers/auth_providers.dart';
@@ -47,6 +47,7 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
         );
       }
     });
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -85,11 +86,13 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
                   Text(
                     authFlowState.status == AuthFlowStatus.failure
                         ? (authFlowState.activeProvider == null
-                              ? 'Password Recovery'
-                              : '${authFlowState.activeProvider!.label} Sign-In')
+                              ? l10n.passwordRecovery
+                              : l10n.providerSignIn(
+                                  authFlowState.activeProvider!.label,
+                                ))
                         : (authFlowState.activeProvider == null
-                              ? AppStrings.completingPasswordRecovery
-                              : AppStrings.completingGoogleSignIn),
+                              ? l10n.completingPasswordRecovery
+                              : l10n.completingGoogleSignIn),
                     style: GoogleFonts.spaceGrotesk(
                       fontSize: 26,
                       fontWeight: FontWeight.w700,
@@ -101,10 +104,10 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
                   Text(
                     authFlowState.status == AuthFlowStatus.failure
                         ? (authFlowState.errorMessage ??
-                              AppStrings.googleSignInDidNotComplete)
+                              l10n.googleSignInDidNotComplete)
                         : (authFlowState.activeProvider == null
-                              ? 'Please wait while GymUnity verifies your password recovery request.'
-                              : 'Please wait while GymUnity links your account and restores your session.'),
+                              ? l10n.passwordRecoveryVerifying
+                              : l10n.accountLinkingWait),
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: AppColors.textSecondary,
@@ -115,7 +118,7 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
                   const SizedBox(height: 28),
                   if (authFlowState.status == AuthFlowStatus.failure)
                     CustomButton(
-                      label: AppStrings.backToLogin.toUpperCase(),
+                      label: l10n.backToLogin.toUpperCase(),
                       onPressed: () {
                         ref
                             .read(authFlowControllerProvider.notifier)

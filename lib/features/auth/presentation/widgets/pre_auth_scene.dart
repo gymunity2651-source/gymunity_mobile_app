@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/ai_branding.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 
 enum PreAuthOverlayStyle { unified, shopMask, workouts, empire }
 
@@ -229,6 +230,99 @@ const PreAuthSlideSpec preAuthEmpireSpec = PreAuthSlideSpec(
   systemUiOverlayStyle: SystemUiOverlayStyle.light,
 );
 
+List<PreAuthSlideSpec> localizedPreAuthSlides(BuildContext context) {
+  final l10n = context.l10n;
+  return <PreAuthSlideSpec>[
+    preAuthUnifiedSpec.copyWith(
+      headlineLines: <PreAuthHeadlineLine>[
+        PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+          PreAuthHeadlineSpan(l10n.welcomeHeadlineYour),
+        ]),
+        PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+          PreAuthHeadlineSpan(l10n.welcomeHeadlineFitness),
+        ]),
+        PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+          PreAuthHeadlineSpan(
+            l10n.welcomeHeadlineUnified,
+            color: const Color(0xFF8B2F07),
+            italic: true,
+          ),
+        ]),
+      ],
+      bodyCopy: l10n.welcomeSubtitle,
+      eyebrow: l10n.welcomeEyebrow,
+      ctaLabel: l10n.next,
+      footer: PreAuthFooter(
+        label: l10n.poweredByTaiyo,
+        style: PreAuthFooterStyle.pill,
+      ),
+    ),
+    preAuthShopSpec.copyWith(
+      headlineLines: <PreAuthHeadlineLine>[
+        PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+          PreAuthHeadlineSpan(l10n.shopTrainLine1),
+        ]),
+        PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+          PreAuthHeadlineSpan(l10n.shopTrainLine2),
+        ]),
+        PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+          PreAuthHeadlineSpan(
+            l10n.shopTrainLine3,
+            color: const Color(0xFFF0A38B),
+            italic: true,
+          ),
+        ]),
+      ],
+      bodyCopy: l10n.shopTrainSubtitle,
+      ctaLabel: l10n.next,
+      footer: PreAuthFooter(
+        label: l10n.poweredByTaiyo,
+        style: PreAuthFooterStyle.text,
+      ),
+    ),
+    preAuthWorkoutsSpec.copyWith(
+      headlineLines: <PreAuthHeadlineLine>[
+        PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+          PreAuthHeadlineSpan(l10n.taiyoPowered),
+        ]),
+        PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+          PreAuthHeadlineSpan(l10n.workouts),
+        ]),
+      ],
+      bodyCopy: l10n.taiyoWorkoutSubtitle,
+      ctaLabel: l10n.next,
+      footer: PreAuthFooter(
+        label: l10n.poweredByTaiyo,
+        style: PreAuthFooterStyle.text,
+      ),
+    ),
+    localizedPreAuthEmpireSpec(context),
+  ];
+}
+
+PreAuthSlideSpec localizedPreAuthEmpireSpec(BuildContext context) {
+  final l10n = context.l10n;
+  return preAuthEmpireSpec.copyWith(
+    headlineLines: <PreAuthHeadlineLine>[
+      PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+        PreAuthHeadlineSpan(l10n.buildYour),
+      ]),
+      PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+        PreAuthHeadlineSpan(l10n.fitness),
+      ]),
+      PreAuthHeadlineLine(<PreAuthHeadlineSpan>[
+        PreAuthHeadlineSpan(l10n.empire),
+      ]),
+    ],
+    bodyCopy: l10n.fitnessEmpireSubtitle,
+    ctaLabel: l10n.continueWithGoogle,
+    footer: PreAuthFooter(
+      label: l10n.poweredByTaiyo,
+      style: PreAuthFooterStyle.text,
+    ),
+  );
+}
+
 class PreAuthScaffold extends StatelessWidget {
   const PreAuthScaffold({
     super.key,
@@ -401,7 +495,7 @@ class PreAuthScene extends StatelessWidget {
                     ],
                     const SizedBox(height: 18),
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: _FooterBadge(footer: spec.footer),
                     ),
                   ],
@@ -544,7 +638,7 @@ class _PreAuthHeader extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
               child: Text(
-                'Skip',
+                context.l10n.skip,
                 style: GoogleFonts.manrope(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -648,12 +742,12 @@ class _CtaArea extends StatelessWidget {
     switch (spec.ctaType) {
       case PreAuthCtaType.next:
         return _PrimaryNextButton(
-          label: spec.ctaLabel ?? 'NEXT',
+          label: spec.ctaLabel ?? context.l10n.next,
           onPressed: onPrimaryAction,
         );
       case PreAuthCtaType.google:
         return PreAuthGoogleButton(
-          label: spec.ctaLabel ?? 'Continue with Google',
+          label: spec.ctaLabel ?? context.l10n.continueWithGoogle,
           onPressed: onPrimaryAction,
           isBusy: isBusy,
         );

@@ -8,6 +8,7 @@ import '../../../../core/constants/ai_branding.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../../../admin/presentation/providers/admin_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../monetization/presentation/providers/monetization_providers.dart';
@@ -28,16 +29,11 @@ class SettingsScreen extends ConsumerWidget {
     final admin = ref.watch(currentAdminProvider).valueOrNull;
     final role = ref.watch(appRoleProvider);
     final editProfileRoute = _editProfileRouteForRole(role);
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('Settings'),
-      ),
+      appBar: AppBar(leading: const BackButton(), title: Text(l10n.settings)),
       body: preferencesAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.orange),
@@ -49,7 +45,7 @@ class SettingsScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'GymUnity could not load your settings right now.',
+                  l10n.settingsLoadError,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 14,
@@ -59,7 +55,7 @@ class SettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: controller.refresh,
-                  child: const Text('Retry'),
+                  child: Text(l10n.retry),
                 ),
               ],
             ),
@@ -73,22 +69,20 @@ class SettingsScreen extends ConsumerWidget {
               if (!context.mounted) {
                 return;
               }
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('GymUnity could not save that preference.'),
-                ),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(l10n.settingsSaveError)));
             }
           }
 
           return ListView(
             padding: const EdgeInsets.all(AppSizes.screenPadding),
             children: [
-              _SectionTitle(title: 'Account'),
+              _SectionTitle(title: l10n.account),
               const SizedBox(height: 10),
               _ActionTile(
                 icon: Icons.person_outline,
-                label: _editProfileLabelForRole(role),
+                label: _editProfileLabelForRole(context, role),
                 onTap: () => Navigator.pushNamed(context, editProfileRoute),
               ),
               if (showSubscriptionSettings)
@@ -103,12 +97,12 @@ class SettingsScreen extends ConsumerWidget {
               if (admin != null && admin.isActive)
                 _ActionTile(
                   icon: Icons.admin_panel_settings_outlined,
-                  label: 'Admin Dashboard',
+                  label: l10n.adminDashboard,
                   onTap: () =>
                       Navigator.pushNamed(context, AppRoutes.adminDashboard),
                 ),
               const SizedBox(height: 24),
-              _SectionTitle(title: 'Preferences'),
+              _SectionTitle(title: l10n.preferences),
               const SizedBox(height: 10),
               _PreferenceCard(
                 child: Column(
@@ -118,10 +112,8 @@ class SettingsScreen extends ConsumerWidget {
                       onChanged: (value) => updatePreference(
                         () => controller.setPushNotifications(value),
                       ),
-                      title: const Text('Push Notifications'),
-                      subtitle: const Text(
-                        'Send key updates outside the app when possible.',
-                      ),
+                      title: Text(l10n.pushNotifications),
+                      subtitle: Text(l10n.pushNotificationsSubtitle),
                       activeThumbColor: AppColors.orange,
                     ),
                     const Divider(color: AppColors.border, height: 1),
@@ -129,10 +121,8 @@ class SettingsScreen extends ConsumerWidget {
                       value: preferences.aiTipsEnabled,
                       onChanged: (value) =>
                           updatePreference(() => controller.setAiTips(value)),
-                      title: const Text(AiBranding.suggestionsLabel),
-                      subtitle: const Text(
-                        'Highlight new coaching or workout ideas from TAIYO.',
-                      ),
+                      title: Text(l10n.taiyoSuggestions),
+                      subtitle: Text(l10n.taiyoSuggestionsSubtitle),
                       activeThumbColor: AppColors.orange,
                     ),
                     const Divider(color: AppColors.border, height: 1),
@@ -141,10 +131,8 @@ class SettingsScreen extends ConsumerWidget {
                       onChanged: (value) => updatePreference(
                         () => controller.setOrderUpdates(value),
                       ),
-                      title: const Text('Order Updates'),
-                      subtitle: const Text(
-                        'Keep store order and delivery status visible in notifications.',
-                      ),
+                      title: Text(l10n.orderUpdates),
+                      subtitle: Text(l10n.orderUpdatesSubtitle),
                       activeThumbColor: AppColors.orange,
                     ),
                   ],
@@ -156,7 +144,7 @@ class SettingsScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Measurement Units',
+                      l10n.measurementUnits,
                       style: GoogleFonts.inter(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -165,14 +153,14 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                     SegmentedButton<MeasurementUnit>(
-                      segments: const [
+                      segments: [
                         ButtonSegment(
                           value: MeasurementUnit.metric,
-                          label: Text('Metric'),
+                          label: Text(l10n.metric),
                         ),
                         ButtonSegment(
                           value: MeasurementUnit.imperial,
-                          label: Text('Imperial'),
+                          label: Text(l10n.imperial),
                         ),
                       ],
                       selected: {preferences.measurementUnit},
@@ -185,7 +173,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      'Language',
+                      l10n.language,
                       style: GoogleFonts.inter(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -194,14 +182,14 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                     SegmentedButton<AppLanguage>(
-                      segments: const [
+                      segments: [
                         ButtonSegment(
                           value: AppLanguage.english,
-                          label: Text('English'),
+                          label: Text(l10n.english),
                         ),
                         ButtonSegment(
                           value: AppLanguage.arabic,
-                          label: Text('Arabic'),
+                          label: Text(l10n.arabic),
                         ),
                       ],
                       selected: {preferences.language},
@@ -216,45 +204,45 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              _SectionTitle(title: 'Support'),
+              _SectionTitle(title: l10n.support),
               const SizedBox(height: 10),
               _ActionTile(
                 icon: Icons.notifications_outlined,
-                label: 'Notifications Center',
+                label: l10n.notificationsCenter,
                 onTap: () =>
                     Navigator.pushNamed(context, AppRoutes.notifications),
               ),
               _ActionTile(
                 icon: Icons.help_outline,
-                label: 'Help & Support',
+                label: l10n.helpSupport,
                 onTap: () =>
                     Navigator.pushNamed(context, AppRoutes.helpSupport),
               ),
               if (config.privacyPolicyUrl.trim().isNotEmpty)
                 _ActionTile(
                   icon: Icons.privacy_tip_outlined,
-                  label: 'Privacy Policy',
+                  label: l10n.privacyPolicy,
                   onTap: () =>
                       Navigator.pushNamed(context, AppRoutes.privacyPolicy),
                 ),
               if (config.termsUrl.trim().isNotEmpty)
                 _ActionTile(
                   icon: Icons.description_outlined,
-                  label: 'Terms of Service',
+                  label: l10n.termsOfService,
                   onTap: () => Navigator.pushNamed(context, AppRoutes.terms),
                 ),
               const SizedBox(height: 24),
-              _SectionTitle(title: 'Account Actions'),
+              _SectionTitle(title: l10n.accountActions),
               const SizedBox(height: 10),
               _ActionTile(
                 icon: Icons.logout,
-                label: 'Log Out',
+                label: l10n.logOut,
                 destructive: true,
                 onTap: () => _confirmLogout(context, ref),
               ),
               _ActionTile(
                 icon: Icons.delete_outline,
-                label: 'Delete Account',
+                label: l10n.deleteAccount,
                 destructive: true,
                 onTap: () {
                   Navigator.pushNamed(context, AppRoutes.deleteAccount);
@@ -263,7 +251,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 18),
               Center(
                 child: Text(
-                  'GymUnity v1.0.0',
+                  l10n.appVersion,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: AppColors.textMuted,
@@ -290,34 +278,36 @@ String _editProfileRouteForRole(AppRole? role) {
   }
 }
 
-String _editProfileLabelForRole(AppRole? role) {
+String _editProfileLabelForRole(BuildContext context, AppRole? role) {
+  final l10n = context.l10n;
   switch (role) {
     case AppRole.seller:
-      return 'Store Profile';
+      return l10n.storeProfile;
     case AppRole.coach:
-      return 'Coach Profile';
+      return l10n.coachProfile;
     case AppRole.member:
     case null:
-      return 'Edit Profile';
+      return l10n.editProfile;
   }
 }
 
 Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+  final l10n = context.l10n;
   final shouldLogout = await showDialog<bool>(
     context: context,
     builder: (dialogContext) {
       return AlertDialog(
-        title: const Text('Log out?'),
-        content: const Text('You will return to the login screen.'),
+        title: Text(l10n.logOutQuestion),
+        content: Text(l10n.logoutReturnMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton.icon(
             onPressed: () => Navigator.pop(dialogContext, true),
             icon: const Icon(Icons.logout, size: 18),
-            label: const Text('Log Out'),
+            label: Text(l10n.logOut),
           ),
         ],
       );
@@ -342,10 +332,7 @@ Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
 
   final binding = WidgetsBinding.instance;
   binding.addPostFrameCallback((_) {
-    navigator.pushNamedAndRemoveUntil(
-      AppRoutes.welcome,
-      (route) => false,
-    );
+    navigator.pushNamedAndRemoveUntil(AppRoutes.welcome, (route) => false);
   });
   binding.scheduleFrame();
 }
@@ -406,7 +393,7 @@ class _ActionTile extends StatelessWidget {
     final foreground = destructive ? Colors.red : AppColors.textPrimary;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsetsDirectional.only(bottom: 8),
       child: ListTile(
         onTap: onTap,
         shape: RoundedRectangleBorder(
@@ -425,7 +412,12 @@ class _ActionTile extends StatelessWidget {
             color: foreground,
           ),
         ),
-        trailing: Icon(Icons.chevron_right, color: foreground),
+        trailing: Icon(
+          Directionality.of(context) == TextDirection.rtl
+              ? Icons.chevron_left
+              : Icons.chevron_right,
+          color: foreground,
+        ),
       ),
     );
   }

@@ -1,0 +1,616 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for Arabic (`ar`).
+class AppLocalizationsAr extends AppLocalizations {
+  AppLocalizationsAr([String locale = 'ar']) : super(locale);
+
+  @override
+  String get settings => 'الإعدادات';
+
+  @override
+  String get account => 'الحساب';
+
+  @override
+  String get preferences => 'التفضيلات';
+
+  @override
+  String get support => 'الدعم';
+
+  @override
+  String get accountActions => 'إجراءات الحساب';
+
+  @override
+  String get retry => 'إعادة المحاولة';
+
+  @override
+  String get settingsLoadError => 'تعذر على GymUnity تحميل إعداداتك الآن.';
+
+  @override
+  String get settingsSaveError => 'تعذر على GymUnity حفظ هذا التفضيل.';
+
+  @override
+  String get editProfile => 'تعديل الملف الشخصي';
+
+  @override
+  String get coachProfile => 'ملف المدرب';
+
+  @override
+  String get storeProfile => 'ملف المتجر';
+
+  @override
+  String get adminDashboard => 'لوحة تحكم المدير';
+
+  @override
+  String get pushNotifications => 'الإشعارات الفورية';
+
+  @override
+  String get pushNotificationsSubtitle =>
+      'إرسال التحديثات المهمة خارج التطبيق عند الإمكان.';
+
+  @override
+  String get taiyoSuggestions => 'اقتراحات TAIYO';
+
+  @override
+  String get taiyoSuggestionsSubtitle =>
+      'إبراز أفكار تدريب أو تمارين جديدة من TAIYO.';
+
+  @override
+  String get orderUpdates => 'تحديثات الطلبات';
+
+  @override
+  String get orderUpdatesSubtitle =>
+      'إظهار حالة طلبات المتجر والتوصيل في الإشعارات.';
+
+  @override
+  String get measurementUnits => 'وحدات القياس';
+
+  @override
+  String get metric => 'متري';
+
+  @override
+  String get imperial => 'إمبراطوري';
+
+  @override
+  String get language => 'اللغة';
+
+  @override
+  String get english => 'الإنجليزية';
+
+  @override
+  String get arabic => 'العربية';
+
+  @override
+  String get notificationsCenter => 'مركز الإشعارات';
+
+  @override
+  String get helpSupport => 'المساعدة والدعم';
+
+  @override
+  String get privacyPolicy => 'سياسة الخصوصية';
+
+  @override
+  String get termsOfService => 'شروط الخدمة';
+
+  @override
+  String get logOut => 'تسجيل الخروج';
+
+  @override
+  String get logOutQuestion => 'هل تريد تسجيل الخروج؟';
+
+  @override
+  String get logoutReturnMessage => 'ستعود إلى شاشة تسجيل الدخول.';
+
+  @override
+  String get cancel => 'إلغاء';
+
+  @override
+  String get deleteAccount => 'حذف الحساب';
+
+  @override
+  String get appVersion => 'GymUnity الإصدار 1.0.0';
+
+  @override
+  String get welcomeEyebrow => 'مرحباً';
+
+  @override
+  String get welcomeHeadlineYour => 'لياقتك';
+
+  @override
+  String get welcomeHeadlineFitness => 'في مكان';
+
+  @override
+  String get welcomeHeadlineUnified => 'واحد.';
+
+  @override
+  String get welcomeSubtitle =>
+      'منصة متكاملة للأعضاء والمدربين والبائعين مدعومة من TAIYO.';
+
+  @override
+  String get skip => 'تخطي';
+
+  @override
+  String get next => 'التالي';
+
+  @override
+  String get poweredByTaiyo => 'مدعوم من TAIYO';
+
+  @override
+  String get shopTrainLine1 => 'تسوق';
+
+  @override
+  String get shopTrainLine2 => 'وتدرّب';
+
+  @override
+  String get shopTrainLine3 => 'معاً.';
+
+  @override
+  String get shopTrainSubtitle =>
+      'تصفح منتجات اللياقة، واعثر على مدربين، وتابع تقدمك في مكان واحد. مجتمع مبني على النمو المشترك.';
+
+  @override
+  String get taiyoPowered => 'مدعوم من TAIYO';
+
+  @override
+  String get workouts => 'تمارين ذكية.';
+
+  @override
+  String get taiyoWorkoutSubtitle =>
+      'احصل على خطط تمرين شخصية من TAIYO، مصممة لتتكيف مع إيقاع جسمك وترفع مستوى تجربتك.';
+
+  @override
+  String get buildYour => 'ابنِ';
+
+  @override
+  String get fitness => 'علامتك';
+
+  @override
+  String get empire => 'الرياضية.';
+
+  @override
+  String get fitnessEmpireSubtitle =>
+      'بع المنتجات، ودرّب الآخرين، ووسّع علامتك الرياضية بسهولة. أدوات تتحرك معك.';
+
+  @override
+  String get continueWithGoogle => 'المتابعة باستخدام Google';
+
+  @override
+  String get completingGoogleSignIn => 'جارٍ إكمال تسجيل الدخول عبر Google...';
+
+  @override
+  String get googleOnlyAccess => 'دخول عبر Google فقط';
+
+  @override
+  String get loginTitle => 'ابنِ علامتك الرياضية.';
+
+  @override
+  String get loginSubtitle =>
+      'بع المنتجات، ودرّب الآخرين، ووسّع علامتك الرياضية بسهولة. أدوات تتحرك معك.';
+
+  @override
+  String get registerTitle => 'أنشئ حسابك باستخدام Google';
+
+  @override
+  String get registerSubtitle =>
+      'تم إيقاف التسجيل اليدوي بالاسم والبريد وكلمة المرور في GymUnity.';
+
+  @override
+  String get registerHelper =>
+      'يتم إنشاء حسابك تلقائياً بعد تسجيل الدخول عبر Google، ثم يكمل GymUnity اختيار الدور وبدء الإعداد.';
+
+  @override
+  String get backToSignIn => 'العودة لتسجيل الدخول';
+
+  @override
+  String get forgotPasswordTitle => 'لم نعد نستخدم إعادة تعيين كلمة المرور';
+
+  @override
+  String get forgotPasswordSubtitle =>
+      'لم يعد GymUnity يسجل المستخدمين بأكواد البريد أو روابط إعادة تعيين كلمة المرور.';
+
+  @override
+  String get forgotPasswordHelper =>
+      'تابع بحساب Google المرتبط بملفك في GymUnity.';
+
+  @override
+  String get resetPasswordTitle => 'تسجيل الدخول بكلمة المرور متوقف';
+
+  @override
+  String get resetPasswordSubtitle =>
+      'يستخدم GymUnity الآن تسجيل الدخول عبر Google فقط، لذلك لم تعد روابط إعادة التعيين جزءاً من التطبيق.';
+
+  @override
+  String get resetPasswordHelper =>
+      'ارجع إلى تسجيل الدخول عبر Google وتابع بالحساب المرتبط بـ GymUnity.';
+
+  @override
+  String get completingPasswordRecovery => 'جارٍ إكمال استعادة كلمة المرور...';
+
+  @override
+  String get googleSignInDidNotComplete =>
+      'لم يكتمل تسجيل الدخول عبر Google. تحقق من إعدادات Google وإعادة التوجيه ثم حاول مرة أخرى.';
+
+  @override
+  String get passwordRecoveryDidNotComplete =>
+      'لم تكتمل استعادة كلمة المرور. افتح أحدث رسالة إعادة تعيين وجرب الرابط مرة أخرى.';
+
+  @override
+  String get passwordRecovery => 'استعادة كلمة المرور';
+
+  @override
+  String providerSignIn(String provider) {
+    return 'تسجيل الدخول عبر $provider';
+  }
+
+  @override
+  String get passwordRecoveryVerifying =>
+      'يرجى الانتظار بينما يتحقق GymUnity من طلب استعادة كلمة المرور.';
+
+  @override
+  String get accountLinkingWait =>
+      'يرجى الانتظار بينما يربط GymUnity حسابك ويستعيد جلستك.';
+
+  @override
+  String get backToLogin => 'العودة لتسجيل الدخول';
+
+  @override
+  String get roleHeadline => 'انضم كـ...';
+
+  @override
+  String get roleSubtitle => 'اختر دورك لبدء رحلتك الرياضية';
+
+  @override
+  String get roleProductionSubtitle =>
+      'اختر تجربة العضو للمتابعة إلى GymUnity.';
+
+  @override
+  String get member => 'عضو';
+
+  @override
+  String get memberDesc =>
+      'احصل على تمارين شخصية، وتسوق من المتجر، وتواصل مع مدربين مميزين.';
+
+  @override
+  String get memberCta => 'ابدأ اليوم';
+
+  @override
+  String get popular => 'الأكثر شيوعاً';
+
+  @override
+  String get seller => 'بائع';
+
+  @override
+  String get sellerDesc =>
+      'بع منتجاتك الرياضية، وأدر المخزون، ووسّع علامتك عالمياً.';
+
+  @override
+  String get sellerCta => 'نمِّ عملك';
+
+  @override
+  String get coach => 'مدرب';
+
+  @override
+  String get coachDesc => 'أدر عملاءك، وبع خطط تدريب احترافية، وتابع التقدم.';
+
+  @override
+  String get coachCta => 'ساعد الآخرين';
+
+  @override
+  String get select => 'اختيار';
+
+  @override
+  String get alreadyHaveAccount => 'لديك حساب بالفعل؟';
+
+  @override
+  String get logIn => 'تسجيل الدخول';
+
+  @override
+  String get unableSaveRole => 'تعذر حفظ دورك الآن.';
+
+  @override
+  String get goalSetup => 'إعداد الهدف';
+
+  @override
+  String get memberGoalTitle => 'ما النتيجة التي تريدها أولاً؟';
+
+  @override
+  String get memberGoalSubtitle =>
+      'نضبط المدربين والعروض والمتابعات حسب النتيجة التي تختارها.';
+
+  @override
+  String get loseWeight => 'خسارة الوزن';
+
+  @override
+  String get loseWeightDesc =>
+      'خسارة الدهون، عادات غذائية أبسط، ومتابعة أسبوعية.';
+
+  @override
+  String get buildMuscle => 'بناء العضلات';
+
+  @override
+  String get buildMuscleDesc =>
+      'كتلة عضلية أفضل، تنظيم أقوى للتمرين، واستشفاء مناسب.';
+
+  @override
+  String get recompose => 'إعادة تشكيل الجسم';
+
+  @override
+  String get recomposeDesc => 'اخسر الدهون مع تحسين الشكل والاستمرارية.';
+
+  @override
+  String get generalFitness => 'لياقة عامة';
+
+  @override
+  String get generalFitnessDesc => 'طاقة وحركة وعادات مستدامة تستمر معك.';
+
+  @override
+  String get baseline => 'نقطة البداية';
+
+  @override
+  String get memberBaselineTitle => 'أخبرنا أين أنت الآن';
+
+  @override
+  String get memberBaselineSubtitle =>
+      'هذا يساعد في تتبع التقدم، وترشيح المدربين، وأول متابعة لك.';
+
+  @override
+  String get gender => 'الجنس';
+
+  @override
+  String get male => 'ذكر';
+
+  @override
+  String get female => 'أنثى';
+
+  @override
+  String get height => 'الطول';
+
+  @override
+  String get weight => 'الوزن';
+
+  @override
+  String get age => 'العمر';
+
+  @override
+  String get city => 'المدينة';
+
+  @override
+  String get heightHint => 'مثلاً 170';
+
+  @override
+  String get weightHint => 'مثلاً 82';
+
+  @override
+  String get ageHint => 'مثلاً 26';
+
+  @override
+  String get cityHint => 'مثلاً القاهرة';
+
+  @override
+  String get coachMatch => 'مطابقة المدرب';
+
+  @override
+  String get memberCoachMatchTitle => 'أي نوع من التدريب يناسب حياتك؟';
+
+  @override
+  String get memberCoachMatchSubtitle =>
+      'هذه البيانات تضبط الأسعار واللغة وطريقة العرض في سوق المدربين.';
+
+  @override
+  String get monthlyBudget => 'الميزانية الشهرية';
+
+  @override
+  String get budgetHint => 'مثلاً 1500';
+
+  @override
+  String get coachingMode => 'طريقة التدريب';
+
+  @override
+  String get online => 'أونلاين';
+
+  @override
+  String get inPerson => 'حضوري';
+
+  @override
+  String get hybrid => 'مختلط';
+
+  @override
+  String get trainingPlace => 'مكان التدريب';
+
+  @override
+  String get home => 'المنزل';
+
+  @override
+  String get gym => 'الجيم';
+
+  @override
+  String get both => 'كلاهما';
+
+  @override
+  String get preferredLanguage => 'اللغة المفضلة';
+
+  @override
+  String get preferredCoachGender => 'جنس المدرب المفضل';
+
+  @override
+  String get any => 'أي جنس';
+
+  @override
+  String get trainingRhythm => 'إيقاع التدريب';
+
+  @override
+  String get memberTrainingTitle => 'ما مدى استعدادك للالتزام أسبوعياً؟';
+
+  @override
+  String get memberTrainingSubtitle =>
+      'نستخدم هذا لتحديد متابعة واقعية وتوقعات مناسبة لأول خطة.';
+
+  @override
+  String get experienceLevel => 'مستوى الخبرة';
+
+  @override
+  String get beginner => 'مبتدئ';
+
+  @override
+  String get intermediate => 'متوسط';
+
+  @override
+  String get advanced => 'متقدم';
+
+  @override
+  String get athlete => 'رياضي';
+
+  @override
+  String get weeklyFrequency => 'عدد مرات التدريب أسبوعياً';
+
+  @override
+  String get oneTwoDays => 'يوم إلى يومين في الأسبوع';
+
+  @override
+  String get threeFourDays => '٣-٤ أيام في الأسبوع';
+
+  @override
+  String get fiveSixDays => '٥-٦ أيام في الأسبوع';
+
+  @override
+  String get everyDay => 'كل يوم';
+
+  @override
+  String get continueAction => 'متابعة';
+
+  @override
+  String get getStarted => 'ابدأ الآن';
+
+  @override
+  String stepOfTotal(int step, int totalSteps) {
+    return 'الخطوة $step من $totalSteps';
+  }
+
+  @override
+  String get chooseGoalToContinue => 'اختر هدفاً للمتابعة.';
+
+  @override
+  String get chooseGenderToContinue => 'اختر جنسك للمتابعة.';
+
+  @override
+  String get enterRealisticHeight => 'أدخل طولاً واقعياً بالسنتيمتر.';
+
+  @override
+  String get enterRealisticWeight => 'أدخل وزناً واقعياً بالكيلوجرام.';
+
+  @override
+  String get enterValidAge => 'أدخل عمراً صحيحاً بين 13 و100.';
+
+  @override
+  String get addCity => 'أضف مدينتك حتى نطابقك مع المدربين المناسبين.';
+
+  @override
+  String get addBudget => 'أضف ميزانية شهرية واقعية بالجنيه المصري.';
+
+  @override
+  String get chooseCoachingMode => 'اختر طريقة التدريب الأنسب لك.';
+
+  @override
+  String get chooseTrainingPlace => 'اختر أين تخطط للتدريب.';
+
+  @override
+  String get choosePreferredCoachingLanguage => 'اختر لغة التدريب المفضلة.';
+
+  @override
+  String get choosePreferredCoachGender => 'اختر جنس المدرب المفضل.';
+
+  @override
+  String get chooseExperience => 'اختر مستوى خبرتك الحالي.';
+
+  @override
+  String get chooseFrequency => 'اختر عدد مرات التدريب الأسبوعية.';
+
+  @override
+  String get completeOnboarding => 'أكمل كل خطوات الإعداد قبل البدء.';
+
+  @override
+  String get unableCompleteOnboarding => 'تعذر إكمال الإعداد الآن.';
+
+  @override
+  String get goalFooter =>
+      'اختر الهدف الأقرب لأولويتك الحالية. يمكنك تغييره لاحقاً.';
+
+  @override
+  String get baselineFooter =>
+      'نقطة البداية تساعد في متابعة الوزن والمقاسات والتقدم لاحقاً.';
+
+  @override
+  String get matchFooter =>
+      'هذه التفضيلات تشكل فلاتر سوق المدربين والأسعار التي تظهر أولاً.';
+
+  @override
+  String get trainingFooter =>
+      'يمكنك تعديل هذه الاختيارات لاحقاً من ملفك والإعدادات.';
+
+  @override
+  String get beginnerHelper => 'تحتاج تعليمات بسيطة ومتابعة أقرب.';
+
+  @override
+  String get intermediateHelper =>
+      'تتدرب بالفعل، لكنك تريد تنظيماً وملاحظات أفضل.';
+
+  @override
+  String get advancedHelper => 'تستطيع تحمل حمل وحجم تدريب أكبر وتخطيط أدق.';
+
+  @override
+  String get athleteHelper => 'تدريب يركز على الأداء مع التزام قوي.';
+
+  @override
+  String get oneTwoDaysHelper => 'روتين سهل يركز على بناء الزخم.';
+
+  @override
+  String get threeFourDaysHelper => 'إيقاع متوازن لتقدم واضح واستشفاء مناسب.';
+
+  @override
+  String get fiveSixDaysHelper => 'مسار عالي الالتزام مع استشفاء منظم.';
+
+  @override
+  String get everyDayHelper => 'مناسب للروتين الجاد جداً مع إشراف المدرب.';
+
+  @override
+  String get statusInProgress => 'قيد التنفيذ';
+
+  @override
+  String get statusPending => 'قيد الانتظار';
+
+  @override
+  String get statusCompleted => 'مكتمل';
+
+  @override
+  String get statusPartial => 'جزئي';
+
+  @override
+  String get statusSkipped => 'تم التخطي';
+
+  @override
+  String get statusMissed => 'فائت';
+
+  @override
+  String get statusActive => 'نشط';
+
+  @override
+  String get statusArchived => 'مؤرشف';
+
+  @override
+  String get statusPublished => 'منشور';
+
+  @override
+  String get statusDraft => 'مسودة';
+
+  @override
+  String get riskLow => 'منخفض';
+
+  @override
+  String get riskMedium => 'متوسط';
+
+  @override
+  String get riskHigh => 'مرتفع';
+}

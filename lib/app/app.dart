@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../core/theme/app_theme.dart';
 import '../core/constants/app_strings.dart';
 import '../core/config/app_config.dart';
@@ -69,15 +70,22 @@ class _GymUnityAppState extends ConsumerState<GymUnityApp>
       ref.watch(authAwareAiCoachProvider);
     }
 
+    final locale = Locale(
+      preferences.language == AppLanguage.arabic ? 'ar' : 'en',
+    );
+
     return MaterialApp(
       title: AppStrings.appName,
       debugShowCheckedModeBanner: false,
       restorationScopeId: 'gymunity_app',
-      theme: AppTheme.darkTheme,
-      locale: Locale(preferences.language == AppLanguage.arabic ? 'ar' : 'en'),
+      theme: AppTheme.darkThemeForLocale(locale),
+      locale: locale,
       navigatorKey: ref.watch(appNavigatorKeyProvider),
-      supportedLocales: const <Locale>[Locale('en'), Locale('ar')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+        AppLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
       initialRoute: AppRoutes.splash,
       onGenerateRoute: AppRoutes.onGenerateRoute,
       navigatorObservers: [ref.watch(appRouteObserverProvider)],

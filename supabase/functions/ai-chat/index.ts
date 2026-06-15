@@ -5,6 +5,11 @@ import {
 
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import {
+  languageInstructionFor,
+  languageNameFor,
+  normalizeTaiyoLanguage,
+} from "../_shared/taiyo_language.ts";
+import {
   buildMemoryPayload,
   buildPersonalizationUsed,
   buildSuggestedReplies,
@@ -812,9 +817,10 @@ async function getContext(
 }
 
 function generalPrompt(ctx: PlannerContext, mode: ConversationMode) {
-  const language = ctx.prior_profile.preferred_language === "ar"
-    ? "Arabic"
-    : "English";
+  const preferredLanguage = normalizeTaiyoLanguage(
+    ctx.prior_profile.preferred_language,
+  );
+  const language = languageNameFor(preferredLanguage);
   const measurement = ctx.prior_profile.measurement_unit || "metric";
   return [
     "You are GymUnity AI, a practical personalized fitness coach.",
@@ -828,7 +834,7 @@ function generalPrompt(ctx: PlannerContext, mode: ConversationMode) {
     "Do not mention backend providers, model vendors, or API platforms.",
     "Avoid diagnosis and unsafe medical advice. If there is medical risk, advise consulting a qualified professional.",
     `Assigned conversation_mode: ${mode}.`,
-    `Respond in ${language}. Use ${measurement} units.`,
+    `${languageInstructionFor(preferredLanguage)} Use ${measurement} units. Response language: ${language}.`,
     "Return only JSON matching the schema. Use status 'general_response'. Leave plan null.",
     `Member context JSON: ${JSON.stringify(promptContext(ctx, null))}`,
   ].join("\n");
@@ -840,9 +846,10 @@ function plannerPrompt(
   draftRef: Record<string, unknown> | null,
   mode: ConversationMode,
 ) {
-  const language = ctx.prior_profile.preferred_language === "ar"
-    ? "Arabic"
-    : "English";
+  const preferredLanguage = normalizeTaiyoLanguage(
+    ctx.prior_profile.preferred_language,
+  );
+  const language = languageNameFor(preferredLanguage);
   const measurement = ctx.prior_profile.measurement_unit || "metric";
   return [
     "You are GymUnity Planner, a production fitness planning assistant for members.",
@@ -860,7 +867,7 @@ function plannerPrompt(
     "If a request is medically risky or asks for diagnosis, use status 'unsafe_request' and do not produce a plan.",
     "When refining a plan, preserve what is working and update the parts that conflict with adherence, measurements, or the user's request.",
     `Assigned conversation_mode: ${mode}.`,
-    `Respond in ${language}. Use ${measurement} units.`,
+    `${languageInstructionFor(preferredLanguage)} Use ${measurement} units. Response language: ${language}.`,
     action === "regenerate_plan"
       ? "This is a plan refinement request."
       : "This is a normal planning conversation turn.",
@@ -875,7 +882,8 @@ function planOnlyPrompt(
   draftRef: Record<string, unknown> | null,
   mode: ConversationMode,
 ) {
-  const language = profile.preferred_language === "ar" ? "Arabic" : "English";
+  const preferredLanguage = normalizeTaiyoLanguage(profile.preferred_language);
+  const language = languageNameFor(preferredLanguage);
   const measurement = profile.measurement_unit || "metric";
   return [
     "You are GymUnity Planner.",
@@ -884,7 +892,7 @@ function planOnlyPrompt(
     "Do not ask follow-up questions and do not return any prose outside the JSON.",
     "Keep the plan practical, conservative where needed, and tied to the saved member context.",
     `Assigned conversation_mode: ${mode}.`,
-    `Respond in ${language}. Use ${measurement} units.`,
+    `${languageInstructionFor(preferredLanguage)} Use ${measurement} units. Response language: ${language}.`,
     `Use this extracted profile JSON: ${JSON.stringify(profile)}`,
     `Use this broader context JSON: ${
       JSON.stringify(promptContext(ctx, draftRef))

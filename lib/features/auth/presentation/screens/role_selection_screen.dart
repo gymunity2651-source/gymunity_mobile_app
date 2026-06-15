@@ -7,6 +7,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../../../user/domain/entities/app_role.dart';
 import '../../../user/presentation/controllers/onboarding_controller.dart';
 
@@ -20,13 +21,14 @@ class RoleSelectionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = AppConfig.current;
+    final l10n = context.l10n;
     final cards = <Widget>[
       _RoleCard(
-        title: AppStrings.member,
-        description: AppStrings.memberDesc,
-        cta: AppStrings.memberCta,
+        title: l10n.member,
+        description: l10n.memberDesc,
+        cta: l10n.memberCta,
         icon: Icons.fitness_center,
-        badge: AppStrings.popular,
+        badge: l10n.popular,
         imagePath: 'assets/images/role_selection.png',
         onSelect: () {
           _onSelectRole(
@@ -44,9 +46,9 @@ class RoleSelectionScreen extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.only(top: 20),
           child: _RoleCard(
-            title: AppStrings.seller,
-            description: AppStrings.sellerDesc,
-            cta: AppStrings.sellerCta,
+            title: l10n.seller,
+            description: l10n.sellerDesc,
+            cta: l10n.sellerCta,
             icon: Icons.storefront_outlined,
             imagePath: 'assets/images/fitness_store_home.png',
             onSelect: () {
@@ -67,9 +69,9 @@ class RoleSelectionScreen extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.only(top: 20),
           child: _RoleCard(
-            title: AppStrings.coach,
-            description: AppStrings.coachDesc,
-            cta: AppStrings.coachCta,
+            title: l10n.coach,
+            description: l10n.coachDesc,
+            cta: l10n.coachCta,
             icon: Icons.groups_outlined,
             imagePath: 'assets/images/discover_coaches.png',
             onSelect: () {
@@ -100,8 +102,10 @@ class RoleSelectionScreen extends ConsumerWidget {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(
-                      Icons.arrow_back,
+                    child: Icon(
+                      Directionality.of(context) == TextDirection.rtl
+                          ? Icons.arrow_forward
+                          : Icons.arrow_back,
                       color: AppColors.textDark,
                       size: 24,
                     ),
@@ -126,7 +130,7 @@ class RoleSelectionScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppStrings.roleHeadline,
+                  l10n.roleHeadline,
                   style: GoogleFonts.inter(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -137,8 +141,8 @@ class RoleSelectionScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   config.isProduction
-                      ? 'Choose your member experience to continue into GymUnity.'
-                      : AppStrings.roleSubtitle,
+                      ? l10n.roleProductionSubtitle
+                      : l10n.roleSubtitle,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: AppColors.textSecondary,
@@ -157,7 +161,7 @@ class RoleSelectionScreen extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  AppStrings.alreadyHaveAccountRole,
+                  l10n.alreadyHaveAccount,
                   style: GoogleFonts.inter(
                     color: AppColors.textSecondary,
                     fontSize: 14,
@@ -169,7 +173,7 @@ class RoleSelectionScreen extends ConsumerWidget {
                     Navigator.pushNamed(context, AppRoutes.login);
                   },
                   child: Text(
-                    AppStrings.logIn,
+                    l10n.logIn,
                     style: GoogleFonts.inter(
                       color: AppColors.orange,
                       fontSize: 14,
@@ -200,7 +204,7 @@ class RoleSelectionScreen extends ConsumerWidget {
     if (!success) {
       final error =
           ref.read(onboardingControllerProvider).errorMessage ??
-          'Unable to save your role right now.';
+          context.l10n.unableSaveRole;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error)));
@@ -355,7 +359,7 @@ class _RoleCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      child: Text(AppStrings.select),
+                      child: Text(context.l10n.select),
                     ),
                   ],
                 ),

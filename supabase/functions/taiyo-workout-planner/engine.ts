@@ -1,3 +1,8 @@
+import {
+  languageInstructionFor,
+  normalizeTaiyoLanguage,
+} from "../_shared/taiyo_language.ts";
+
 export type PlannerRequestType = "workout_plan_draft" | "plan_review";
 export type PlannerStatus =
   | "success"
@@ -229,10 +234,11 @@ export function buildPlannerContext(
       focus_areas: strings(plannerAnswers.focus_areas),
       preferred_days: strings(plannerAnswers.preferred_days),
       exercise_dislikes: strings(plannerAnswers.exercise_dislikes),
-      preferred_language: str(plannerAnswers.preferred_language) ||
-        str(memberProfile.preferred_language) ||
-        str(preferences.language) ||
-        "en",
+      preferred_language: normalizeTaiyoLanguage(
+        str(plannerAnswers.preferred_language) ||
+          str(memberProfile.preferred_language) ||
+          str(preferences.language),
+      ),
       measurement_unit: str(plannerAnswers.measurement_unit) ||
         str(preferences.measurement_unit) ||
         "metric",
@@ -267,14 +273,18 @@ export function buildOrchestratorInput(
   plannerContext: PlannerContext,
   plannerAnswers: Record<string, unknown>,
 ) {
+  const responseLanguage = normalizeTaiyoLanguage(
+    plannerContext.preferences.preferred_language,
+  );
   return {
     request_type: requestType,
     user_role: "member",
+    response_language: responseLanguage,
     planner_context: plannerContext,
     planner_answers: plannerAnswers,
     response_format: "json",
     instruction:
-      "Return only valid JSON matching expected_response_shape. Do not return markdown. Draft only. Do not activate the plan. Include a concrete weekly_structure with days and tasks that can be reviewed before activation. Set activation_allowed=true when the draft is complete, low-risk, and safe for the app to show on the review screen for later user approval. Set activation_allowed=false only when safety risk, missing context, or malformed planning makes later activation unsafe.",
+      `${languageInstructionFor(responseLanguage)} Return only valid JSON matching expected_response_shape. Do not return markdown. Draft only. Do not activate the plan. Include a concrete weekly_structure with days and tasks that can be reviewed before activation. Set activation_allowed=true when the draft is complete, low-risk, and safe for the app to show on the review screen for later user approval. Set activation_allowed=false only when safety risk, missing context, or malformed planning makes later activation unsafe.`,
     expected_response_shape: {
       request_type: requestType,
       status: "success | needs_more_context | blocked_for_safety | error",

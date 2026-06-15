@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../widgets/google_only_auth_screen.dart';
 
 class ForgotPasswordScreen extends StatelessWidget {
@@ -8,13 +9,12 @@ class ForgotPasswordScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const GoogleOnlyAuthScreen(
-      title: 'Password reset is no longer used',
-      subtitle:
-          'GymUnity no longer signs users in with email codes or password reset links.',
-      helperText:
-          'Continue with the Google account linked to your GymUnity profile instead.',
-      secondaryActionLabel: 'Back to sign in',
+    final l10n = context.l10n;
+    return GoogleOnlyAuthScreen(
+      title: l10n.forgotPasswordTitle,
+      subtitle: l10n.forgotPasswordSubtitle,
+      helperText: l10n.forgotPasswordHelper,
+      secondaryActionLabel: l10n.backToSignIn,
       secondaryActionRoute: AppRoutes.login,
     );
   }

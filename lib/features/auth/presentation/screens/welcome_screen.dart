@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../../domain/entities/auth_provider_type.dart';
 import '../controllers/google_oauth_controller.dart';
 import '../providers/auth_providers.dart';
@@ -16,12 +16,6 @@ class WelcomeScreen extends ConsumerStatefulWidget {
 
 class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   static const int _finalPageIndex = 3;
-  static const List<PreAuthSlideSpec> _slides = <PreAuthSlideSpec>[
-    preAuthUnifiedSpec,
-    preAuthShopSpec,
-    preAuthWorkoutsSpec,
-    preAuthEmpireSpec,
-  ];
 
   final PageController _pageController = PageController();
   int _currentPage = 0;
@@ -35,6 +29,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     final authFlowState = ref.watch(authFlowControllerProvider);
+    final slides = localizedPreAuthSlides(context);
     ref.listen<AuthFlowState>(authFlowControllerProvider, (
       AuthFlowState? previous,
       AuthFlowState next,
@@ -44,7 +39,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
     return PageView.builder(
       controller: _pageController,
-      itemCount: _slides.length,
+      itemCount: slides.length,
       onPageChanged: (int index) {
         if (_currentPage != index) {
           setState(() {
@@ -53,7 +48,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
         }
       },
       itemBuilder: (BuildContext context, int index) {
-        final PreAuthSlideSpec spec = _slides[index];
+        final PreAuthSlideSpec spec = slides[index];
         final bool isFinalPage = index == _finalPageIndex;
         return PreAuthScene(
           spec: spec,
@@ -63,7 +58,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           onSkip: spec.showSkip ? _skipToLoginSlide : null,
           isBusy: isFinalPage && authFlowState.isBusy,
           statusText: isFinalPage && authFlowState.isBusy
-              ? AppStrings.completingGoogleSignIn
+              ? context.l10n.completingGoogleSignIn
               : null,
         );
       },

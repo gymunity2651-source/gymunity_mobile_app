@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../widgets/google_only_auth_screen.dart';
 import '../widgets/pre_auth_scene.dart';
 
@@ -9,14 +9,14 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return GoogleOnlyAuthScreen(
-      title: 'Build Your Fitness Empire.',
-      subtitle:
-          'Sell products, coach others, and grow your fitness brand with ease. The tools that move with you.',
+      title: l10n.loginTitle,
+      subtitle: l10n.loginSubtitle,
       helperText: '',
-      sceneSpec: preAuthEmpireSpec.copyWith(
-        ctaLabel: AppStrings.continueWithGoogle,
-      ),
+      sceneSpec: localizedPreAuthEmpireSpec(
+        context,
+      ).copyWith(ctaLabel: l10n.continueWithGoogle),
       showHeader: false,
     );
   }

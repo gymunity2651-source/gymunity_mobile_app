@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../app/routes.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/constants/atelier_colors.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../../../../core/theme/atelier_theme.dart';
 import '../../../user/presentation/controllers/onboarding_controller.dart';
 
@@ -27,32 +28,32 @@ class _MemberOnboardingScreenState
   final _budgetController = TextEditingController();
   final _cityController = TextEditingController();
 
-  final List<_GoalOption> _goals = const <_GoalOption>[
+  List<_GoalOption> get _goals => <_GoalOption>[
     _GoalOption(
       value: 'weight_loss',
-      title: 'Lose Weight',
-      description: 'Fat loss, simpler food habits, and weekly accountability.',
+      title: context.l10n.loseWeight,
+      description: context.l10n.loseWeightDesc,
       icon: Icons.monitor_weight_outlined,
       accent: AtelierColors.primary,
     ),
     _GoalOption(
       value: 'build_muscle',
-      title: 'Build Muscle',
-      description: 'Lean mass, better training structure, and recovery.',
+      title: context.l10n.buildMuscle,
+      description: context.l10n.buildMuscleDesc,
       icon: Icons.fitness_center,
       accent: Color(0xFF5C8A6E),
     ),
     _GoalOption(
       value: 'body_recomposition',
-      title: 'Recompose',
-      description: 'Lose fat while improving shape and consistency.',
+      title: context.l10n.recompose,
+      description: context.l10n.recomposeDesc,
       icon: Icons.bolt,
       accent: Color(0xFF7C6F62),
     ),
     _GoalOption(
       value: 'general_fitness',
-      title: 'General Fitness',
-      description: 'Energy, movement, and sustainable habits that stick.',
+      title: context.l10n.generalFitness,
+      description: context.l10n.generalFitnessDesc,
       icon: Icons.favorite_outline,
       accent: AtelierColors.primaryContainer,
     ),
@@ -122,7 +123,7 @@ class _MemberOnboardingScreenState
         _selectedCoachGender == null ||
         _selectedExperience < 0 ||
         _selectedFrequency < 0) {
-      _showMessage('Complete each onboarding step before getting started.');
+      _showMessage(context.l10n.completeOnboarding);
       return;
     }
 
@@ -150,7 +151,7 @@ class _MemberOnboardingScreenState
     if (!success) {
       _showMessage(
         ref.read(onboardingControllerProvider).errorMessage ??
-            'Unable to complete onboarding right now.',
+            context.l10n.unableCompleteOnboarding,
       );
       return;
     }
@@ -179,7 +180,7 @@ class _MemberOnboardingScreenState
 
   bool _validateGoalStep() {
     if (_selectedGoal < 0) {
-      _showMessage('Choose a goal to continue.');
+      _showMessage(context.l10n.chooseGoalToContinue);
       return false;
     }
     return true;
@@ -192,23 +193,23 @@ class _MemberOnboardingScreenState
     final city = _cityController.text.trim();
 
     if (_selectedGender == null) {
-      _showMessage('Choose your gender to continue.');
+      _showMessage(context.l10n.chooseGenderToContinue);
       return false;
     }
     if (height == null || height < 80 || height > 250) {
-      _showMessage('Enter a realistic height in centimeters.');
+      _showMessage(context.l10n.enterRealisticHeight);
       return false;
     }
     if (weight == null || weight < 30 || weight > 300) {
-      _showMessage('Enter a realistic weight in kilograms.');
+      _showMessage(context.l10n.enterRealisticWeight);
       return false;
     }
     if (age == null || age < 13 || age > 100) {
-      _showMessage('Enter a valid age between 13 and 100.');
+      _showMessage(context.l10n.enterValidAge);
       return false;
     }
     if (city.isEmpty) {
-      _showMessage('Add your city so we can match you with the right coaches.');
+      _showMessage(context.l10n.addCity);
       return false;
     }
     return true;
@@ -218,23 +219,23 @@ class _MemberOnboardingScreenState
     final budget = _parseInt(_budgetController);
 
     if (budget == null || budget <= 0) {
-      _showMessage('Add a realistic monthly budget in EGP.');
+      _showMessage(context.l10n.addBudget);
       return false;
     }
     if (_selectedCoachingPreference == null) {
-      _showMessage('Choose the coaching mode that fits you best.');
+      _showMessage(context.l10n.chooseCoachingMode);
       return false;
     }
     if (_selectedTrainingPlace == null) {
-      _showMessage('Choose where you plan to train.');
+      _showMessage(context.l10n.chooseTrainingPlace);
       return false;
     }
     if (_selectedLanguage == null) {
-      _showMessage('Choose your preferred coaching language.');
+      _showMessage(context.l10n.choosePreferredCoachingLanguage);
       return false;
     }
     if (_selectedCoachGender == null) {
-      _showMessage('Choose your preferred coach gender.');
+      _showMessage(context.l10n.choosePreferredCoachGender);
       return false;
     }
     return true;
@@ -242,11 +243,11 @@ class _MemberOnboardingScreenState
 
   bool _validateTrainingStep() {
     if (_selectedExperience < 0) {
-      _showMessage('Choose your current experience level.');
+      _showMessage(context.l10n.chooseExperience);
       return false;
     }
     if (_selectedFrequency < 0) {
-      _showMessage('Choose your weekly training frequency.');
+      _showMessage(context.l10n.chooseFrequency);
       return false;
     }
     return true;
@@ -313,7 +314,9 @@ class _MemberOnboardingScreenState
                   child: Row(
                     children: [
                       _IconCircleButton(
-                        icon: Icons.arrow_back_rounded,
+                        icon: Directionality.of(context) == TextDirection.rtl
+                            ? Icons.arrow_forward_rounded
+                            : Icons.arrow_back_rounded,
                         onTap: _previousStep,
                       ),
                       const Spacer(),
@@ -346,8 +349,8 @@ class _MemberOnboardingScreenState
                     children: [
                       _PrimaryButton(
                         label: _currentStep == _totalSteps - 1
-                            ? 'GET STARTED'
-                            : 'CONTINUE',
+                            ? context.l10n.getStarted
+                            : context.l10n.continueAction,
                         isLoading: state.isLoading,
                         onTap: _nextStep,
                       ),
@@ -381,11 +384,10 @@ class _MemberOnboardingScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _StepHeader(
-                eyebrow: 'Goal setup',
-                title: 'What result do you want first?',
-                subtitle:
-                    'We tune coaches, offers, and check-ins toward the outcome you choose.',
+              _StepHeader(
+                eyebrow: context.l10n.goalSetup,
+                title: context.l10n.memberGoalTitle,
+                subtitle: context.l10n.memberGoalSubtitle,
               ),
               const SizedBox(height: 20),
               GridView.builder(
@@ -413,14 +415,13 @@ class _MemberOnboardingScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _StepHeader(
-                eyebrow: 'Baseline',
-                title: 'Tell us where you are now',
-                subtitle:
-                    'This shapes progress tracking, coach recommendations, and your first check-in baseline.',
+              _StepHeader(
+                eyebrow: context.l10n.baseline,
+                title: context.l10n.memberBaselineTitle,
+                subtitle: context.l10n.memberBaselineSubtitle,
               ),
               const SizedBox(height: 18),
-              const _SectionLabel(text: 'Gender'),
+              _SectionLabel(text: context.l10n.gender),
               const SizedBox(height: 10),
               Row(
                 children: ['Male', 'Female']
@@ -428,11 +429,11 @@ class _MemberOnboardingScreenState
                       final selected = _selectedGender == gender;
                       return Expanded(
                         child: Padding(
-                          padding: EdgeInsets.only(
-                            right: gender == 'Male' ? AppSizes.sm : 0,
+                          padding: EdgeInsetsDirectional.only(
+                            end: gender == 'Male' ? AppSizes.sm : 0,
                           ),
                           child: _ChoiceTile(
-                            label: gender,
+                            label: _genderLabel(gender),
                             selected: selected,
                             onTap: () =>
                                 setState(() => _selectedGender = gender),
@@ -447,18 +448,18 @@ class _MemberOnboardingScreenState
                 children: [
                   Expanded(
                     child: _MetricField(
-                      label: 'Height',
+                      label: context.l10n.height,
                       suffix: 'cm',
-                      hintText: 'e.g. 170',
+                      hintText: context.l10n.heightHint,
                       controller: _heightController,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _MetricField(
-                      label: 'Weight',
+                      label: context.l10n.weight,
                       suffix: 'kg',
-                      hintText: 'e.g. 82',
+                      hintText: context.l10n.weightHint,
                       controller: _weightController,
                     ),
                   ),
@@ -469,17 +470,17 @@ class _MemberOnboardingScreenState
                 children: [
                   Expanded(
                     child: _MetricField(
-                      label: 'Age',
+                      label: context.l10n.age,
                       suffix: 'years',
-                      hintText: 'e.g. 26',
+                      hintText: context.l10n.ageHint,
                       controller: _ageController,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _MetricField(
-                      label: 'City',
-                      hintText: 'e.g. Cairo',
+                      label: context.l10n.city,
+                      hintText: context.l10n.cityHint,
                       controller: _cityController,
                     ),
                   ),
@@ -494,41 +495,40 @@ class _MemberOnboardingScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _StepHeader(
-                eyebrow: 'Coach match',
-                title: 'What kind of coaching fits your life?',
-                subtitle:
-                    'These inputs tune pricing, language, and delivery filters in the marketplace.',
+              _StepHeader(
+                eyebrow: context.l10n.coachMatch,
+                title: context.l10n.memberCoachMatchTitle,
+                subtitle: context.l10n.memberCoachMatchSubtitle,
               ),
               const SizedBox(height: 18),
               _MetricField(
-                label: 'Monthly budget',
+                label: context.l10n.monthlyBudget,
                 suffix: 'EGP',
-                hintText: 'e.g. 1500',
+                hintText: context.l10n.budgetHint,
                 controller: _budgetController,
               ),
               const SizedBox(height: 16),
-              const _SectionLabel(text: 'Coaching mode'),
+              _SectionLabel(text: context.l10n.coachingMode),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 children: [
                   _ChoicePill(
-                    label: 'Online',
+                    label: context.l10n.online,
                     selected: _selectedCoachingPreference == 'online',
                     onTap: () =>
                         setState(() => _selectedCoachingPreference = 'online'),
                   ),
                   _ChoicePill(
-                    label: 'In person',
+                    label: context.l10n.inPerson,
                     selected: _selectedCoachingPreference == 'in_person',
                     onTap: () => setState(
                       () => _selectedCoachingPreference = 'in_person',
                     ),
                   ),
                   _ChoicePill(
-                    label: 'Hybrid',
+                    label: context.l10n.hybrid,
                     selected: _selectedCoachingPreference == 'hybrid',
                     onTap: () =>
                         setState(() => _selectedCoachingPreference = 'hybrid'),
@@ -536,25 +536,25 @@ class _MemberOnboardingScreenState
                 ],
               ),
               const SizedBox(height: 16),
-              const _SectionLabel(text: 'Training place'),
+              _SectionLabel(text: context.l10n.trainingPlace),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 children: [
                   _ChoicePill(
-                    label: 'Home',
+                    label: context.l10n.home,
                     selected: _selectedTrainingPlace == 'home',
                     onTap: () =>
                         setState(() => _selectedTrainingPlace = 'home'),
                   ),
                   _ChoicePill(
-                    label: 'Gym',
+                    label: context.l10n.gym,
                     selected: _selectedTrainingPlace == 'gym',
                     onTap: () => setState(() => _selectedTrainingPlace = 'gym'),
                   ),
                   _ChoicePill(
-                    label: 'Both',
+                    label: context.l10n.both,
                     selected: _selectedTrainingPlace == 'both',
                     onTap: () =>
                         setState(() => _selectedTrainingPlace = 'both'),
@@ -562,13 +562,13 @@ class _MemberOnboardingScreenState
                 ],
               ),
               const SizedBox(height: 16),
-              const _SectionLabel(text: 'Preferred language'),
+              _SectionLabel(text: context.l10n.preferredLanguage),
               const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
                     child: _ChoiceTile(
-                      label: 'Arabic',
+                      label: context.l10n.arabic,
                       selected: _selectedLanguage == 'arabic',
                       onTap: () => setState(() => _selectedLanguage = 'arabic'),
                     ),
@@ -576,7 +576,7 @@ class _MemberOnboardingScreenState
                   const SizedBox(width: 10),
                   Expanded(
                     child: _ChoiceTile(
-                      label: 'English',
+                      label: context.l10n.english,
                       selected: _selectedLanguage == 'english',
                       onTap: () =>
                           setState(() => _selectedLanguage = 'english'),
@@ -585,24 +585,24 @@ class _MemberOnboardingScreenState
                 ],
               ),
               const SizedBox(height: 16),
-              const _SectionLabel(text: 'Preferred coach gender'),
+              _SectionLabel(text: context.l10n.preferredCoachGender),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 children: [
                   _ChoicePill(
-                    label: 'Any',
+                    label: context.l10n.any,
                     selected: _selectedCoachGender == 'any',
                     onTap: () => setState(() => _selectedCoachGender = 'any'),
                   ),
                   _ChoicePill(
-                    label: 'Male',
+                    label: context.l10n.male,
                     selected: _selectedCoachGender == 'male',
                     onTap: () => setState(() => _selectedCoachGender = 'male'),
                   ),
                   _ChoicePill(
-                    label: 'Female',
+                    label: context.l10n.female,
                     selected: _selectedCoachGender == 'female',
                     onTap: () =>
                         setState(() => _selectedCoachGender = 'female'),
@@ -618,21 +618,20 @@ class _MemberOnboardingScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _StepHeader(
-                eyebrow: 'Training rhythm',
-                title: 'How ready are you to commit each week?',
-                subtitle:
-                    'We use this to set realistic accountability and starter plan expectations.',
+              _StepHeader(
+                eyebrow: context.l10n.trainingRhythm,
+                title: context.l10n.memberTrainingTitle,
+                subtitle: context.l10n.memberTrainingSubtitle,
               ),
               const SizedBox(height: 18),
-              const _SectionLabel(text: 'Experience level'),
+              _SectionLabel(text: context.l10n.experienceLevel),
               const SizedBox(height: 10),
               ...List.generate(_experienceLevels.length, (index) {
                 final label = _experienceLevels[index];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: _ChoiceTile(
-                    label: label,
+                    label: _experienceLabel(label),
                     helper: _experienceHelper(label),
                     selected: _selectedExperience == index,
                     onTap: () => setState(() => _selectedExperience = index),
@@ -640,14 +639,14 @@ class _MemberOnboardingScreenState
                 );
               }),
               const SizedBox(height: 10),
-              const _SectionLabel(text: 'Weekly frequency'),
+              _SectionLabel(text: context.l10n.weeklyFrequency),
               const SizedBox(height: 10),
               ...List.generate(_frequencies.length, (index) {
                 final label = _frequencies[index];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: _ChoiceTile(
-                    label: label,
+                    label: _frequencyLabel(label),
                     helper: _frequencyHelper(label),
                     selected: _selectedFrequency == index,
                     onTap: () => setState(() => _selectedFrequency = index),
@@ -663,43 +662,84 @@ class _MemberOnboardingScreenState
   String _experienceHelper(String label) {
     switch (label) {
       case 'Beginner':
-        return 'You need simple instructions and closer follow-up.';
+        return context.l10n.beginnerHelper;
       case 'Intermediate':
-        return 'You train already, but want better structure and feedback.';
+        return context.l10n.intermediateHelper;
       case 'Advanced':
-        return 'You can handle more load, volume, and tighter planning.';
+        return context.l10n.advancedHelper;
       case 'Athlete':
-        return 'Performance-first training with serious consistency.';
+        return context.l10n.athleteHelper;
       default:
         return '';
+    }
+  }
+
+  String _experienceLabel(String label) {
+    switch (label) {
+      case 'Beginner':
+        return context.l10n.beginner;
+      case 'Intermediate':
+        return context.l10n.intermediate;
+      case 'Advanced':
+        return context.l10n.advanced;
+      case 'Athlete':
+        return context.l10n.athlete;
+      default:
+        return label;
     }
   }
 
   String _frequencyHelper(String label) {
     switch (label) {
       case '1-2 days/week':
-        return 'Low-friction routine focused on momentum.';
+        return context.l10n.oneTwoDaysHelper;
       case '3-4 days/week':
-        return 'Balanced pace for visible progress and recovery.';
+        return context.l10n.threeFourDaysHelper;
       case '5-6 days/week':
-        return 'High-consistency track with structured recovery.';
+        return context.l10n.fiveSixDaysHelper;
       case 'Every day':
-        return 'Best for very committed routines with coach oversight.';
+        return context.l10n.everyDayHelper;
       default:
         return '';
+    }
+  }
+
+  String _frequencyLabel(String label) {
+    switch (label) {
+      case '1-2 days/week':
+        return context.l10n.oneTwoDays;
+      case '3-4 days/week':
+        return context.l10n.threeFourDays;
+      case '5-6 days/week':
+        return context.l10n.fiveSixDays;
+      case 'Every day':
+        return context.l10n.everyDay;
+      default:
+        return label;
+    }
+  }
+
+  String _genderLabel(String value) {
+    switch (value) {
+      case 'Male':
+        return context.l10n.male;
+      case 'Female':
+        return context.l10n.female;
+      default:
+        return value;
     }
   }
 
   String _footerNote() {
     switch (_currentStep) {
       case 0:
-        return 'Choose the goal that best matches your current fitness priority. You can update it later.';
+        return context.l10n.goalFooter;
       case 1:
-        return 'Your baseline drives weight, waist, and progress check-ins later.';
+        return context.l10n.baselineFooter;
       case 2:
-        return 'These preferences directly shape the coach marketplace filters and pricing shown first.';
+        return context.l10n.matchFooter;
       default:
-        return 'You can update these choices later from your profile and settings.';
+        return context.l10n.trainingFooter;
     }
   }
 }
@@ -1066,7 +1106,7 @@ class _ProgressPill extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            'STEP $step OF $totalSteps',
+            context.l10n.stepOfTotal(step, totalSteps),
             style: GoogleFonts.manrope(
               fontSize: 10,
               fontWeight: FontWeight.w800,
@@ -1083,8 +1123,8 @@ class _ProgressPill extends StatelessWidget {
                 return Expanded(
                   child: Container(
                     height: 4,
-                    margin: EdgeInsets.only(
-                      right: index == totalSteps - 1 ? 0 : 7,
+                    margin: EdgeInsetsDirectional.only(
+                      end: index == totalSteps - 1 ? 0 : 7,
                     ),
                     decoration: BoxDecoration(
                       color: reached
