@@ -1,3 +1,9 @@
+import {
+  languageInstructionFor,
+  normalizeTaiyoLanguage,
+  type TaiyoLanguageCode,
+} from "../_shared/taiyo_language.ts";
+
 export type AdminOpsRequestType =
   | "admin_ops_brief"
   | "payment_order_risk"
@@ -17,6 +23,7 @@ export type Confidence = "low" | "medium" | "high";
 export type AdminOpsContext = {
   admin_id: string;
   role: "admin";
+  language: TaiyoLanguageCode;
   admin_profile: Record<string, unknown>;
   request_type: AdminOpsRequestType;
   dashboard_summary: Record<string, unknown>;
@@ -228,6 +235,7 @@ export function buildAdminContext(
   return {
     admin_id: adminId,
     role: "admin",
+    language: normalizeTaiyoLanguage(str(obj(admin).language)),
     admin_profile: compactAdmin(admin),
     request_type: options.requestType,
     dashboard_summary: compactDashboard(dashboard, alerts),
@@ -264,10 +272,11 @@ export function buildOrchestratorInput(
   return {
     request_type: requestType,
     user_role: "admin",
+    response_language: context.language,
     admin_context: context,
     response_format: "json",
     instruction:
-      "Return only valid JSON. Do not return markdown. Do not expose secrets. Recommend admin actions only; do not execute actions. Preserve exact admin action names where appropriate.",
+      `${languageInstructionFor(context.language)} Return only valid JSON. Do not return markdown. Do not expose secrets. Recommend admin actions only; do not execute actions. Preserve exact admin action names where appropriate.`,
     expected_response_shape: {
       request_type: requestType,
       status: "success | needs_more_context | blocked_for_security | error",

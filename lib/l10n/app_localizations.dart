@@ -1550,6 +1550,276 @@ abstract class AppLocalizations {
   /// **'Premium essentials for your transformation'**
   String get premiumEssentialsForTransformation;
 
+  /// No description provided for @edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get edit;
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @saving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving...'**
+  String get saving;
+
+  /// No description provided for @deleting.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting...'**
+  String get deleting;
+
+  /// No description provided for @note.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get note;
+
+  /// No description provided for @progressTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Progress Tracking'**
+  String get progressTracking;
+
+  /// No description provided for @unableLoadPreferences.
+  ///
+  /// In en, this message translates to:
+  /// **'GymUnity could not load your preferences.'**
+  String get unableLoadPreferences;
+
+  /// No description provided for @weightHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight History'**
+  String get weightHistory;
+
+  /// No description provided for @unableLoadWeightEntries.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load weight entries.'**
+  String get unableLoadWeightEntries;
+
+  /// No description provided for @noWeightEntriesYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No weight entries yet. Add your first entry.'**
+  String get noWeightEntriesYet;
+
+  /// No description provided for @addWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Add weight'**
+  String get addWeight;
+
+  /// No description provided for @bodyMeasurements.
+  ///
+  /// In en, this message translates to:
+  /// **'Body Measurements'**
+  String get bodyMeasurements;
+
+  /// No description provided for @unableLoadBodyMeasurements.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load body measurements.'**
+  String get unableLoadBodyMeasurements;
+
+  /// No description provided for @noBodyMeasurementsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No body measurements yet. Add your first measurement snapshot.'**
+  String get noBodyMeasurementsYet;
+
+  /// No description provided for @addMeasurement.
+  ///
+  /// In en, this message translates to:
+  /// **'Add measurement'**
+  String get addMeasurement;
+
+  /// No description provided for @weightEntryDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight entry deleted.'**
+  String get weightEntryDeleted;
+
+  /// No description provided for @weightEntryDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight entry could not be deleted: {error}'**
+  String weightEntryDeleteFailed(String error);
+
+  /// No description provided for @deleteWeightEntryQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete weight entry?'**
+  String get deleteWeightEntryQuestion;
+
+  /// No description provided for @deleteWeightEntryBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This weight entry will be permanently removed from your progress history.'**
+  String get deleteWeightEntryBody;
+
+  /// No description provided for @measurementDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Measurement deleted.'**
+  String get measurementDeleted;
+
+  /// No description provided for @measurementDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Measurement could not be deleted: {error}'**
+  String measurementDeleteFailed(String error);
+
+  /// No description provided for @deleteMeasurementQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete measurement?'**
+  String get deleteMeasurementQuestion;
+
+  /// No description provided for @deleteMeasurementBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This measurement will be permanently removed from your progress history.'**
+  String get deleteMeasurementBody;
+
+  /// No description provided for @waistMeasurement.
+  ///
+  /// In en, this message translates to:
+  /// **'Waist {value} {unit}'**
+  String waistMeasurement(String value, String unit);
+
+  /// No description provided for @chestMeasurement.
+  ///
+  /// In en, this message translates to:
+  /// **'Chest {value} {unit}'**
+  String chestMeasurement(String value, String unit);
+
+  /// No description provided for @hipsMeasurement.
+  ///
+  /// In en, this message translates to:
+  /// **'Hips {value} {unit}'**
+  String hipsMeasurement(String value, String unit);
+
+  /// No description provided for @bodyFatMeasurement.
+  ///
+  /// In en, this message translates to:
+  /// **'BF {value}%'**
+  String bodyFatMeasurement(String value);
+
+  /// No description provided for @addWeightEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Weight Entry'**
+  String get addWeightEntry;
+
+  /// No description provided for @editWeightEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Weight Entry'**
+  String get editWeightEntry;
+
+  /// No description provided for @weightKgLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight (kg)'**
+  String get weightKgLabel;
+
+  /// No description provided for @recordedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Recorded on {date}'**
+  String recordedOn(String date);
+
+  /// No description provided for @enterValidWeightValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid weight value.'**
+  String get enterValidWeightValue;
+
+  /// No description provided for @weightEntrySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight entry saved.'**
+  String get weightEntrySaved;
+
+  /// No description provided for @weightEntrySaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight entry could not be saved: {error}'**
+  String weightEntrySaveFailed(String error);
+
+  /// No description provided for @editMeasurement.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Measurement'**
+  String get editMeasurement;
+
+  /// No description provided for @waistCmLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Waist (cm)'**
+  String get waistCmLabel;
+
+  /// No description provided for @chestCmLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Chest (cm)'**
+  String get chestCmLabel;
+
+  /// No description provided for @hipsCmLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Hips (cm)'**
+  String get hipsCmLabel;
+
+  /// No description provided for @bodyFatPercentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Body Fat %'**
+  String get bodyFatPercentLabel;
+
+  /// No description provided for @enterOneMeasurementBeforeSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter at least one measurement before saving.'**
+  String get enterOneMeasurementBeforeSaving;
+
+  /// No description provided for @measurementsPositiveNumbers.
+  ///
+  /// In en, this message translates to:
+  /// **'Measurements must be positive numbers.'**
+  String get measurementsPositiveNumbers;
+
+  /// No description provided for @measurementSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Measurement saved.'**
+  String get measurementSaved;
+
+  /// No description provided for @measurementSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Measurement could not be saved: {error}'**
+  String measurementSaveFailed(String error);
+
+  /// No description provided for @noChartableMeasurementsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No chartable measurements yet.'**
+  String get noChartableMeasurementsYet;
+
   /// No description provided for @statusInProgress.
   ///
   /// In en, this message translates to:

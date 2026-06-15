@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../../domain/entities/member_progress_entity.dart';
 import '../providers/member_providers.dart';
 
@@ -17,15 +18,13 @@ class ProgressScreen extends ConsumerWidget {
     final weightAsync = ref.watch(memberWeightEntriesProvider);
     final measurementAsync = ref.watch(memberBodyMeasurementsProvider);
     final preferencesAsync = ref.watch(memberPreferencesProvider);
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('Progress Tracking'),
+        leading: const BackButton(),
+        title: Text(l10n.progressTracking),
         actions: [
           IconButton(
             onPressed: () => _showWeightDialog(context),
@@ -40,7 +39,7 @@ class ProgressScreen extends ConsumerWidget {
       body: preferencesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => _ErrorState(
-          message: 'GymUnity could not load your preferences.',
+          message: l10n.unableLoadPreferences,
           onRetry: () => ref.refresh(memberPreferencesProvider),
         ),
         data: (preferences) => RefreshIndicator.adaptive(
@@ -52,7 +51,7 @@ class ProgressScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(AppSizes.screenPadding),
             children: [
               Text(
-                'Weight History',
+                l10n.weightHistory,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -63,14 +62,14 @@ class ProgressScreen extends ConsumerWidget {
               weightAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stackTrace) => _ErrorState(
-                  message: 'Unable to load weight entries.',
+                  message: l10n.unableLoadWeightEntries,
                   onRetry: () => ref.refresh(memberWeightEntriesProvider),
                 ),
                 data: (weights) => weights.isEmpty
                     ? _EmptyState(
-                        message: 'No weight entries yet. Add your first entry.',
+                        message: l10n.noWeightEntriesYet,
                         onPressed: () => _showWeightDialog(context),
-                        cta: 'Add weight',
+                        cta: l10n.addWeight,
                       )
                     : Column(
                         children: [
@@ -99,14 +98,14 @@ class ProgressScreen extends ConsumerWidget {
                                     _deleteWeightEntry(context, ref, entry);
                                   }
                                 },
-                                itemBuilder: (context) => const [
+                                itemBuilder: (context) => [
                                   PopupMenuItem(
                                     value: 'edit',
-                                    child: Text('Edit'),
+                                    child: Text(l10n.edit),
                                   ),
                                   PopupMenuItem(
                                     value: 'delete',
-                                    child: Text('Delete'),
+                                    child: Text(l10n.delete),
                                   ),
                                 ],
                               ),
@@ -117,7 +116,7 @@ class ProgressScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'Body Measurements',
+                l10n.bodyMeasurements,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -128,15 +127,14 @@ class ProgressScreen extends ConsumerWidget {
               measurementAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stackTrace) => _ErrorState(
-                  message: 'Unable to load body measurements.',
+                  message: l10n.unableLoadBodyMeasurements,
                   onRetry: () => ref.refresh(memberBodyMeasurementsProvider),
                 ),
                 data: (measurements) => measurements.isEmpty
                     ? _EmptyState(
-                        message:
-                            'No body measurements yet. Add your first measurement snapshot.',
+                        message: l10n.noBodyMeasurementsYet,
                         onPressed: () => _showMeasurementDialog(context),
-                        cta: 'Add measurement',
+                        cta: l10n.addMeasurement,
                       )
                     : Column(
                         children: [
@@ -159,6 +157,7 @@ class ProgressScreen extends ConsumerWidget {
                               ),
                               subtitle: Text(
                                 _measurementSummary(
+                                  context,
                                   entry,
                                   preferences.measurementUnit,
                                 ),
@@ -174,14 +173,14 @@ class ProgressScreen extends ConsumerWidget {
                                     _deleteMeasurement(context, ref, entry);
                                   }
                                 },
-                                itemBuilder: (context) => const [
+                                itemBuilder: (context) => [
                                   PopupMenuItem(
                                     value: 'edit',
-                                    child: Text('Edit'),
+                                    child: Text(l10n.edit),
                                   ),
                                   PopupMenuItem(
                                     value: 'delete',
-                                    child: Text('Delete'),
+                                    child: Text(l10n.delete),
                                   ),
                                 ],
                               ),
@@ -223,6 +222,7 @@ class ProgressScreen extends ConsumerWidget {
     WeightEntryEntity entry,
   ) async {
     var isDeleting = false;
+    final l10n = context.l10n;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -245,7 +245,7 @@ class ProgressScreen extends ConsumerWidget {
                 final messenger = ScaffoldMessenger.of(dialogContext);
                 Navigator.pop(dialogContext);
                 messenger.showSnackBar(
-                  const SnackBar(content: Text('Weight entry deleted.')),
+                  SnackBar(content: Text(l10n.weightEntryDeleted)),
                 );
               } catch (error) {
                 if (!dialogContext.mounted) {
@@ -254,23 +254,21 @@ class ProgressScreen extends ConsumerWidget {
                 setDialogState(() => isDeleting = false);
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
                   SnackBar(
-                    content: Text('Weight entry could not be deleted: $error'),
+                    content: Text(l10n.weightEntryDeleteFailed('$error')),
                   ),
                 );
               }
             }
 
             return AlertDialog(
-              title: const Text('Delete weight entry?'),
-              content: const Text(
-                'This weight entry will be permanently removed from your progress history.',
-              ),
+              title: Text(l10n.deleteWeightEntryQuestion),
+              content: Text(l10n.deleteWeightEntryBody),
               actions: [
                 TextButton(
                   onPressed: isDeleting
                       ? null
                       : () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
+                  child: Text(l10n.cancel),
                 ),
                 ElevatedButton(
                   key: const Key('progress-confirm-delete-weight-button'),
@@ -279,9 +277,7 @@ class ProgressScreen extends ConsumerWidget {
                     foregroundColor: AppColors.white,
                   ),
                   onPressed: isDeleting ? null : delete,
-                  child: isDeleting
-                      ? const Text('Deleting...')
-                      : const Text('Delete'),
+                  child: isDeleting ? Text(l10n.deleting) : Text(l10n.delete),
                 ),
               ],
             );
@@ -297,6 +293,7 @@ class ProgressScreen extends ConsumerWidget {
     BodyMeasurementEntity entry,
   ) async {
     var isDeleting = false;
+    final l10n = context.l10n;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -319,7 +316,7 @@ class ProgressScreen extends ConsumerWidget {
                 final messenger = ScaffoldMessenger.of(dialogContext);
                 Navigator.pop(dialogContext);
                 messenger.showSnackBar(
-                  const SnackBar(content: Text('Measurement deleted.')),
+                  SnackBar(content: Text(l10n.measurementDeleted)),
                 );
               } catch (error) {
                 if (!dialogContext.mounted) {
@@ -328,23 +325,21 @@ class ProgressScreen extends ConsumerWidget {
                 setDialogState(() => isDeleting = false);
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
                   SnackBar(
-                    content: Text('Measurement could not be deleted: $error'),
+                    content: Text(l10n.measurementDeleteFailed('$error')),
                   ),
                 );
               }
             }
 
             return AlertDialog(
-              title: const Text('Delete measurement?'),
-              content: const Text(
-                'This measurement will be permanently removed from your progress history.',
-              ),
+              title: Text(l10n.deleteMeasurementQuestion),
+              content: Text(l10n.deleteMeasurementBody),
               actions: [
                 TextButton(
                   onPressed: isDeleting
                       ? null
                       : () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
+                  child: Text(l10n.cancel),
                 ),
                 ElevatedButton(
                   key: const Key('progress-confirm-delete-measurement-button'),
@@ -353,9 +348,7 @@ class ProgressScreen extends ConsumerWidget {
                     foregroundColor: AppColors.white,
                   ),
                   onPressed: isDeleting ? null : delete,
-                  child: isDeleting
-                      ? const Text('Deleting...')
-                      : const Text('Delete'),
+                  child: isDeleting ? Text(l10n.deleting) : Text(l10n.delete),
                 ),
               ],
             );
@@ -393,21 +386,23 @@ class ProgressScreen extends ConsumerWidget {
   }
 
   static String _measurementSummary(
+    BuildContext context,
     BodyMeasurementEntity entry,
     String measurementUnit,
   ) {
+    final l10n = context.l10n;
     double convert(double value) =>
         measurementUnit == 'imperial' ? value / 2.54 : value;
     final unit = measurementUnit == 'imperial' ? 'in' : 'cm';
     final parts = <String>[
       if (entry.waistCm != null)
-        'Waist ${convert(entry.waistCm!).toStringAsFixed(1)} $unit',
+        l10n.waistMeasurement(convert(entry.waistCm!).toStringAsFixed(1), unit),
       if (entry.chestCm != null)
-        'Chest ${convert(entry.chestCm!).toStringAsFixed(1)} $unit',
+        l10n.chestMeasurement(convert(entry.chestCm!).toStringAsFixed(1), unit),
       if (entry.hipsCm != null)
-        'Hips ${convert(entry.hipsCm!).toStringAsFixed(1)} $unit',
+        l10n.hipsMeasurement(convert(entry.hipsCm!).toStringAsFixed(1), unit),
       if (entry.bodyFatPercent != null)
-        'BF ${entry.bodyFatPercent!.toStringAsFixed(1)}%',
+        l10n.bodyFatMeasurement(entry.bodyFatPercent!.toStringAsFixed(1)),
     ];
     return parts.join(' • ');
   }
@@ -447,9 +442,10 @@ class _WeightEntryDialogState extends ConsumerState<_WeightEntryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
       title: Text(
-        widget.existing == null ? 'Add Weight Entry' : 'Edit Weight Entry',
+        widget.existing == null ? l10n.addWeightEntry : l10n.editWeightEntry,
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -457,30 +453,28 @@ class _WeightEntryDialogState extends ConsumerState<_WeightEntryDialog> {
           TextField(
             controller: _weightController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Weight (kg)'),
+            decoration: InputDecoration(labelText: l10n.weightKgLabel),
           ),
           TextField(
             controller: _noteController,
-            decoration: const InputDecoration(labelText: 'Note'),
+            decoration: InputDecoration(labelText: l10n.note),
           ),
           const SizedBox(height: 12),
           TextButton(
             onPressed: _isSaving ? null : _pickDate,
-            child: Text(
-              'Recorded on ${_selectedDate.toLocal().toString().split(' ').first}',
-            ),
+            child: Text(l10n.recordedOn(_formattedSelectedDate)),
           ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: _isSaving ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         ElevatedButton(
           key: const Key('progress-save-weight-button'),
           onPressed: _isSaving ? null : _save,
-          child: _isSaving ? const Text('Saving...') : const Text('Save'),
+          child: _isSaving ? Text(l10n.saving) : Text(l10n.save),
         ),
       ],
     );
@@ -504,7 +498,7 @@ class _WeightEntryDialogState extends ConsumerState<_WeightEntryDialog> {
     }
     final weight = double.tryParse(_weightController.text.trim());
     if (weight == null || weight <= 0) {
-      _showSnackBar('Enter a valid weight value.');
+      _showSnackBar(context.l10n.enterValidWeightValue);
       return;
     }
 
@@ -528,16 +522,19 @@ class _WeightEntryDialogState extends ConsumerState<_WeightEntryDialog> {
       final messenger = ScaffoldMessenger.of(context);
       Navigator.pop(context);
       messenger.showSnackBar(
-        const SnackBar(content: Text('Weight entry saved.')),
+        SnackBar(content: Text(context.l10n.weightEntrySaved)),
       );
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() => _isSaving = false);
-      _showSnackBar('Weight entry could not be saved: $error');
+      _showSnackBar(context.l10n.weightEntrySaveFailed('$error'));
     }
   }
+
+  String get _formattedSelectedDate =>
+      _selectedDate.toLocal().toString().split(' ').first;
 
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context)
@@ -598,9 +595,10 @@ class _BodyMeasurementDialogState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
       title: Text(
-        widget.existing == null ? 'Add Measurement' : 'Edit Measurement',
+        widget.existing == null ? l10n.addMeasurement : l10n.editMeasurement,
       ),
       content: SingleChildScrollView(
         child: Column(
@@ -611,32 +609,32 @@ class _BodyMeasurementDialogState
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(labelText: 'Waist (cm)'),
+              decoration: InputDecoration(labelText: l10n.waistCmLabel),
             ),
             TextField(
               controller: _chestController,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(labelText: 'Chest (cm)'),
+              decoration: InputDecoration(labelText: l10n.chestCmLabel),
             ),
             TextField(
               controller: _hipsController,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(labelText: 'Hips (cm)'),
+              decoration: InputDecoration(labelText: l10n.hipsCmLabel),
             ),
             TextField(
               controller: _bodyFatController,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(labelText: 'Body Fat %'),
+              decoration: InputDecoration(labelText: l10n.bodyFatPercentLabel),
             ),
             TextField(
               controller: _noteController,
-              decoration: const InputDecoration(labelText: 'Note'),
+              decoration: InputDecoration(labelText: l10n.note),
             ),
             if (_validationMessage != null) ...[
               const SizedBox(height: 10),
@@ -648,9 +646,7 @@ class _BodyMeasurementDialogState
             const SizedBox(height: 12),
             TextButton(
               onPressed: _isSaving ? null : _pickDate,
-              child: Text(
-                'Recorded on ${_selectedDate.toLocal().toString().split(' ').first}',
-              ),
+              child: Text(l10n.recordedOn(_formattedSelectedDate)),
             ),
           ],
         ),
@@ -658,12 +654,12 @@ class _BodyMeasurementDialogState
       actions: [
         TextButton(
           onPressed: _isSaving ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         ElevatedButton(
           key: const Key('progress-save-measurement-button'),
           onPressed: _isSaving ? null : _save,
-          child: _isSaving ? const Text('Saving...') : const Text('Save'),
+          child: _isSaving ? Text(l10n.saving) : Text(l10n.save),
         ),
       ],
     );
@@ -693,13 +689,13 @@ class _BodyMeasurementDialogState
     ];
     if (!ProgressScreen._hasAnyMeasurementValue(values)) {
       setState(() {
-        _validationMessage = 'Enter at least one measurement before saving.';
+        _validationMessage = context.l10n.enterOneMeasurementBeforeSaving;
       });
       return;
     }
     if (ProgressScreen._hasInvalidMeasurementValue(values)) {
       setState(() {
-        _validationMessage = 'Measurements must be positive numbers.';
+        _validationMessage = context.l10n.measurementsPositiveNumbers;
       });
       return;
     }
@@ -732,16 +728,19 @@ class _BodyMeasurementDialogState
       final messenger = ScaffoldMessenger.of(context);
       Navigator.pop(context);
       messenger.showSnackBar(
-        const SnackBar(content: Text('Measurement saved.')),
+        SnackBar(content: Text(context.l10n.measurementSaved)),
       );
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() => _isSaving = false);
-      _showSnackBar('Measurement could not be saved: $error');
+      _showSnackBar(context.l10n.measurementSaveFailed('$error'));
     }
   }
+
+  String get _formattedSelectedDate =>
+      _selectedDate.toLocal().toString().split(' ').first;
 
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context)
@@ -796,7 +795,7 @@ class _MeasurementChart extends StatelessWidget {
       }
     }
     if (spots.isEmpty) {
-      return const Center(child: Text('No chartable measurements yet.'));
+      return Center(child: Text(context.l10n.noChartableMeasurementsYet));
     }
     return LineChart(
       LineChartData(
@@ -875,7 +874,7 @@ class _ErrorState extends StatelessWidget {
             style: GoogleFonts.inter(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
-          ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+          ElevatedButton(onPressed: onRetry, child: Text(context.l10n.retry)),
         ],
       ),
     );

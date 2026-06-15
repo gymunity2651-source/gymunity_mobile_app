@@ -10,6 +10,10 @@ import {
   createSupabaseClients,
   type SupabasePair,
 } from "../_shared/taiyo_action_auth.ts";
+import {
+  languageInstructionFor,
+  normalizeTaiyoLanguage,
+} from "../_shared/taiyo_language.ts";
 import { dateOnly, obj, str } from "../taiyo-daily-brief/engine.ts";
 
 type NutritionRequestType = "nutrition_context" | "nutrition_guidance";
@@ -86,10 +90,11 @@ export async function handleTaiyoNutritionContextRequest(
     const aiOutput = await callOrchestrator({
       request_type: "nutrition_guidance",
       user_role: "member",
+      response_language: normalizeTaiyoLanguage(context.language),
       nutrition_context: context,
       response_format: "json",
       instruction:
-        "Return only valid JSON with nutrition_status, calorie_guidance, protein_focus, hydration_focus, meal_suggestion, warning, and confidence.",
+        `${languageInstructionFor(context.language)} Return only valid JSON with nutrition_status, calorie_guidance, protein_focus, hydration_focus, meal_suggestion, warning, and confidence.`,
     });
     const normalized = normalizeNutritionGuidance(aiOutput, context);
     return jsonResponse({
@@ -125,6 +130,7 @@ export async function loadNutritionContext(
     mealLogs,
     hydrationLogs,
     checkins,
+    preferences,
   ] = await Promise.all([
     maybeSingle(
       supabase.from("nutrition_profiles").select("*").eq(
@@ -187,6 +193,11 @@ export async function loadNutritionContext(
         .order("week_start", { ascending: false })
         .limit(4),
     ),
+    maybeSingle(
+      supabase.from("user_preferences").select("language")
+        .eq("user_id", input.memberId)
+        .maybeSingle(),
+    ),
   ]);
 
   const hydrationMl = hydrationLogs.reduce(
@@ -205,6 +216,7 @@ export async function loadNutritionContext(
   return {
     member_id: input.memberId,
     target_date: input.targetDate,
+    language: normalizeTaiyoLanguage(str(preferences.language)),
     profile,
     target,
     active_meal_plan: mealPlan,

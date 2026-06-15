@@ -10,6 +10,10 @@ import {
   createSupabaseClients,
   type SupabasePair,
 } from "../_shared/taiyo_action_auth.ts";
+import {
+  languageInstructionFor,
+  normalizeTaiyoLanguage,
+} from "../_shared/taiyo_language.ts";
 import { dateOnly, obj, str } from "../taiyo-daily-brief/engine.ts";
 
 type HandlerDeps = {
@@ -107,13 +111,14 @@ export async function handleTaiyoStoreRecommendationsRequest(
     const aiOutput = await callOrchestrator({
       request_type: "store_recommendations",
       user_role: "member",
+      response_language: normalizeTaiyoLanguage(context.language),
       store_context: {
         ...context,
         products: availableProducts.slice(0, 30),
       },
       response_format: "json",
       instruction:
-        "Return only valid JSON with recommendation_type, reason, products[], and disclaimer. Recommend products only as fitness support, never medical treatment.",
+        `${languageInstructionFor(context.language)} Return only valid JSON with recommendation_type, reason, products[], and disclaimer. Recommend products only as fitness support, never medical treatment.`,
     });
     const normalized = normalizeStoreRecommendations(aiOutput, context, limit);
     const saveRecommendations = deps.saveRecommendations ||
@@ -161,6 +166,7 @@ export async function loadStoreContext(
     cart,
     orders,
     history,
+    preferences,
   ] = await Promise.all([
     maybeSingle(
       supabase.from("member_profiles").select("*").eq("user_id", input.memberId)
@@ -204,11 +210,17 @@ export async function loadStoreContext(
         .order("created_at", { ascending: false })
         .limit(20),
     ),
+    maybeSingle(
+      supabase.from("user_preferences").select("language")
+        .eq("user_id", input.memberId)
+        .maybeSingle(),
+    ),
   ]);
 
   return {
     member_id: input.memberId,
     target_date: input.targetDate,
+    language: normalizeTaiyoLanguage(str(preferences.language)),
     limit: input.limit,
     member_profile: memberProfile,
     nutrition_target: nutritionTarget,

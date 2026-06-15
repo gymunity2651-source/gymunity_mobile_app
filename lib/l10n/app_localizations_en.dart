@@ -813,6 +813,166 @@ class AppLocalizationsEn extends AppLocalizations {
       'Premium essentials for your transformation';
 
   @override
+  String get edit => 'Edit';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get saving => 'Saving...';
+
+  @override
+  String get deleting => 'Deleting...';
+
+  @override
+  String get note => 'Note';
+
+  @override
+  String get progressTracking => 'Progress Tracking';
+
+  @override
+  String get unableLoadPreferences =>
+      'GymUnity could not load your preferences.';
+
+  @override
+  String get weightHistory => 'Weight History';
+
+  @override
+  String get unableLoadWeightEntries => 'Unable to load weight entries.';
+
+  @override
+  String get noWeightEntriesYet =>
+      'No weight entries yet. Add your first entry.';
+
+  @override
+  String get addWeight => 'Add weight';
+
+  @override
+  String get bodyMeasurements => 'Body Measurements';
+
+  @override
+  String get unableLoadBodyMeasurements => 'Unable to load body measurements.';
+
+  @override
+  String get noBodyMeasurementsYet =>
+      'No body measurements yet. Add your first measurement snapshot.';
+
+  @override
+  String get addMeasurement => 'Add measurement';
+
+  @override
+  String get weightEntryDeleted => 'Weight entry deleted.';
+
+  @override
+  String weightEntryDeleteFailed(String error) {
+    return 'Weight entry could not be deleted: $error';
+  }
+
+  @override
+  String get deleteWeightEntryQuestion => 'Delete weight entry?';
+
+  @override
+  String get deleteWeightEntryBody =>
+      'This weight entry will be permanently removed from your progress history.';
+
+  @override
+  String get measurementDeleted => 'Measurement deleted.';
+
+  @override
+  String measurementDeleteFailed(String error) {
+    return 'Measurement could not be deleted: $error';
+  }
+
+  @override
+  String get deleteMeasurementQuestion => 'Delete measurement?';
+
+  @override
+  String get deleteMeasurementBody =>
+      'This measurement will be permanently removed from your progress history.';
+
+  @override
+  String waistMeasurement(String value, String unit) {
+    return 'Waist $value $unit';
+  }
+
+  @override
+  String chestMeasurement(String value, String unit) {
+    return 'Chest $value $unit';
+  }
+
+  @override
+  String hipsMeasurement(String value, String unit) {
+    return 'Hips $value $unit';
+  }
+
+  @override
+  String bodyFatMeasurement(String value) {
+    return 'BF $value%';
+  }
+
+  @override
+  String get addWeightEntry => 'Add Weight Entry';
+
+  @override
+  String get editWeightEntry => 'Edit Weight Entry';
+
+  @override
+  String get weightKgLabel => 'Weight (kg)';
+
+  @override
+  String recordedOn(String date) {
+    return 'Recorded on $date';
+  }
+
+  @override
+  String get enterValidWeightValue => 'Enter a valid weight value.';
+
+  @override
+  String get weightEntrySaved => 'Weight entry saved.';
+
+  @override
+  String weightEntrySaveFailed(String error) {
+    return 'Weight entry could not be saved: $error';
+  }
+
+  @override
+  String get editMeasurement => 'Edit Measurement';
+
+  @override
+  String get waistCmLabel => 'Waist (cm)';
+
+  @override
+  String get chestCmLabel => 'Chest (cm)';
+
+  @override
+  String get hipsCmLabel => 'Hips (cm)';
+
+  @override
+  String get bodyFatPercentLabel => 'Body Fat %';
+
+  @override
+  String get enterOneMeasurementBeforeSaving =>
+      'Enter at least one measurement before saving.';
+
+  @override
+  String get measurementsPositiveNumbers =>
+      'Measurements must be positive numbers.';
+
+  @override
+  String get measurementSaved => 'Measurement saved.';
+
+  @override
+  String measurementSaveFailed(String error) {
+    return 'Measurement could not be saved: $error';
+  }
+
+  @override
+  String get noChartableMeasurementsYet => 'No chartable measurements yet.';
+
+  @override
   String get statusInProgress => 'In progress';
 
   @override

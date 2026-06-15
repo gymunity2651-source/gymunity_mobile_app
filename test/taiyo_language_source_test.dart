@@ -46,4 +46,23 @@ void main() {
     expect(source, contains('response_language'));
     expect(source, contains('memberContext.language'));
   });
+
+  test('all TAIYO content functions carry normalized response language', () {
+    const functionEngines = <String>[
+      'supabase/functions/taiyo-daily-brief/engine.ts',
+      'supabase/functions/taiyo-workout-planner/engine.ts',
+      'supabase/functions/taiyo-nutrition-context/index.ts',
+      'supabase/functions/taiyo-coach-client-brief/engine.ts',
+      'supabase/functions/taiyo-store-recommendations/index.ts',
+      'supabase/functions/taiyo-admin-ops-brief/engine.ts',
+      'supabase/functions/taiyo-seller-copilot/engine.ts',
+    ];
+
+    for (final path in functionEngines) {
+      final source = File(path).readAsStringSync();
+      expect(source, contains('normalizeTaiyoLanguage'), reason: path);
+      expect(source, contains('languageInstructionFor'), reason: path);
+      expect(source, contains('response_language'), reason: path);
+    }
+  });
 }

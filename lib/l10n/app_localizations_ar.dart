@@ -795,6 +795,164 @@ class AppLocalizationsAr extends AppLocalizations {
   String get premiumEssentialsForTransformation => 'أساسيات مميزة تدعم تحولك';
 
   @override
+  String get edit => 'تعديل';
+
+  @override
+  String get delete => 'حذف';
+
+  @override
+  String get save => 'حفظ';
+
+  @override
+  String get saving => 'جارٍ الحفظ...';
+
+  @override
+  String get deleting => 'جارٍ الحذف...';
+
+  @override
+  String get note => 'ملاحظة';
+
+  @override
+  String get progressTracking => 'متابعة التقدم';
+
+  @override
+  String get unableLoadPreferences => 'تعذر على GymUnity تحميل تفضيلاتك.';
+
+  @override
+  String get weightHistory => 'سجل الوزن';
+
+  @override
+  String get unableLoadWeightEntries => 'تعذر تحميل سجلات الوزن.';
+
+  @override
+  String get noWeightEntriesYet => 'لا توجد سجلات وزن بعد. أضف أول سجل لك.';
+
+  @override
+  String get addWeight => 'إضافة وزن';
+
+  @override
+  String get bodyMeasurements => 'قياسات الجسم';
+
+  @override
+  String get unableLoadBodyMeasurements => 'تعذر تحميل قياسات الجسم.';
+
+  @override
+  String get noBodyMeasurementsYet =>
+      'لا توجد قياسات جسم بعد. أضف أول لقطة قياس.';
+
+  @override
+  String get addMeasurement => 'إضافة قياس';
+
+  @override
+  String get weightEntryDeleted => 'تم حذف سجل الوزن.';
+
+  @override
+  String weightEntryDeleteFailed(String error) {
+    return 'تعذر حذف سجل الوزن: $error';
+  }
+
+  @override
+  String get deleteWeightEntryQuestion => 'حذف سجل الوزن؟';
+
+  @override
+  String get deleteWeightEntryBody =>
+      'سيتم حذف سجل الوزن هذا نهائياً من سجل تقدمك.';
+
+  @override
+  String get measurementDeleted => 'تم حذف القياس.';
+
+  @override
+  String measurementDeleteFailed(String error) {
+    return 'تعذر حذف القياس: $error';
+  }
+
+  @override
+  String get deleteMeasurementQuestion => 'حذف القياس؟';
+
+  @override
+  String get deleteMeasurementBody =>
+      'سيتم حذف هذا القياس نهائياً من سجل تقدمك.';
+
+  @override
+  String waistMeasurement(String value, String unit) {
+    return 'الخصر $value $unit';
+  }
+
+  @override
+  String chestMeasurement(String value, String unit) {
+    return 'الصدر $value $unit';
+  }
+
+  @override
+  String hipsMeasurement(String value, String unit) {
+    return 'الأرداف $value $unit';
+  }
+
+  @override
+  String bodyFatMeasurement(String value) {
+    return 'دهون الجسم $value%';
+  }
+
+  @override
+  String get addWeightEntry => 'إضافة سجل وزن';
+
+  @override
+  String get editWeightEntry => 'تعديل سجل الوزن';
+
+  @override
+  String get weightKgLabel => 'الوزن (كجم)';
+
+  @override
+  String recordedOn(String date) {
+    return 'مسجل في $date';
+  }
+
+  @override
+  String get enterValidWeightValue => 'أدخل قيمة وزن صحيحة.';
+
+  @override
+  String get weightEntrySaved => 'تم حفظ سجل الوزن.';
+
+  @override
+  String weightEntrySaveFailed(String error) {
+    return 'تعذر حفظ سجل الوزن: $error';
+  }
+
+  @override
+  String get editMeasurement => 'تعديل القياس';
+
+  @override
+  String get waistCmLabel => 'الخصر (سم)';
+
+  @override
+  String get chestCmLabel => 'الصدر (سم)';
+
+  @override
+  String get hipsCmLabel => 'الأرداف (سم)';
+
+  @override
+  String get bodyFatPercentLabel => 'دهون الجسم %';
+
+  @override
+  String get enterOneMeasurementBeforeSaving =>
+      'أدخل قياساً واحداً على الأقل قبل الحفظ.';
+
+  @override
+  String get measurementsPositiveNumbers =>
+      'يجب أن تكون القياسات أرقاماً موجبة.';
+
+  @override
+  String get measurementSaved => 'تم حفظ القياس.';
+
+  @override
+  String measurementSaveFailed(String error) {
+    return 'تعذر حفظ القياس: $error';
+  }
+
+  @override
+  String get noChartableMeasurementsYet => 'لا توجد قياسات قابلة للرسم بعد.';
+
+  @override
   String get statusInProgress => 'قيد التنفيذ';
 
   @override

@@ -1861,7 +1861,7 @@ class _PlanConsistencyGlyph extends StatelessWidget {
           children: [
             for (var index = 0; index < dotStates.length; index++)
               Padding(
-                padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
+                padding: EdgeInsetsDirectional.only(start: index == 0 ? 0 : 8),
                 child: _PlanConsistencyDotGlyph(
                   key: ValueKey(
                     'member-summary-plan-dot-$index-${dotStates[index].name}',

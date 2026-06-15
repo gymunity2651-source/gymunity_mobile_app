@@ -1,3 +1,9 @@
+import {
+  languageInstructionFor,
+  normalizeTaiyoLanguage,
+  type TaiyoLanguageCode,
+} from "../_shared/taiyo_language.ts";
+
 export type SellerCopilotRequestType =
   | "seller_dashboard_brief"
   | "seller_product_advice"
@@ -14,6 +20,7 @@ export type Confidence = "low" | "medium" | "high";
 export type SellerContext = {
   seller_id: string;
   role: "seller";
+  language: TaiyoLanguageCode;
   profile: Record<string, unknown>;
   dashboard_summary: Record<string, unknown>;
   active_products: Record<string, unknown>[];
@@ -152,6 +159,9 @@ export function buildSellerContext(
   return {
     seller_id: sellerId,
     role: "seller",
+    language: normalizeTaiyoLanguage(
+      str(obj(raw.profile).language) || str(obj(raw.profile).preferred_language),
+    ),
     profile: compactProfile(obj(raw.profile)),
     dashboard_summary: compactDashboard(dashboard),
     active_products: activeProducts.slice(0, 24).map(compactProduct),
@@ -188,10 +198,11 @@ export function buildOrchestratorInput(
   return {
     request_type: requestType,
     user_role: "seller",
+    response_language: sellerContext.language,
     seller_context: sellerContext,
     response_format: "json",
     instruction:
-      "Return only valid JSON. Do not return markdown. Provide recommendations only. Do not modify products or orders.",
+      `${languageInstructionFor(sellerContext.language)} Return only valid JSON. Do not return markdown. Provide recommendations only. Do not modify products or orders.`,
     expected_response_shape: {
       request_type: requestType,
       status: "success | needs_more_context | error",

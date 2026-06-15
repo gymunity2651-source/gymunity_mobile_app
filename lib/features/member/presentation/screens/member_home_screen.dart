@@ -101,7 +101,12 @@ class _MemberHomeScreenState extends ConsumerState<MemberHomeScreen>
             // ── Floating glassmorphic pill nav bar ──
             bottomNavigationBar: SafeArea(
               top: false,
-              minimum: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              minimum: const EdgeInsetsDirectional.fromSTEB(
+                20,
+                0,
+                20,
+                20,
+              ).resolve(Directionality.of(context)),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(9999),
                 child: BackdropFilter(

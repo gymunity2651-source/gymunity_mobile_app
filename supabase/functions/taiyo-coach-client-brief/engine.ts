@@ -1,3 +1,9 @@
+import {
+  languageInstructionFor,
+  normalizeTaiyoLanguage,
+  type TaiyoLanguageCode,
+} from "../_shared/taiyo_language.ts";
+
 export type CoachCopilotRequestType =
   | "coach_client_brief"
   | "checkin_reply_draft"
@@ -16,6 +22,7 @@ export type Confidence = "low" | "medium" | "high";
 export type CoachClientContext = {
   coach_id: string;
   role: "coach";
+  language: TaiyoLanguageCode;
   target_member_id: string;
   subscription_id: string;
   request_type: CoachCopilotRequestType;
@@ -139,6 +146,7 @@ export function buildCoachClientContext(
   return {
     coach_id: coachId,
     role: "coach",
+    language: normalizeTaiyoLanguage(str(client.language)),
     target_member_id: input.clientId,
     subscription_id: input.subscriptionId,
     request_type: input.requestType,
@@ -216,9 +224,10 @@ export function buildOrchestratorInput(
       shared_visibility: context.shared_visibility,
     },
     visibility_confirmed: context.visibility_confirmed,
+    response_language: context.language,
     response_format: "json",
     instruction:
-      "Return only valid JSON. Do not return markdown. Respect visibility permissions. Draft suggestions only; do not send messages. Surface safety red flags conservatively and do not diagnose.",
+      `${languageInstructionFor(context.language)} Return only valid JSON. Do not return markdown. Respect visibility permissions. Draft suggestions only; do not send messages. Surface safety red flags conservatively and do not diagnose.`,
     expected_response_shape: {
       request_type: requestType,
       status:
