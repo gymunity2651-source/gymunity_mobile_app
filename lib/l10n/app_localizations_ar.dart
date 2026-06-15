@@ -576,6 +576,225 @@ class AppLocalizationsAr extends AppLocalizations {
   String get everyDayHelper => 'مناسب للروتين الجاد جداً مع إشراف المدرب.';
 
   @override
+  String get homeTab => 'الرئيسية';
+
+  @override
+  String get coachesTab => 'المدربون';
+
+  @override
+  String get taiyoTab => 'TAIYO';
+
+  @override
+  String get newsTab => 'الأخبار';
+
+  @override
+  String get profileTab => 'الملف';
+
+  @override
+  String get notifications => 'الإشعارات';
+
+  @override
+  String get gymunityMember => 'عضو GymUnity';
+
+  @override
+  String get wellnessCollective => 'مجتمع اللياقة';
+
+  @override
+  String get welcomeBack => 'مرحباً بعودتك،';
+
+  @override
+  String get memberHeroSubtitle =>
+      'رحلتك نحو لياقة أفضل تبدأ من هنا. اليوم فرصة ممتازة للتقدم.';
+
+  @override
+  String get whatMattersNow => 'الأهم الآن';
+
+  @override
+  String get whatMattersNowSubtitle => 'حالتك الحالية والمهام المطلوبة منك';
+
+  @override
+  String get quickActions => 'إجراءات سريعة';
+
+  @override
+  String get dailyStreak => 'سلسلة النشاط اليومية';
+
+  @override
+  String get loading => 'جارٍ التحميل...';
+
+  @override
+  String get unavailable => 'غير متاح';
+
+  @override
+  String get oneDayActive => 'نشط ليوم واحد';
+
+  @override
+  String daysActive(int count) {
+    return 'نشط منذ $count يوم';
+  }
+
+  @override
+  String get activeCoaches => 'المدربون النشطون';
+
+  @override
+  String get latestWeight => 'آخر وزن';
+
+  @override
+  String get currentPlan => 'الخطة الحالية';
+
+  @override
+  String get live => 'نشطة';
+
+  @override
+  String get none => 'لا يوجد';
+
+  @override
+  String get checkingLiveCoachAssignments =>
+      'جارٍ فحص ارتباطات المدربين الحالية.';
+
+  @override
+  String get unableLoadCoachingStatus => 'تعذر تحميل حالة التدريب.';
+
+  @override
+  String get coachCheckoutPending =>
+      'الدفع قيد الانتظار. سيتحدث العدد بمجرد تفعيل المدرب.';
+
+  @override
+  String get noActiveCoachSubscription =>
+      'لا يوجد اشتراك تدريب نشط. اضغط لتصفح المدربين.';
+
+  @override
+  String get oneLiveCoachConnection => 'اتصال نشط واحد بمدرب.';
+
+  @override
+  String liveCoachConnections(int count) {
+    return '$count اتصال نشط بمدرب.';
+  }
+
+  @override
+  String get syncingLatestWeighIn => 'جارٍ مزامنة آخر وزن مسجل.';
+
+  @override
+  String get unableLoadWeightData => 'تعذر تحميل بيانات الوزن الآن.';
+
+  @override
+  String get noWeightDataYet => 'لا توجد بيانات وزن بعد';
+
+  @override
+  String get noWeightDataYetSentence => 'لا توجد بيانات وزن بعد.';
+
+  @override
+  String get trackFirstWeighIn => 'سجل أول وزن لك لفتح مؤشرات التغير الحقيقية.';
+
+  @override
+  String firstRecordedWeighIn(String date) {
+    return 'أول وزن مسجل. آخر تحديث $date.';
+  }
+
+  @override
+  String stableVsPreviousEntry(String date) {
+    return 'ثابت مقارنة بالتسجيل السابق. آخر تحديث $date.';
+  }
+
+  @override
+  String weightDownVsPrevious(String amount, String date) {
+    return 'انخفاض $amount كجم عن التسجيل السابق. آخر تحديث $date.';
+  }
+
+  @override
+  String weightUpVsPrevious(String amount, String date) {
+    return 'زيادة $amount كجم عن التسجيل السابق. آخر تحديث $date.';
+  }
+
+  @override
+  String get checkingLiveTaiyoPlan => 'جارٍ فحص خطة TAIYO النشطة.';
+
+  @override
+  String get unableLoadTaiyoPlanStatus => 'تعذر تحميل حالة خطة TAIYO.';
+
+  @override
+  String get noActivePlan => 'لا توجد خطة نشطة';
+
+  @override
+  String get tapToBuildTaiyoWorkoutPlan =>
+      'اضغط لبناء وتفعيل خطة تمارين TAIYO.';
+
+  @override
+  String planTitleTapToOpen(String title) {
+    return '$title. اضغط لفتح خطة التمارين.';
+  }
+
+  @override
+  String consistentWeeksInRow(int count) {
+    return '$count أسبوع من الالتزام المتواصل. اضغط للفتح.';
+  }
+
+  @override
+  String consistentWeeksLogged(int count) {
+    return '$count أسبوع ملتزم مسجل حتى الآن. اضغط للفتح.';
+  }
+
+  @override
+  String get planLiveTapToOpen => 'الخطة نشطة. اضغط لفتح خطة التمارين.';
+
+  @override
+  String get openTaiyo => 'افتح TAIYO';
+
+  @override
+  String get preparingTodayCoachBrief => 'جارٍ تجهيز موجز المدرب اليوم...';
+
+  @override
+  String get dailyTaiyoCoachingGuidance =>
+      'إرشاد يومي من TAIYO للتمارين والتدريب';
+
+  @override
+  String get openNewsFeed => 'افتح موجز\nالأخبار';
+
+  @override
+  String get openMyCoaching => 'افتح\nتدريبي';
+
+  @override
+  String get nutrition => 'التغذية';
+
+  @override
+  String get mealsHydrationTargets => 'الوجبات، المياه، والأهداف';
+
+  @override
+  String get weeklyCheckins => 'المتابعات\nالأسبوعية';
+
+  @override
+  String get submitProgress => 'سجل\nالتقدم';
+
+  @override
+  String get browseCoaches => 'تصفح\nالمدربين';
+
+  @override
+  String get openMessages => 'افتح\nالرسائل';
+
+  @override
+  String get completeCheckout => 'إكمال الدفع';
+
+  @override
+  String get submitCheckin => 'إرسال متابعة';
+
+  @override
+  String get checkoutNow => 'ادفع الآن';
+
+  @override
+  String get openCheckin => 'افتح المتابعة';
+
+  @override
+  String get nextStep => 'الخطوة التالية';
+
+  @override
+  String get findCoach => 'ابحث عن مدرب';
+
+  @override
+  String get browseStore => 'تصفح المتجر';
+
+  @override
+  String get premiumEssentialsForTransformation => 'أساسيات مميزة تدعم تحولك';
+
+  @override
   String get statusInProgress => 'قيد التنفيذ';
 
   @override

@@ -27,9 +27,23 @@ void main() {
   });
 
   test('AI chat uses shared language instructions for prompts', () {
-    final source = File('supabase/functions/ai-chat/index.ts').readAsStringSync();
+    final source = File(
+      'supabase/functions/ai-chat/index.ts',
+    ).readAsStringSync();
 
     expect(source, contains('languageInstructionFor'));
     expect(source, contains('normalizeTaiyoLanguage'));
+  });
+
+  test('TAIYO daily brief passes selected language to orchestrator input', () {
+    final source = File(
+      'supabase/functions/taiyo-daily-brief/engine.ts',
+    ).readAsStringSync();
+
+    expect(source, contains('languageInstructionFor'));
+    expect(source, contains('normalizeTaiyoLanguage'));
+    expect(source, contains('language: LanguageCode'));
+    expect(source, contains('response_language'));
+    expect(source, contains('memberContext.language'));
   });
 }

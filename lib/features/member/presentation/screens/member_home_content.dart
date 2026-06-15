@@ -8,6 +8,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/widgets/app_reveal.dart';
 import '../../../ai_coach/domain/entities/ai_coach_entities.dart';
@@ -39,6 +40,7 @@ class MemberHomeContent extends ConsumerWidget {
     final coachBriefAsync = ref.watch(aiCoachDailyBriefProvider(today));
     final profileAsync = ref.watch(currentUserProfileProvider);
     final summaryAsync = ref.watch(memberHomeSummaryProvider);
+    final l10n = context.l10n;
 
     const baseDelay = 40;
     Duration revealDelay(int index) =>
@@ -53,7 +55,7 @@ class MemberHomeContent extends ConsumerWidget {
           ref.invalidate(memberSubscriptionsProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 120),
+          padding: const EdgeInsetsDirectional.fromSTEB(24, 12, 24, 120),
           children: [
             // ── Top bar: Atelier brand + actions ──
             AppReveal(
@@ -66,7 +68,7 @@ class MemberHomeContent extends ConsumerWidget {
             AppReveal(
               delay: revealDelay(1),
               child: Container(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                padding: const EdgeInsetsDirectional.fromSTEB(24, 28, 24, 24),
                 decoration: BoxDecoration(
                   color: AtelierColors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(24),
@@ -93,7 +95,7 @@ class MemberHomeContent extends ConsumerWidget {
                           child: _HeroGreeting(
                             name: profile?.fullName?.trim().isNotEmpty == true
                                 ? profile!.fullName!.trim()
-                                : 'GymUnity Member',
+                                : l10n.gymunityMember,
                           ),
                         ),
                       ),
@@ -111,8 +113,8 @@ class MemberHomeContent extends ConsumerWidget {
             AppReveal(
               delay: revealDelay(3),
               child: _SectionHeading(
-                title: 'What Matters Now',
-                subtitle: 'Your immediate status and pending tasks',
+                title: l10n.whatMattersNow,
+                subtitle: l10n.whatMattersNowSubtitle,
               ),
             ),
             const SizedBox(height: 16),
@@ -132,7 +134,7 @@ class MemberHomeContent extends ConsumerWidget {
             // ── "Quick Actions" section ──
             AppReveal(
               delay: revealDelay(5),
-              child: _SectionHeading(title: 'Quick Actions', subtitle: ''),
+              child: _SectionHeading(title: l10n.quickActions, subtitle: ''),
             ),
             const SizedBox(height: 16),
 
@@ -168,6 +170,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Row(
       children: [
         // Brand mark — circular green avatar
@@ -198,10 +201,10 @@ class _TopBar extends StatelessWidget {
         ),
         // Notification bell
         Tooltip(
-          message: 'Notifications',
+          message: l10n.notifications,
           child: Semantics(
             button: true,
-            label: 'Notifications',
+            label: l10n.notifications,
             child: Material(
               color: AtelierColors.surfaceContainerLowest,
               shape: const CircleBorder(),
@@ -247,11 +250,12 @@ class _HeroGreeting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-          'WELLNESS COLLECTIVE',
+          l10n.wellnessCollective,
           style: GoogleFonts.manrope(
             fontSize: 10,
             fontWeight: FontWeight.w800,
@@ -261,7 +265,7 @@ class _HeroGreeting extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Text(
-          'Welcome back,',
+          l10n.welcomeBack,
           textAlign: TextAlign.center,
           style: GoogleFonts.notoSerif(
             fontSize: 22,
@@ -286,7 +290,7 @@ class _HeroGreeting extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'Your journey toward optimal vitality is curated here. Today is a perfect day for progress.',
+            l10n.memberHeroSubtitle,
             textAlign: TextAlign.center,
             style: GoogleFonts.manrope(
               fontSize: 13,
@@ -340,7 +344,7 @@ class _StreakPillState extends State<_StreakPill>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'DAILY STREAK',
+          context.l10n.dailyStreak,
           style: GoogleFonts.manrope(
             fontSize: 9,
             fontWeight: FontWeight.w800,
@@ -367,7 +371,7 @@ class _StreakPillState extends State<_StreakPill>
 
   @override
   Widget build(BuildContext context) {
-    final headline = _resolveDailyStreakHeadline(widget.summaryAsync);
+    final headline = _resolveDailyStreakHeadline(context, widget.summaryAsync);
 
     return Center(
       child: Container(
@@ -384,7 +388,7 @@ class _StreakPillState extends State<_StreakPill>
             final progress = Curves.easeInOut.transform(_controller.value);
 
             return Stack(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               clipBehavior: Clip.none,
               children: [
                 // 1. Invisible Layout Guide (calculates the pill's static footprint)
@@ -410,7 +414,7 @@ class _StreakPillState extends State<_StreakPill>
                       return ClipRect(
                         clipper: _SmoothEatingClipper(progress),
                         child: Align(
-                          alignment: Alignment.centerRight,
+                          alignment: AlignmentDirectional.centerEnd,
                           child: Transform.translate(
                             // Text moves exactly W/2 to the left.
                             // Icon moves to exactly W/2 from the left.
@@ -482,19 +486,23 @@ class _SmoothEatingClipper extends CustomClipper<Rect> {
 }
 
 String _resolveDailyStreakHeadline(
+  BuildContext context,
   AsyncValue<MemberHomeSummaryEntity> summaryAsync,
 ) {
+  final l10n = context.l10n;
   return summaryAsync.when(
-    loading: () => 'Loading...',
-    error: (_, _) => 'Unavailable',
+    loading: () => l10n.loading,
+    error: (_, _) => l10n.unavailable,
     data: (summary) =>
-        _formatDailyStreakHeadline(summary.dailyStreak.currentCount),
+        _formatDailyStreakHeadline(context, summary.dailyStreak.currentCount),
   );
 }
 
-String _formatDailyStreakHeadline(int count) {
+String _formatDailyStreakHeadline(BuildContext context, int count) {
   final safeCount = math.max(0, count);
-  return safeCount == 1 ? '1 Day Active' : '$safeCount Days Active';
+  return safeCount == 1
+      ? context.l10n.oneDayActive
+      : context.l10n.daysActive(safeCount);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -561,14 +569,14 @@ class _MetricsBlock extends StatelessWidget {
       children: [
         _MetricTile(
           icon: Icons.groups_2_rounded,
-          label: 'ACTIVE COACHES',
+          label: context.l10n.activeCoaches,
           value: '$activeCoaches',
           trailingWidget: const _CoachesRadarGraph(),
         ),
         const SizedBox(height: 12),
         _MetricTile(
           icon: Icons.monitor_weight_outlined,
-          label: 'LATEST WEIGHT',
+          label: context.l10n.latestWeight,
           value: latestWeightKg == null
               ? '--'
               : '${latestWeightKg!.toStringAsFixed(1)} kg',
@@ -577,8 +585,8 @@ class _MetricsBlock extends StatelessWidget {
         const SizedBox(height: 12),
         _MetricTile(
           icon: Icons.event_note_outlined,
-          label: 'CURRENT PLAN',
-          value: hasPlan ? '• Live' : 'None',
+          label: context.l10n.currentPlan,
+          value: hasPlan ? '• ${context.l10n.live}' : context.l10n.none,
           valueColor: hasPlan ? AtelierColors.success : null,
           trailingWidget: const _PlanProgressWeek(),
         ),
@@ -1015,8 +1023,9 @@ class _NextStepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = needsCheckout ? 'Complete Checkout' : 'Submit Check-in';
-    final cta = needsCheckout ? 'Checkout Now' : 'Open Check-in';
+    final l10n = context.l10n;
+    final label = needsCheckout ? l10n.completeCheckout : l10n.submitCheckin;
+    final cta = needsCheckout ? l10n.checkoutNow : l10n.openCheckin;
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -1028,7 +1037,7 @@ class _NextStepCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'NEXT STEP',
+            l10n.nextStep,
             style: GoogleFonts.manrope(
               fontSize: 10,
               fontWeight: FontWeight.w800,
@@ -1053,8 +1062,8 @@ class _NextStepCard extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [AtelierColors.primary, AtelierColors.primaryContainer],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
+                begin: AlignmentDirectional.centerStart,
+                end: AlignmentDirectional.centerEnd,
               ),
               borderRadius: BorderRadius.circular(9999),
             ),
@@ -1266,44 +1275,45 @@ class _ActiveCoachesSummaryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     return GestureDetector(
       onTap: () => _navigateToCoaches(ref),
       child: summaryAsync.when(
-        loading: () => const _DashboardMetricTile(
-          cardKey: Key('member-summary-active-coaches'),
-          valueKey: Key('member-summary-active-coaches-value'),
+        loading: () => _DashboardMetricTile(
+          cardKey: const Key('member-summary-active-coaches'),
+          valueKey: const Key('member-summary-active-coaches-value'),
           icon: Icons.groups_2_rounded,
-          label: 'ACTIVE COACHES',
-          headline: 'Loading...',
+          label: l10n.activeCoaches,
+          headline: l10n.loading,
           compactHeadline: true,
-          supportingText: 'Checking live coach assignments.',
-          trailingWidget: _MetricLoadingGlyph(),
+          supportingText: l10n.checkingLiveCoachAssignments,
+          trailingWidget: const _MetricLoadingGlyph(),
         ),
-        error: (_, _) => const _DashboardMetricTile(
-          cardKey: Key('member-summary-active-coaches'),
-          valueKey: Key('member-summary-active-coaches-value'),
+        error: (_, _) => _DashboardMetricTile(
+          cardKey: const Key('member-summary-active-coaches'),
+          valueKey: const Key('member-summary-active-coaches-value'),
           icon: Icons.groups_2_rounded,
-          label: 'ACTIVE COACHES',
-          headline: 'Unavailable',
+          label: l10n.activeCoaches,
+          headline: l10n.unavailable,
           compactHeadline: true,
-          supportingText: 'Unable to load coaching status.',
-          trailingWidget: _MetricErrorGlyph(),
+          supportingText: l10n.unableLoadCoachingStatus,
+          trailingWidget: const _MetricErrorGlyph(),
         ),
         data: (summary) {
           final count = summary.activeCoachCount;
           final supportingText = count == 0
               ? summary.hasPendingCoachCheckout
-                    ? 'Checkout pending. This count updates as soon as your coach is active.'
-                    : 'No active coach subscription. Tap to browse coaches.'
+                    ? l10n.coachCheckoutPending
+                    : l10n.noActiveCoachSubscription
               : count == 1
-              ? '1 live coach connection.'
-              : '$count live coach connections.';
+              ? l10n.oneLiveCoachConnection
+              : l10n.liveCoachConnections(count);
 
           return _DashboardMetricTile(
             cardKey: const Key('member-summary-active-coaches'),
             valueKey: const Key('member-summary-active-coaches-value'),
             icon: Icons.groups_2_rounded,
-            label: 'ACTIVE COACHES',
+            label: l10n.activeCoaches,
             headline: '$count',
             supportingText: supportingText,
             trailingWidget: _CoachPresenceStack(count: count),
@@ -1321,40 +1331,40 @@ class _LatestWeightSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return summaryAsync.when(
-      loading: () => const _DashboardMetricTile(
-        cardKey: Key('member-summary-latest-weight'),
-        valueKey: Key('member-summary-latest-weight-value'),
+      loading: () => _DashboardMetricTile(
+        cardKey: const Key('member-summary-latest-weight'),
+        valueKey: const Key('member-summary-latest-weight-value'),
         icon: Icons.monitor_weight_outlined,
-        label: 'LATEST WEIGHT',
-        headline: 'Loading...',
+        label: l10n.latestWeight,
+        headline: l10n.loading,
         compactHeadline: true,
-        supportingText: 'Syncing your latest weigh-in.',
-        trailingWidget: _MetricLoadingGlyph(),
+        supportingText: l10n.syncingLatestWeighIn,
+        trailingWidget: const _MetricLoadingGlyph(),
       ),
-      error: (_, _) => const _DashboardMetricTile(
-        cardKey: Key('member-summary-latest-weight'),
-        valueKey: Key('member-summary-latest-weight-value'),
+      error: (_, _) => _DashboardMetricTile(
+        cardKey: const Key('member-summary-latest-weight'),
+        valueKey: const Key('member-summary-latest-weight-value'),
         icon: Icons.monitor_weight_outlined,
-        label: 'LATEST WEIGHT',
-        headline: 'Unavailable',
+        label: l10n.latestWeight,
+        headline: l10n.unavailable,
         compactHeadline: true,
-        supportingText: 'Unable to load weight data right now.',
-        trailingWidget: _MetricErrorGlyph(),
+        supportingText: l10n.unableLoadWeightData,
+        trailingWidget: const _MetricErrorGlyph(),
       ),
       data: (summary) {
         final latestWeight = summary.latestWeightEntry;
         if (latestWeight == null) {
-          return const _DashboardMetricTile(
-            cardKey: Key('member-summary-latest-weight'),
-            valueKey: Key('member-summary-latest-weight-value'),
+          return _DashboardMetricTile(
+            cardKey: const Key('member-summary-latest-weight'),
+            valueKey: const Key('member-summary-latest-weight-value'),
             icon: Icons.monitor_weight_outlined,
-            label: 'LATEST WEIGHT',
-            headline: 'No weight data yet',
+            label: l10n.latestWeight,
+            headline: l10n.noWeightDataYet,
             compactHeadline: true,
-            supportingText:
-                'Track your first weigh-in to unlock real trend changes.',
-            trailingWidget: _WeightTrendGlyph(
+            supportingText: l10n.trackFirstWeighIn,
+            trailingWidget: const _WeightTrendGlyph(
               direction: MemberWeightTrendDirection.neutral,
             ),
           );
@@ -1364,9 +1374,9 @@ class _LatestWeightSummaryCard extends StatelessWidget {
           cardKey: const Key('member-summary-latest-weight'),
           valueKey: const Key('member-summary-latest-weight-value'),
           icon: Icons.monitor_weight_outlined,
-          label: 'LATEST WEIGHT',
+          label: l10n.latestWeight,
           headline: '${latestWeight.weightKg.toStringAsFixed(1)} kg',
-          supportingText: _buildWeightSupportingText(summary),
+          supportingText: _buildWeightSupportingText(context, summary),
           trailingWidget: _WeightTrendGlyph(
             direction: summary.weightTrendDirection,
           ),
@@ -1375,24 +1385,28 @@ class _LatestWeightSummaryCard extends StatelessWidget {
     );
   }
 
-  String _buildWeightSupportingText(MemberHomeSummaryEntity summary) {
+  String _buildWeightSupportingText(
+    BuildContext context,
+    MemberHomeSummaryEntity summary,
+  ) {
+    final l10n = context.l10n;
     final latest = summary.latestWeightEntry;
     if (latest == null) {
-      return 'No weight data yet.';
+      return l10n.noWeightDataYetSentence;
     }
     final updatedAt = _formatMetricDate(latest.recordedAt);
     final delta = summary.weightDeltaKg;
     if (delta == null) {
-      return 'First recorded weigh-in. Updated $updatedAt.';
+      return l10n.firstRecordedWeighIn(updatedAt);
     }
     if (summary.weightTrendDirection == MemberWeightTrendDirection.stable) {
-      return 'Stable vs previous entry. Updated $updatedAt.';
+      return l10n.stableVsPreviousEntry(updatedAt);
     }
     final amount = delta.abs().toStringAsFixed(1);
     if (summary.weightTrendDirection == MemberWeightTrendDirection.down) {
-      return '$amount kg down vs previous entry. Updated $updatedAt.';
+      return l10n.weightDownVsPrevious(amount, updatedAt);
     }
-    return '$amount kg up vs previous entry. Updated $updatedAt.';
+    return l10n.weightUpVsPrevious(amount, updatedAt);
   }
 }
 
@@ -1403,26 +1417,27 @@ class _CurrentPlanSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return summaryAsync.when(
-      loading: () => const _DashboardMetricTile(
-        cardKey: Key('member-summary-current-plan'),
-        valueKey: Key('member-summary-current-plan-value'),
+      loading: () => _DashboardMetricTile(
+        cardKey: const Key('member-summary-current-plan'),
+        valueKey: const Key('member-summary-current-plan-value'),
         icon: Icons.event_note_outlined,
-        label: 'CURRENT PLAN',
-        headline: 'Loading...',
+        label: l10n.currentPlan,
+        headline: l10n.loading,
         compactHeadline: true,
-        supportingText: 'Checking your live TAIYO plan.',
-        trailingWidget: _MetricLoadingGlyph(),
+        supportingText: l10n.checkingLiveTaiyoPlan,
+        trailingWidget: const _MetricLoadingGlyph(),
       ),
-      error: (_, _) => const _DashboardMetricTile(
-        cardKey: Key('member-summary-current-plan'),
-        valueKey: Key('member-summary-current-plan-value'),
+      error: (_, _) => _DashboardMetricTile(
+        cardKey: const Key('member-summary-current-plan'),
+        valueKey: const Key('member-summary-current-plan-value'),
         icon: Icons.event_note_outlined,
-        label: 'CURRENT PLAN',
-        headline: 'Unavailable',
+        label: l10n.currentPlan,
+        headline: l10n.unavailable,
         compactHeadline: true,
-        supportingText: 'Unable to load TAIYO plan status.',
-        trailingWidget: _MetricErrorGlyph(),
+        supportingText: l10n.unableLoadTaiyoPlanStatus,
+        trailingWidget: const _MetricErrorGlyph(),
       ),
       data: (summary) {
         final consistency = summary.planConsistency;
@@ -1446,11 +1461,12 @@ class _CurrentPlanSummaryCard extends StatelessWidget {
             cardKey: const Key('member-summary-current-plan'),
             valueKey: const Key('member-summary-current-plan-value'),
             icon: Icons.event_note_outlined,
-            label: 'CURRENT PLAN',
-            headline: hasActivePlan ? 'Live' : 'No active plan',
+            label: l10n.currentPlan,
+            headline: hasActivePlan ? l10n.live : l10n.noActivePlan,
             compactHeadline: !hasActivePlan,
             headlineColor: hasActivePlan ? AtelierColors.success : null,
             supportingText: _buildPlanSupportingText(
+              context,
               hasActivePlan: hasActivePlan,
               consistency: consistency,
               planTitle: activePlan?.title,
@@ -1468,25 +1484,27 @@ class _CurrentPlanSummaryCard extends StatelessWidget {
     );
   }
 
-  String _buildPlanSupportingText({
+  String _buildPlanSupportingText(
+    BuildContext context, {
     required bool hasActivePlan,
     required MemberPlanConsistencySummary consistency,
     String? planTitle,
   }) {
+    final l10n = context.l10n;
     if (!hasActivePlan) {
-      return 'Tap to build and activate your TAIYO workout plan.';
+      return l10n.tapToBuildTaiyoWorkoutPlan;
     }
     final title = planTitle?.trim();
     if (title != null && title.isNotEmpty) {
-      return '$title. Tap to open your workout plan.';
+      return l10n.planTitleTapToOpen(title);
     }
     if (consistency.currentStreakWeeks > 0) {
-      return '${_pluralize(consistency.currentStreakWeeks, 'consistent week')} in a row. Tap to open.';
+      return l10n.consistentWeeksInRow(consistency.currentStreakWeeks);
     }
     if (consistency.totalConsistentWeeks > 0) {
-      return '${_pluralize(consistency.totalConsistentWeeks, 'consistent week')} logged so far. Tap to open.';
+      return l10n.consistentWeeksLogged(consistency.totalConsistentWeeks);
     }
-    return 'Plan is live. Tap to open your workout plan.';
+    return l10n.planLiveTapToOpen;
   }
 }
 
@@ -1904,16 +1922,17 @@ class _DynamicNextStepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final label = hasPendingCoachCheckout
-        ? 'Complete Checkout'
+        ? l10n.completeCheckout
         : hasActiveCoach
-        ? 'Submit Check-in'
-        : 'Browse Coaches';
+        ? l10n.submitCheckin
+        : l10n.browseCoaches;
     final cta = hasPendingCoachCheckout
-        ? 'Checkout Now'
+        ? l10n.checkoutNow
         : hasActiveCoach
-        ? 'Open Check-in'
-        : 'Find a Coach';
+        ? l10n.openCheckin
+        : l10n.findCoach;
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -1925,7 +1944,7 @@ class _DynamicNextStepCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'NEXT STEP',
+            l10n.nextStep,
             style: GoogleFonts.manrope(
               fontSize: 10,
               fontWeight: FontWeight.w800,
@@ -1952,8 +1971,8 @@ class _DynamicNextStepCard extends StatelessWidget {
                   AtelierColors.primary,
                   AtelierColors.primaryContainer,
                 ],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
+                begin: AlignmentDirectional.centerStart,
+                end: AlignmentDirectional.centerEnd,
               ),
               borderRadius: BorderRadius.circular(9999),
             ),
@@ -2010,10 +2029,6 @@ String _formatMetricDate(DateTime value) {
   return '${local.year}-$month-$day';
 }
 
-String _pluralize(int value, String noun) {
-  return value == 1 ? '1 $noun' : '$value ${noun}s';
-}
-
 class _AiCoachFeaturedCard extends StatelessWidget {
   const _AiCoachFeaturedCard({required this.briefAsync});
 
@@ -2021,6 +2036,7 @@ class _AiCoachFeaturedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return GestureDetector(
       onTap: () =>
           Navigator.push(context, MaterialPageRoute(builder: _buildAiHome)),
@@ -2049,16 +2065,16 @@ class _AiCoachFeaturedCard extends StatelessWidget {
             Expanded(
               child: briefAsync.when(
                 loading: () => _buildCopy(
-                  title: 'Open TAIYO',
-                  subtitle: 'Preparing today\'s coach brief...',
+                  title: l10n.openTaiyo,
+                  subtitle: l10n.preparingTodayCoachBrief,
                 ),
                 error: (error, stackTrace) => _buildCopy(
-                  title: 'Open TAIYO',
-                  subtitle: 'Daily TAIYO coaching and workout guidance',
+                  title: l10n.openTaiyo,
+                  subtitle: l10n.dailyTaiyoCoachingGuidance,
                 ),
                 data: (brief) => _buildCopy(
-                  title: _resolveBriefTitle(brief),
-                  subtitle: _resolveBriefSubtitle(brief),
+                  title: _resolveBriefTitle(context, brief),
+                  subtitle: _resolveBriefSubtitle(context, brief),
                 ),
               ),
             ),
@@ -2097,7 +2113,7 @@ class _AiCoachFeaturedCard extends StatelessWidget {
     );
   }
 
-  String _resolveBriefTitle(AiDailyBriefEntity? brief) {
+  String _resolveBriefTitle(BuildContext context, AiDailyBriefEntity? brief) {
     try {
       final title = brief?.workoutTitle.trim();
       if (title != null && title.isNotEmpty) {
@@ -2106,15 +2122,18 @@ class _AiCoachFeaturedCard extends StatelessWidget {
     } catch (_) {
       // Fall back to safe copy when backend payloads are partially malformed.
     }
-    return 'Open TAIYO';
+    return context.l10n.openTaiyo;
   }
 
-  String _resolveBriefSubtitle(AiDailyBriefEntity? brief) {
+  String _resolveBriefSubtitle(
+    BuildContext context,
+    AiDailyBriefEntity? brief,
+  ) {
     final subtitle = brief?.whyShort.trim();
     if (subtitle != null && subtitle.isNotEmpty) {
       return subtitle;
     }
-    return 'Daily TAIYO coaching and workout guidance';
+    return context.l10n.dailyTaiyoCoachingGuidance;
   }
 }
 
@@ -2215,41 +2234,42 @@ class _QuickActionsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final actions = <_GridAction>[
       _GridAction(
-        title: 'Open news\nfeed',
+        title: l10n.openNewsFeed,
         icon: Icons.newspaper_outlined,
         destinationBuilder: _buildNewsFeed,
       ),
       _GridAction(
-        title: 'Open my\ncoaching',
+        title: l10n.openMyCoaching,
         icon: Icons.workspace_premium_outlined,
         destinationBuilder: _buildSubscriptions,
       ),
       _GridAction(
         key: const Key('member-home-nutrition-action'),
-        title: 'Nutrition',
-        subtitle: 'Meals, hydration & targets',
+        title: l10n.nutrition,
+        subtitle: l10n.mealsHydrationTargets,
         icon: Icons.restaurant_menu_outlined,
         routeName: AppRoutes.nutrition,
       ),
       _GridAction(
-        title: 'Weekly\ncheck-ins',
+        title: l10n.weeklyCheckins,
         icon: Icons.assignment_outlined,
         destinationBuilder: _buildCheckins,
       ),
       _GridAction(
-        title: 'Submit\nprogress',
+        title: l10n.submitProgress,
         icon: Icons.trending_up_outlined,
         destinationBuilder: _buildProgress,
       ),
       _GridAction(
-        title: 'Browse\ncoaches',
+        title: l10n.browseCoaches,
         icon: Icons.search_rounded,
         destinationBuilder: _buildCoaches,
       ),
       _GridAction(
-        title: 'Open\nmessages',
+        title: l10n.openMessages,
         icon: Icons.chat_bubble_outline_rounded,
         destinationBuilder: _buildMessages,
       ),
@@ -2395,6 +2415,7 @@ class _BrowseStoreCardState extends State<_BrowseStoreCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AnimatedScale(
       scale: _pressed ? AppMotion.pressedScale : 1,
       duration: AppMotion.fast,
@@ -2417,7 +2438,7 @@ class _BrowseStoreCardState extends State<_BrowseStoreCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Browse store',
+                      l10n.browseStore,
                       style: GoogleFonts.notoSerif(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -2426,7 +2447,7 @@ class _BrowseStoreCardState extends State<_BrowseStoreCard> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Premium essentials for your transformation',
+                      l10n.premiumEssentialsForTransformation,
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

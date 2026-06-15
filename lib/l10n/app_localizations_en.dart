@@ -591,6 +591,228 @@ class AppLocalizationsEn extends AppLocalizations {
       'Best for very committed routines with coach oversight.';
 
   @override
+  String get homeTab => 'HOME';
+
+  @override
+  String get coachesTab => 'COACHES';
+
+  @override
+  String get taiyoTab => 'TAIYO';
+
+  @override
+  String get newsTab => 'NEWS';
+
+  @override
+  String get profileTab => 'PROFILE';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get gymunityMember => 'GymUnity Member';
+
+  @override
+  String get wellnessCollective => 'WELLNESS COLLECTIVE';
+
+  @override
+  String get welcomeBack => 'Welcome back,';
+
+  @override
+  String get memberHeroSubtitle =>
+      'Your journey toward optimal vitality is curated here. Today is a perfect day for progress.';
+
+  @override
+  String get whatMattersNow => 'What Matters Now';
+
+  @override
+  String get whatMattersNowSubtitle =>
+      'Your immediate status and pending tasks';
+
+  @override
+  String get quickActions => 'Quick Actions';
+
+  @override
+  String get dailyStreak => 'DAILY STREAK';
+
+  @override
+  String get loading => 'Loading...';
+
+  @override
+  String get unavailable => 'Unavailable';
+
+  @override
+  String get oneDayActive => '1 Day Active';
+
+  @override
+  String daysActive(int count) {
+    return '$count Days Active';
+  }
+
+  @override
+  String get activeCoaches => 'ACTIVE COACHES';
+
+  @override
+  String get latestWeight => 'LATEST WEIGHT';
+
+  @override
+  String get currentPlan => 'CURRENT PLAN';
+
+  @override
+  String get live => 'Live';
+
+  @override
+  String get none => 'None';
+
+  @override
+  String get checkingLiveCoachAssignments => 'Checking live coach assignments.';
+
+  @override
+  String get unableLoadCoachingStatus => 'Unable to load coaching status.';
+
+  @override
+  String get coachCheckoutPending =>
+      'Checkout pending. This count updates as soon as your coach is active.';
+
+  @override
+  String get noActiveCoachSubscription =>
+      'No active coach subscription. Tap to browse coaches.';
+
+  @override
+  String get oneLiveCoachConnection => '1 live coach connection.';
+
+  @override
+  String liveCoachConnections(int count) {
+    return '$count live coach connections.';
+  }
+
+  @override
+  String get syncingLatestWeighIn => 'Syncing your latest weigh-in.';
+
+  @override
+  String get unableLoadWeightData => 'Unable to load weight data right now.';
+
+  @override
+  String get noWeightDataYet => 'No weight data yet';
+
+  @override
+  String get noWeightDataYetSentence => 'No weight data yet.';
+
+  @override
+  String get trackFirstWeighIn =>
+      'Track your first weigh-in to unlock real trend changes.';
+
+  @override
+  String firstRecordedWeighIn(String date) {
+    return 'First recorded weigh-in. Updated $date.';
+  }
+
+  @override
+  String stableVsPreviousEntry(String date) {
+    return 'Stable vs previous entry. Updated $date.';
+  }
+
+  @override
+  String weightDownVsPrevious(String amount, String date) {
+    return '$amount kg down vs previous entry. Updated $date.';
+  }
+
+  @override
+  String weightUpVsPrevious(String amount, String date) {
+    return '$amount kg up vs previous entry. Updated $date.';
+  }
+
+  @override
+  String get checkingLiveTaiyoPlan => 'Checking your live TAIYO plan.';
+
+  @override
+  String get unableLoadTaiyoPlanStatus => 'Unable to load TAIYO plan status.';
+
+  @override
+  String get noActivePlan => 'No active plan';
+
+  @override
+  String get tapToBuildTaiyoWorkoutPlan =>
+      'Tap to build and activate your TAIYO workout plan.';
+
+  @override
+  String planTitleTapToOpen(String title) {
+    return '$title. Tap to open your workout plan.';
+  }
+
+  @override
+  String consistentWeeksInRow(int count) {
+    return '$count consistent weeks in a row. Tap to open.';
+  }
+
+  @override
+  String consistentWeeksLogged(int count) {
+    return '$count consistent weeks logged so far. Tap to open.';
+  }
+
+  @override
+  String get planLiveTapToOpen =>
+      'Plan is live. Tap to open your workout plan.';
+
+  @override
+  String get openTaiyo => 'Open TAIYO';
+
+  @override
+  String get preparingTodayCoachBrief => 'Preparing today\'s coach brief...';
+
+  @override
+  String get dailyTaiyoCoachingGuidance =>
+      'Daily TAIYO coaching and workout guidance';
+
+  @override
+  String get openNewsFeed => 'Open news\nfeed';
+
+  @override
+  String get openMyCoaching => 'Open my\ncoaching';
+
+  @override
+  String get nutrition => 'Nutrition';
+
+  @override
+  String get mealsHydrationTargets => 'Meals, hydration & targets';
+
+  @override
+  String get weeklyCheckins => 'Weekly\ncheck-ins';
+
+  @override
+  String get submitProgress => 'Submit\nprogress';
+
+  @override
+  String get browseCoaches => 'Browse\ncoaches';
+
+  @override
+  String get openMessages => 'Open\nmessages';
+
+  @override
+  String get completeCheckout => 'Complete Checkout';
+
+  @override
+  String get submitCheckin => 'Submit Check-in';
+
+  @override
+  String get checkoutNow => 'Checkout Now';
+
+  @override
+  String get openCheckin => 'Open Check-in';
+
+  @override
+  String get nextStep => 'NEXT STEP';
+
+  @override
+  String get findCoach => 'Find a Coach';
+
+  @override
+  String get browseStore => 'Browse store';
+
+  @override
+  String get premiumEssentialsForTransformation =>
+      'Premium essentials for your transformation';
+
+  @override
   String get statusInProgress => 'In progress';
 
   @override

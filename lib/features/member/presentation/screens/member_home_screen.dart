@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/atelier_colors.dart';
 import '../../../../core/di/providers.dart';
+import '../../../../core/localization/app_localization_extension.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/atelier_theme.dart';
 import '../../../ai_coach/presentation/screens/ai_coach_home_screen.dart';
@@ -60,7 +61,7 @@ class _MemberHomeScreenState extends ConsumerState<MemberHomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final tabs = _memberHomeTabs;
+    final tabs = _memberHomeTabs(context);
 
     // Listen for programmatic tab switches from child widgets.
     ref.listen<int?>(memberHomeTabSwitchProvider, (_, newIndex) {
@@ -192,55 +193,58 @@ class _MemberHomeScreenState extends ConsumerState<MemberHomeScreen>
     if (!mounted || index == null) {
       return;
     }
-    final tabs = _memberHomeTabs;
+    final tabs = _memberHomeTabs(context);
     if (index < 0 || index >= tabs.length || index == _currentIndex) {
       return;
     }
     setState(() => _currentIndex = index);
   }
 
-  List<_MemberHomeTab> get _memberHomeTabs => const <_MemberHomeTab>[
-    _MemberHomeTab(
-      page: MemberHomeContent(),
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home_filled,
-      aiModeIcon: Icons.home_outlined,
-      aiModeSelectedIcon: Icons.home_filled,
-      label: 'HOME',
-    ),
-    _MemberHomeTab(
-      page: CoachesScreen(),
-      icon: Icons.groups_outlined,
-      selectedIcon: Icons.groups,
-      aiModeIcon: Icons.groups_outlined,
-      aiModeSelectedIcon: Icons.groups,
-      label: 'COACHES',
-    ),
-    _MemberHomeTab(
-      page: AiCoachHomeScreen(),
-      icon: Icons.auto_awesome_outlined,
-      selectedIcon: Icons.auto_awesome,
-      aiModeIcon: Icons.auto_awesome_outlined,
-      aiModeSelectedIcon: Icons.auto_awesome,
-      label: 'TAIYO',
-    ),
-    _MemberHomeTab(
-      page: NewsFeedScreen(),
-      icon: Icons.newspaper_outlined,
-      selectedIcon: Icons.newspaper,
-      aiModeIcon: Icons.newspaper_outlined,
-      aiModeSelectedIcon: Icons.newspaper,
-      label: 'NEWS',
-    ),
-    _MemberHomeTab(
-      page: MemberProfileScreen(),
-      icon: Icons.person_outline,
-      selectedIcon: Icons.person,
-      aiModeIcon: Icons.person_outline,
-      aiModeSelectedIcon: Icons.person,
-      label: 'PROFILE',
-    ),
-  ];
+  List<_MemberHomeTab> _memberHomeTabs(BuildContext context) {
+    final l10n = context.l10n;
+    return <_MemberHomeTab>[
+      _MemberHomeTab(
+        page: const MemberHomeContent(),
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home_filled,
+        aiModeIcon: Icons.home_outlined,
+        aiModeSelectedIcon: Icons.home_filled,
+        label: l10n.homeTab,
+      ),
+      _MemberHomeTab(
+        page: const CoachesScreen(),
+        icon: Icons.groups_outlined,
+        selectedIcon: Icons.groups,
+        aiModeIcon: Icons.groups_outlined,
+        aiModeSelectedIcon: Icons.groups,
+        label: l10n.coachesTab,
+      ),
+      _MemberHomeTab(
+        page: const AiCoachHomeScreen(),
+        icon: Icons.auto_awesome_outlined,
+        selectedIcon: Icons.auto_awesome,
+        aiModeIcon: Icons.auto_awesome_outlined,
+        aiModeSelectedIcon: Icons.auto_awesome,
+        label: l10n.taiyoTab,
+      ),
+      _MemberHomeTab(
+        page: const NewsFeedScreen(),
+        icon: Icons.newspaper_outlined,
+        selectedIcon: Icons.newspaper,
+        aiModeIcon: Icons.newspaper_outlined,
+        aiModeSelectedIcon: Icons.newspaper,
+        label: l10n.newsTab,
+      ),
+      _MemberHomeTab(
+        page: const MemberProfileScreen(),
+        icon: Icons.person_outline,
+        selectedIcon: Icons.person,
+        aiModeIcon: Icons.person_outline,
+        aiModeSelectedIcon: Icons.person,
+        label: l10n.profileTab,
+      ),
+    ];
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

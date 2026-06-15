@@ -1,3 +1,9 @@
+import {
+  languageInstructionFor,
+  normalizeTaiyoLanguage,
+  type TaiyoLanguageCode,
+} from "../_shared/taiyo_language.ts";
+
 export type DailyBriefStatus =
   | "success"
   | "needs_more_context"
@@ -6,10 +12,12 @@ export type DailyBriefStatus =
 
 export type RiskLevel = "low" | "medium" | "high";
 export type Confidence = "low" | "medium" | "high";
+export type LanguageCode = TaiyoLanguageCode;
 
 export type MemberDailyContext = {
   member_id: string;
   role: "member";
+  language: LanguageCode;
   profile: {
     goal: string;
     fitness_level: string;
@@ -133,6 +141,7 @@ export function buildMemberContext(
   const nutritionTarget = obj(nutrition.target);
   const latestWeight = obj(raw.latest_weight);
   const memories = obj(raw.memories);
+  const preferences = obj(raw.preferences);
 
   const goal = normalizeGoal(str(memberProfile.goal));
   const fitnessLevel = normalizeFitnessLevel(
@@ -183,6 +192,11 @@ export function buildMemberContext(
   return {
     member_id: memberId,
     role: "member",
+    language: normalizeTaiyoLanguage(
+      str(preferences.language) ||
+        str(raw.language) ||
+        str(memberProfile.preferred_language),
+    ),
     profile: {
       goal,
       fitness_level: fitnessLevel,
@@ -237,9 +251,14 @@ export function buildOrchestratorInput(memberContext: MemberDailyContext) {
   return {
     request_type: "daily_member_brief",
     user_role: "member",
+    language: memberContext.language,
+    response_language: memberContext.language,
     member_context: memberContext,
     response_format: "json",
-    instruction: "Return only valid JSON. Do not return markdown.",
+    instruction:
+      `Return only valid JSON. Do not return markdown. ${
+        languageInstructionFor(memberContext.language)
+      }`,
   };
 }
 

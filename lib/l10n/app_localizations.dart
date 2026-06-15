@@ -1160,6 +1160,396 @@ abstract class AppLocalizations {
   /// **'Best for very committed routines with coach oversight.'**
   String get everyDayHelper;
 
+  /// No description provided for @homeTab.
+  ///
+  /// In en, this message translates to:
+  /// **'HOME'**
+  String get homeTab;
+
+  /// No description provided for @coachesTab.
+  ///
+  /// In en, this message translates to:
+  /// **'COACHES'**
+  String get coachesTab;
+
+  /// No description provided for @taiyoTab.
+  ///
+  /// In en, this message translates to:
+  /// **'TAIYO'**
+  String get taiyoTab;
+
+  /// No description provided for @newsTab.
+  ///
+  /// In en, this message translates to:
+  /// **'NEWS'**
+  String get newsTab;
+
+  /// No description provided for @profileTab.
+  ///
+  /// In en, this message translates to:
+  /// **'PROFILE'**
+  String get profileTab;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @gymunityMember.
+  ///
+  /// In en, this message translates to:
+  /// **'GymUnity Member'**
+  String get gymunityMember;
+
+  /// No description provided for @wellnessCollective.
+  ///
+  /// In en, this message translates to:
+  /// **'WELLNESS COLLECTIVE'**
+  String get wellnessCollective;
+
+  /// No description provided for @welcomeBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome back,'**
+  String get welcomeBack;
+
+  /// No description provided for @memberHeroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your journey toward optimal vitality is curated here. Today is a perfect day for progress.'**
+  String get memberHeroSubtitle;
+
+  /// No description provided for @whatMattersNow.
+  ///
+  /// In en, this message translates to:
+  /// **'What Matters Now'**
+  String get whatMattersNow;
+
+  /// No description provided for @whatMattersNowSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your immediate status and pending tasks'**
+  String get whatMattersNowSubtitle;
+
+  /// No description provided for @quickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Actions'**
+  String get quickActions;
+
+  /// No description provided for @dailyStreak.
+  ///
+  /// In en, this message translates to:
+  /// **'DAILY STREAK'**
+  String get dailyStreak;
+
+  /// No description provided for @loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading...'**
+  String get loading;
+
+  /// No description provided for @unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get unavailable;
+
+  /// No description provided for @oneDayActive.
+  ///
+  /// In en, this message translates to:
+  /// **'1 Day Active'**
+  String get oneDayActive;
+
+  /// No description provided for @daysActive.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Days Active'**
+  String daysActive(int count);
+
+  /// No description provided for @activeCoaches.
+  ///
+  /// In en, this message translates to:
+  /// **'ACTIVE COACHES'**
+  String get activeCoaches;
+
+  /// No description provided for @latestWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'LATEST WEIGHT'**
+  String get latestWeight;
+
+  /// No description provided for @currentPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'CURRENT PLAN'**
+  String get currentPlan;
+
+  /// No description provided for @live.
+  ///
+  /// In en, this message translates to:
+  /// **'Live'**
+  String get live;
+
+  /// No description provided for @none.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get none;
+
+  /// No description provided for @checkingLiveCoachAssignments.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking live coach assignments.'**
+  String get checkingLiveCoachAssignments;
+
+  /// No description provided for @unableLoadCoachingStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load coaching status.'**
+  String get unableLoadCoachingStatus;
+
+  /// No description provided for @coachCheckoutPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Checkout pending. This count updates as soon as your coach is active.'**
+  String get coachCheckoutPending;
+
+  /// No description provided for @noActiveCoachSubscription.
+  ///
+  /// In en, this message translates to:
+  /// **'No active coach subscription. Tap to browse coaches.'**
+  String get noActiveCoachSubscription;
+
+  /// No description provided for @oneLiveCoachConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'1 live coach connection.'**
+  String get oneLiveCoachConnection;
+
+  /// No description provided for @liveCoachConnections.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} live coach connections.'**
+  String liveCoachConnections(int count);
+
+  /// No description provided for @syncingLatestWeighIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing your latest weigh-in.'**
+  String get syncingLatestWeighIn;
+
+  /// No description provided for @unableLoadWeightData.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load weight data right now.'**
+  String get unableLoadWeightData;
+
+  /// No description provided for @noWeightDataYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No weight data yet'**
+  String get noWeightDataYet;
+
+  /// No description provided for @noWeightDataYetSentence.
+  ///
+  /// In en, this message translates to:
+  /// **'No weight data yet.'**
+  String get noWeightDataYetSentence;
+
+  /// No description provided for @trackFirstWeighIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Track your first weigh-in to unlock real trend changes.'**
+  String get trackFirstWeighIn;
+
+  /// No description provided for @firstRecordedWeighIn.
+  ///
+  /// In en, this message translates to:
+  /// **'First recorded weigh-in. Updated {date}.'**
+  String firstRecordedWeighIn(String date);
+
+  /// No description provided for @stableVsPreviousEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Stable vs previous entry. Updated {date}.'**
+  String stableVsPreviousEntry(String date);
+
+  /// No description provided for @weightDownVsPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} kg down vs previous entry. Updated {date}.'**
+  String weightDownVsPrevious(String amount, String date);
+
+  /// No description provided for @weightUpVsPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} kg up vs previous entry. Updated {date}.'**
+  String weightUpVsPrevious(String amount, String date);
+
+  /// No description provided for @checkingLiveTaiyoPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking your live TAIYO plan.'**
+  String get checkingLiveTaiyoPlan;
+
+  /// No description provided for @unableLoadTaiyoPlanStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load TAIYO plan status.'**
+  String get unableLoadTaiyoPlanStatus;
+
+  /// No description provided for @noActivePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'No active plan'**
+  String get noActivePlan;
+
+  /// No description provided for @tapToBuildTaiyoWorkoutPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to build and activate your TAIYO workout plan.'**
+  String get tapToBuildTaiyoWorkoutPlan;
+
+  /// No description provided for @planTitleTapToOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'{title}. Tap to open your workout plan.'**
+  String planTitleTapToOpen(String title);
+
+  /// No description provided for @consistentWeeksInRow.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} consistent weeks in a row. Tap to open.'**
+  String consistentWeeksInRow(int count);
+
+  /// No description provided for @consistentWeeksLogged.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} consistent weeks logged so far. Tap to open.'**
+  String consistentWeeksLogged(int count);
+
+  /// No description provided for @planLiveTapToOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan is live. Tap to open your workout plan.'**
+  String get planLiveTapToOpen;
+
+  /// No description provided for @openTaiyo.
+  ///
+  /// In en, this message translates to:
+  /// **'Open TAIYO'**
+  String get openTaiyo;
+
+  /// No description provided for @preparingTodayCoachBrief.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing today\'s coach brief...'**
+  String get preparingTodayCoachBrief;
+
+  /// No description provided for @dailyTaiyoCoachingGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily TAIYO coaching and workout guidance'**
+  String get dailyTaiyoCoachingGuidance;
+
+  /// No description provided for @openNewsFeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Open news\nfeed'**
+  String get openNewsFeed;
+
+  /// No description provided for @openMyCoaching.
+  ///
+  /// In en, this message translates to:
+  /// **'Open my\ncoaching'**
+  String get openMyCoaching;
+
+  /// No description provided for @nutrition.
+  ///
+  /// In en, this message translates to:
+  /// **'Nutrition'**
+  String get nutrition;
+
+  /// No description provided for @mealsHydrationTargets.
+  ///
+  /// In en, this message translates to:
+  /// **'Meals, hydration & targets'**
+  String get mealsHydrationTargets;
+
+  /// No description provided for @weeklyCheckins.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly\ncheck-ins'**
+  String get weeklyCheckins;
+
+  /// No description provided for @submitProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit\nprogress'**
+  String get submitProgress;
+
+  /// No description provided for @browseCoaches.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse\ncoaches'**
+  String get browseCoaches;
+
+  /// No description provided for @openMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Open\nmessages'**
+  String get openMessages;
+
+  /// No description provided for @completeCheckout.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete Checkout'**
+  String get completeCheckout;
+
+  /// No description provided for @submitCheckin.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Check-in'**
+  String get submitCheckin;
+
+  /// No description provided for @checkoutNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Checkout Now'**
+  String get checkoutNow;
+
+  /// No description provided for @openCheckin.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Check-in'**
+  String get openCheckin;
+
+  /// No description provided for @nextStep.
+  ///
+  /// In en, this message translates to:
+  /// **'NEXT STEP'**
+  String get nextStep;
+
+  /// No description provided for @findCoach.
+  ///
+  /// In en, this message translates to:
+  /// **'Find a Coach'**
+  String get findCoach;
+
+  /// No description provided for @browseStore.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse store'**
+  String get browseStore;
+
+  /// No description provided for @premiumEssentialsForTransformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium essentials for your transformation'**
+  String get premiumEssentialsForTransformation;
+
   /// No description provided for @statusInProgress.
   ///
   /// In en, this message translates to:
